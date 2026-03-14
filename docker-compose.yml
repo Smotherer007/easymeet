@@ -1,0 +1,12 @@
+services:
+  app:
+    image: smotherer/easymeet:latest
+    environment:
+      - PORT=3001
+      - NODE_ENV=production
+    networks:
+      - frontend
+
+networks:
+  frontend:
+    external: true

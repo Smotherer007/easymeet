@@ -1,0 +1,41 @@
+/**
+ * Participant overlay – opens like the chat panel, but from the left.
+ * Same animation and structure as .chat-panel--overlay, just mirrored.
+ */
+
+/* Base: like chat panel, but from left (left instead of right, translateX(-100%) instead of 100%) */
+#chat-sidebar.chat__sidebar--overlay,
+.chat__sidebar--voip.chat__sidebar--overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  right: auto;
+  width: 380px;
+  max-width: 90vw;
+  transform: translateX(-100%);
+  transition: transform 0.25s ease;
+  z-index: 1300;
+  background: var(--bg-card);
+  border-right: 1px solid var(--border);
+  box-shadow: 4px 0 24px rgba(0, 0, 0, 0.3);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+#chat-sidebar.chat__sidebar--overlay:not(.chat__sidebar--open),
+.chat__sidebar--voip.chat__sidebar--overlay:not(.chat__sidebar--open) {
+  visibility: hidden;
+  pointer-events: none;
+  transition: transform 0.25s ease, visibility 0s linear 0.25s;
+}
+
+#chat-sidebar.chat__sidebar--overlay.chat__sidebar--open,
+.chat__sidebar--voip.chat__sidebar--overlay.chat__sidebar--open {
+  transform: translateX(0);
+  visibility: visible;
+  pointer-events: auto;
+  transition: transform 0.25s ease, visibility 0s;
+}

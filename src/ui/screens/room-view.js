@@ -1,0 +1,1048 @@
+import { t } from '../../i18n.js';
+import { renderShareContent } from './create-room.js';
+import {
+  escapeHtml,
+  formatTime,
+  renderMessagesHtml,
+  renderFileShareBody,
+  renderVoipParticipantsHtmlFloating,
+  getWindowPositions,
+  renderMeetingControlBarFloating,
+  renderFloatingWindowVideos,
+  renderFloatingWindowChat,
+  renderFloatingWindowParticipants,
+  renderStreamModalFloating,
+  renderVoipParticipantsHtmlGrid,
+  renderScreenShareBannersHtml,
+  renderRoomViewHeader,
+  renderShareModalContent,
+  renderGridMeetingSection,
+  renderStreamModalGrid,
+  renderSettingsModalContent,
+  renderFileModalContent,
+} from './room-view-renderers.js';
+import {
+  iconLogOut,
+  iconShare2,
+  iconChevronDown,
+  iconChevronUp,
+  iconSmile,
+  iconImage,
+  iconSend,
+  iconX,
+  iconUpload,
+  iconMic,
+  iconMicOff,
+  iconSettings,
+  iconMonitor,
+  iconMonitorOff,
+  iconPause,
+  iconPlay,
+  iconVolume2,
+  iconVolumeX,
+  iconVideoOff,
+  iconVideo,
+  iconDownload,
+  iconLoader2,
+  iconMenu,
+  iconLogoWordmark,
+  iconUsers,
+  iconMessageSquare,
+  iconMoreHorizontal,
+  iconPhoneOff,
+  iconLayoutGrid,
+  iconGrip,
+} from '../../icons.js';
+import { EMOJI_DATA, searchEmojis } from '../../emoji-data.js';
+import { renderChatContent } from '../../link-embed.js';
+
+function renderFloatingWindows(state) {
+  const { windowPositions = {}, voipMembers = [], messages = [], isMuted = false, isVideoEnabled = false, hostStream = null, paused = false, audioEnabled = true, roomId = '', unreadChatCount = 0, isHost = false } = state;
+  const defaults = { videos: { x: 20, y: 80, w: 560, h: 420 }, chat: { x: 520, y: 80, w: 380, h: 450 }, participants: { x: 520, y: 380, w: 280, h: 300 }, stream: { x: 100, y: 100, w: 800, h: 500 } };
+  const pos = getWindowPositions(defaults, windowPositions);
+  const muteMap = state.peerMuteState instanceof Map ? state.peerMuteState : new Map();
+  const volumeMap = state.peerVolume instanceof Map ? state.peerVolume : new Map();
+  const floatingState = { ...state, muteMap, volumeMap, myPeerId: state.peer?.id ?? '' };
+  const messagesHtml = renderMessagesHtml(messages, (id) => state.receivedFileBlobs?.get?.(id), state.nickname);
+  const voipParticipantsHtml = renderVoipParticipantsHtmlFloating(voipMembers, floatingState);
+  const controlBar = renderMeetingControlBarFloating({ ...state, hasScreenShareSupport: state.hasScreenShareSupport ?? true });
+  const pVideos = pos('videos');
+  const pChat = pos('chat');
+  const pParticipants = pos('participants');
+  const pStream = pos('stream');
+  return renderFloatingWindowVideos(pVideos)
+    + `<div class="meeting-control-bar meeting-control-bar--floating">${controlBar}</div>`
+    + renderFloatingWindowChat(pChat, messagesHtml)
+    + renderFloatingWindowParticipants(pParticipants, voipParticipantsHtml, voipMembers.length)
+    + renderStreamModalFloating(pStream, { isHost, hostStream, paused, audioEnabled });
+}
+
+export function renderRoomView(state) {
+  const {
+    messages = [],
+    members = [],
+    voipMembers = [],
+    roomId = '',
+    getJoinUrl = null,
+    isHost = false,
+    sharedFiles = [],
+    receivedFiles = [],
+    receivedFileBlobs = new Map(),
+    hostStream = null,
+    screenStreams = new Map(),
+    paused = false,
+    audioEnabled = true,
+    isMuted = false,
+    frozenStream = null,
+    isVideoEnabled = false,
+    hasVideoSupport = true,
+    backgroundEffect = 'none',
+    hasBackgroundBlur = false,
+    backgroundImages = [],
+    settingsPanelOpen = false,
+    myPeerId = '',
+    nickname = '',
+    peerMuteState = new Map(),
+    peerVolume = new Map(),
+    peerVideoState = new Map(),
+    peerBackgroundEffect = new Map(),
+    getStreamForPeerId = null,
+    getStreamForScreenShare = null,
+    hasScreenShareSupport = true,
+    unreadChatCount = 0,
+    videoLayoutMode = 'grid',
+    windowPositions = {},
+  } = state;
+
+  const streamDefaults = { x: 100, y: 100, w: 800, h: 500 };
+  const streamPos = windowPositions.stream || {};
+  const streamStyle = `left:${streamPos.x ?? streamDefaults.x}px;top:${streamPos.y ?? streamDefaults.y}px;width:${streamPos.w ?? streamDefaults.w}px;height:${streamPos.h ?? streamDefaults.h}px;transform:none`;
+  const settingsDefaults = { x: 100, y: 80, w: 560, h: 520 };
+  const settingsPos = windowPositions.settings || {};
+  const settingsStyle = `left:${settingsPos.x ?? settingsDefaults.x}px;top:${settingsPos.y ?? settingsDefaults.y}px;width:${settingsPos.w ?? settingsDefaults.w}px;height:${settingsPos.h ?? settingsDefaults.h}px;transform:none`;
+  const shareDefaults = { x: 120, y: 100, w: 420, h: 520 };
+  const sharePos = windowPositions.share || {};
+  const shareStyle = `left:${sharePos.x ?? shareDefaults.x}px;top:${sharePos.y ?? shareDefaults.y}px;width:${sharePos.w ?? shareDefaults.w}px;height:${sharePos.h ?? shareDefaults.h}px;transform:none`;
+
+  const joinUrl = roomId && getJoinUrl ? getJoinUrl(roomId) : '';
+  const formattedRoomId = roomId ? roomId.replace(/(.{3})/g, '$1-').replace(/-$/, '') : '';
+
+  const messagesHtml = renderMessagesHtml(messages, (id) => receivedFileBlobs?.get?.(id), nickname);
+  const voipCtx = {
+    muteMap: peerMuteState instanceof Map ? peerMuteState : new Map(),
+    volumeMap: peerVolume instanceof Map ? peerVolume : new Map(),
+    videoMap: peerVideoState instanceof Map ? peerVideoState : new Map(),
+    bgEffectMap: peerBackgroundEffect instanceof Map ? peerBackgroundEffect : new Map(),
+    myPeerId,
+    isMuted,
+    isVideoEnabled,
+    backgroundEffect,
+    getStreamForPeerId,
+    isStreaming: (pid) => screenStreams?.has?.(pid),
+  };
+  const voipParticipantsHtml = renderVoipParticipantsHtmlGrid(voipMembers, voipCtx);
+  const meetingTitle = roomId ? formattedRoomId : t('title');
+  const screenShareBannerHtml = renderScreenShareBannersHtml(screenStreams, myPeerId);
+  const gridState = { ...state, voipMembers };
+  const gridContent = videoLayoutMode !== 'free' ? renderGridMeetingSection(gridState, messagesHtml, voipParticipantsHtml) : '';
+  const shareModalHtml = renderShareModalContent(roomId, formattedRoomId, joinUrl || '', renderShareContent, shareStyle);
+  const settingsState = { ...state, settingsStyle, settingsPanelOpen: settingsPanelOpen ?? false };
+  return `
+    <div class="screen room-view room-view--meeting-layout">
+      ${renderRoomViewHeader(meetingTitle)}
+      ${screenShareBannerHtml}
+      ${shareModalHtml}
+      <div class="room-view__panels">
+        <div class="room-view__panel room-view__panel--active" data-panel="chat">
+          <div class="chat-view__body chat-view__body--meeting ${videoLayoutMode === 'free' ? 'chat-view__body--floating' : ''}">
+            ${videoLayoutMode === 'free' ? renderFloatingWindows(state) : ''}
+            ${gridContent}
+          </div>
+          ${renderStreamModalGrid(streamStyle, state)}
+        </div>
+      </div>
+      ${renderSettingsModalContent(settingsState)}
+      ${renderFileModalContent()}
+    </div>
+  `;
+}
+
+function formatBytes(bytes) {
+  if (bytes >= 1024 * 1024) return (bytes / 1024 / 1024).toFixed(1) + ' MB';
+  if (bytes >= 1024) return (bytes / 1024).toFixed(1) + ' KB';
+  return bytes + ' B';
+}
+
+function updateReceivingProgressEl(nameEl, barEl, statsEl, filename, bytesReceived, total, speedKbps) {
+  if (!nameEl || !barEl) return;
+  nameEl.textContent = `${t('receivingFile')} ${filename || '?'}`;
+  const pct = total > 0 ? Math.min(100, (bytesReceived / total) * 100) : 0;
+  barEl.style.width = pct + '%';
+  if (statsEl) statsEl.textContent = `${formatBytes(bytesReceived)} / ${formatBytes(total)}${speedKbps != null ? ` · ${speedKbps.toFixed(1)} ${t('transferSpeed')}` : ''}`;
+}
+
+export function updateReceivingProgress(container, filename, bytesReceived, total, speedKbps, fileId, fromNick) {
+  const modalArea = container?.querySelector('#file-receiving-in-modal');
+  if (modalArea) {
+    modalArea.hidden = false;
+    updateReceivingProgressEl(
+      modalArea.querySelector('#file-receiving-filename-modal'),
+      modalArea.querySelector('#file-receiving-bar-modal'),
+      modalArea.querySelector('#file-receiving-stats-modal'),
+      filename, bytesReceived, total, speedKbps
+    );
+  }
+  if (fileId) {
+    const pct = total > 0 ? Math.min(100, (bytesReceived / total) * 100) : 0;
+    updateFileTransferMessage(container, fileId, { direction: 'receiving', filename, fromNick, pct: bytesReceived < total ? pct : null, bytes: bytesReceived, total, speedKbps });
+  }
+}
+
+export function hideReceivingProgress(container) {
+  const modalArea = container?.querySelector('#file-receiving-in-modal');
+  if (modalArea) modalArea.hidden = true;
+}
+
+function renderFileTransferBody(opts) {
+  const { direction, filename, pct, bytes, total, speedKbps, peerStatuses, voipMembers = [], done, fileId } = opts;
+  const isSending = direction === 'sending';
+  const label = done ? (isSending ? t('sentFile') : t('received')) : (isSending ? t('sendingFile') : t('receivingFile'));
+  const parts = [];
+  parts.push(`<p class="chat__transfer-label">${label} ${escapeHtml(filename || '?')}</p>`);
+  if (done && !isSending && fileId) {
+    parts.push(`<button type="button" class="btn btn--primary btn--sm chat__download-btn" data-action="download-file" data-file-id="${escapeHtml(fileId)}">${t('download')}</button>`);
+  }
+  if (isSending && peerStatuses && Object.keys(peerStatuses).length) {
+    const rows = Object.entries(peerStatuses).map(([pid, s]) => {
+      const m = voipMembers?.find((x) => x.peerId === pid);
+      const n = m?.nick ?? pid?.slice(0, 8) ?? '?';
+      let right = '';
+      if (s === 'accepted' && pct != null && pct < 100 && !done) {
+        right = `<div class="chat__transfer-row-bar"><div class="chat__transfer-bar-wrap"><div class="chat__transfer-bar" style="width:${pct}%"></div></div><span class="chat__transfer-status">${formatBytes(bytes)} / ${formatBytes(total)}${speedKbps != null ? ` · ${speedKbps.toFixed(1)} ${t('transferSpeed')}` : ''}</span></div>`;
+      } else if (s === 'received' || (s === 'accepted' && (done || (pct != null && pct >= 100)))) {
+        right = `<span class="chat__transfer-status">${t('received')}</span>`;
+      } else if (s === 'rejected') {
+        right = `<span class="chat__transfer-status">${t('rejected')}</span>`;
+      } else {
+        right = `<span class="chat__transfer-status">${t('pending')}</span>`;
+      }
+      return `<div class="chat__transfer-row"><span>${escapeHtml(n)}</span><div class="chat__transfer-row-right">${right}</div></div>`;
+    }).join('');
+    parts.push(`<div class="chat__transfer-peers">${rows}</div>`);
+  } else if (!isSending && pct != null && !done) {
+    const barPct = Math.min(100, Math.max(1, pct));
+    parts.push(`<div class="chat__transfer-bar-wrap"><div class="chat__transfer-bar" style="width:${barPct}%"></div></div>`);
+    const stats = `${formatBytes(bytes)} / ${formatBytes(total)}${speedKbps != null ? ` · ${speedKbps.toFixed(1)} ${t('transferSpeed')}` : ''}`;
+    parts.push(`<p class="chat__transfer-stats">${stats}</p>`);
+  }
+  return parts.join('');
+}
+
+export function updateFileTransferMessage(container, fileId, opts) {
+  const body = container?.querySelector(`.chat__msg--transfer[data-file-id="${fileId}"] .chat__transfer-body`);
+  if (!body) return;
+  body.innerHTML = renderFileTransferBody(opts);
+}
+
+export function updateFileShareMessage(container, fileId, filename, fromNick) {
+  const msg = container?.querySelector(`.chat__msg--file-share[data-file-id="${fileId}"]`);
+  if (!msg) return;
+  const body = msg.querySelector('.chat__file-share-body');
+  if (!body) return;
+  body.innerHTML = renderFileShareBody(fileId, fromNick, filename, true);
+}
+
+export function appendMessage(container, msg, opts = {}) {
+  const list = container.querySelector('#chat-messages');
+  if (!list) return;
+  const empty = list.querySelector('.chat__empty');
+  if (empty) empty.remove();
+  const div = document.createElement('div');
+  const receivedFileBlobs = opts.receivedFileBlobs;
+  if (msg.type === 'join') {
+    div.className = 'chat__msg chat__system-msg';
+    div.innerHTML = `<div class="chat__msg-header"><span class="chat__msg-nick">${escapeHtml(msg.nick)} ${t('participantJoined')}</span><span class="chat__msg-time">${formatTime(msg.ts || Date.now())}</span></div>`;
+  } else if (msg.type === 'leave') {
+    div.className = 'chat__msg chat__system-msg';
+    div.innerHTML = `<div class="chat__msg-header"><span class="chat__msg-nick">${escapeHtml(msg.nick)} ${t('participantLeft')}</span><span class="chat__msg-time">${formatTime(msg.ts || Date.now())}</span></div>`;
+  } else if (msg.type === 'chat') {
+    div.className = 'chat__msg';
+    const parts = [];
+    if (msg.text?.trim()) parts.push(renderChatContent(msg.text, escapeHtml, t('openInNewTab')));
+    const urls = msg.giphyUrls?.length ? msg.giphyUrls : (msg.giphyUrl ? [msg.giphyUrl] : []);
+    urls.forEach((u) => parts.push(`<span class="chat__gif-wrap"><img src="${escapeHtml(u)}" alt="GIF" class="chat__gif" loading="lazy" /></span>`));
+    const content = parts.length ? parts.join('') : '';
+    if (!content) return;
+    const isSelf = msg.nick === (opts.myNick ?? '');
+    const selfClass = isSelf ? ' chat__msg--self' : '';
+    div.innerHTML = `<div class="chat__msg-header"><span class="chat__msg-nick">${escapeHtml(msg.nick ?? '?')}</span><span class="chat__msg-time">${formatTime(msg.ts)}</span></div><div class="chat__msg-body">${content}</div>`;
+    div.className = `chat__msg${selfClass}`;
+  } else if (msg.type === 'file_share') {
+    const fileId = msg.fileId || '';
+    const hasBlob = receivedFileBlobs?.get?.(fileId);
+    const bodyHtml = renderFileShareBody(fileId, msg.nick, msg.filename, hasBlob);
+    const isSelf = msg.nick === (opts.myNick ?? '');
+    const selfClass = isSelf ? ' chat__msg--self' : '';
+    div.className = `chat__msg chat__msg--file-share${selfClass}`;
+    div.dataset.fileId = fileId;
+    div.innerHTML = `<div class="chat__msg-header"><span class="chat__msg-nick">${escapeHtml(msg.nick ?? '?')}</span><span class="chat__msg-time">${formatTime(msg.ts)}</span></div><div class="chat__msg-body chat__file-share-body">${bodyHtml}</div>`;
+  } else if (msg.type === 'clipboard_share') {
+    return;
+  }
+  const threshold = 80;
+  const atBottom = list.scrollHeight - list.scrollTop - list.clientHeight <= threshold;
+  list.appendChild(div);
+  if (atBottom) list.scrollTop = list.scrollHeight;
+  updateScrollToBottomButton(container);
+}
+
+function updateScrollToBottomButton(container) {
+  const list = container?.querySelector('#chat-messages');
+  const btn = container?.querySelector('#chat-scroll-to-bottom');
+  if (!list || !btn) return;
+  const threshold = 80;
+  const atBottom = list.scrollHeight - list.scrollTop - list.clientHeight <= threshold;
+  const canScroll = list.scrollHeight > list.clientHeight;
+  btn.hidden = atBottom || !canScroll;
+}
+
+export function updateVoipParticipants(container, members, myPeerId, isMuted, screenStreams = null, getStreamForPeerId = null, getStreamForScreenShare = null, peerMuteState = null, peerVolume = null, backgroundEffect = 'none', peerVideoState = null, isVideoEnabled = false, peerBackgroundEffect = null) {
+  const list = container.querySelector('#participant-list');
+  const title = container.querySelector('.chat__sidebar-title');
+  const countSpan = container.querySelector('#participant-count');
+  if (!list) return;
+  if (countSpan) countSpan.textContent = members.length;
+  else if (title) title.textContent = `${t('participants')} (${members.length})`;
+  const existing = list.querySelector('.voip-view__empty');
+  if (existing) existing.remove();
+  const streams = screenStreams instanceof Map ? screenStreams : new Map();
+  const muteMap = peerMuteState instanceof Map ? peerMuteState : new Map();
+  const volumeMap = peerVolume instanceof Map ? peerVolume : new Map();
+  const videoMap = peerVideoState instanceof Map ? peerVideoState : new Map();
+  const bgEffectMap = peerBackgroundEffect instanceof Map ? peerBackgroundEffect : new Map();
+  list.innerHTML = members
+    .map((m) => {
+      const nick = m.nick ?? '?';
+      const peerId = m.peerId ?? '';
+      const isSelf = peerId === myPeerId;
+      const memberMuted = isSelf ? isMuted : (muteMap.get(peerId) ?? false);
+      const memberHasVideo = isSelf ? isVideoEnabled : (videoMap.has(peerId) ? videoMap.get(peerId) : (() => {
+        const s = getStreamForPeerId?.(peerId);
+        return s?.getVideoTracks?.().length > 0 && s.getVideoTracks().some((t) => t.enabled);
+      })());
+      const vol = volumeMap.get(peerId) ?? 100;
+      const streaming = streams.has(peerId);
+      const showThumb = streaming;
+      const volumeControl = !isSelf && !memberMuted
+        ? `<div class="voip-view__volume-wrap" data-peer-id="${escapeHtml(peerId)}" title="${t('volume')}"><button type="button" class="voip-view__participant-status voip-view__volume-trigger" data-action="volume-toggle" aria-label="${t('volume')}" title="${t('volume')}">${iconMic()}</button><div class="voip-view__volume-tooltip"><input type="range" class="voip-view__volume-slider" min="0" max="200" value="${vol}" data-peer-id="${escapeHtml(peerId)}" /></div></div>`
+        : `<div class="voip-view__participant-status" title="${memberMuted ? t('muted') : t('unmuted')}">${memberMuted ? iconMicOff() : iconMic()}</div>`;
+      const hasBgEffect = isSelf ? (backgroundEffect || 'none') !== 'none' : (bgEffectMap.get(peerId) || 'none') !== 'none';
+      const streamHtml = showThumb
+        ? `<div class="voip-view__participant-stream" data-action="open-stream-modal" data-peer-id="${escapeHtml(peerId)}" title="${t('clickToExpand')}"><video class="voip-view__stream-thumb" autoplay playsinline muted></video></div>`
+        : '';
+      return `<div class="voip-view__participant" data-peer-id="${escapeHtml(peerId)}" data-self="${isSelf}" data-has-background-effect="${hasBgEffect}"><div class="voip-view__participant-info"><div class="voip-view__participant-name">${escapeHtml(nick)}</div><div class="voip-view__participant-status-row">${volumeControl}</div></div>${streamHtml}</div>`;
+    })
+    .join('');
+  if (getStreamForScreenShare) {
+    list.querySelectorAll('.voip-view__stream-thumb').forEach((thumb) => {
+      const participant = thumb.closest('.voip-view__participant');
+      const peerId = participant?.dataset?.peerId;
+      const stream = peerId ? getStreamForScreenShare(peerId) : null;
+      if (stream) {
+        thumb.srcObject = stream;
+        thumb.play().catch(() => {});
+      } else {
+        thumb.srcObject = null;
+      }
+    });
+  }
+}
+
+export function updateMuteButton(container, isMuted) {
+  const btn = container.querySelector('[data-action="toggle-mute"]');
+  if (!btn) return;
+  btn.className = `chat__sidebar-btn btn btn--ghost btn--sm chat__mute-btn--${isMuted ? 'muted' : 'unmuted'}`;
+  btn.innerHTML = isMuted ? iconMicOff() : iconMic();
+  btn.title = isMuted ? t('unmute') : t('mute');
+}
+
+export function updateVideoButton(container, isVideoEnabled) {
+  const btn = container.querySelector('[data-action="toggle-video"]');
+  if (!btn) return;
+  btn.className = `chat__sidebar-btn btn btn--ghost btn--sm video-btn--${isVideoEnabled ? 'on' : 'off'}`;
+  btn.innerHTML = isVideoEnabled ? iconVideo() : iconVideoOff();
+  btn.title = isVideoEnabled ? t('cameraOn') : t('cameraOff');
+  const wrap = container.querySelector('#effect-tiles-wrap');
+  if (wrap) wrap.dataset.cameraActive = isVideoEnabled ? 'true' : 'false';
+}
+
+export function updateEffectTilesSelection(container, effect) {
+  const tiles = container.querySelectorAll('.effect-tile[data-effect]');
+  tiles.forEach((t) => {
+    t.classList.toggle('effect-tile--selected', (t.dataset.effect || 'none') === (effect || 'none'));
+  });
+}
+
+export function updateChatBadge(container, count) {
+  const badge = container?.querySelector('#chat-badge');
+  if (!badge) return;
+  if (count > 0) {
+    badge.textContent = count > 99 ? '99+' : String(count);
+    badge.removeAttribute('hidden');
+  } else {
+    badge.setAttribute('hidden', '');
+  }
+}
+
+const CHAT_SIDEBAR_WIDTH_KEY = 'easymeet_chatSidebarWidth';
+const CHAT_SIDEBAR_MIN = 140;
+const CHAT_SIDEBAR_MAX_PERCENT = 0.5;
+
+function attachChatResize(container) {
+  const handle = container.querySelector('#chat-resize-handle');
+  const sidebar = container.querySelector('#chat-sidebar');
+  const body = container.querySelector('.chat-view__body');
+  if (!handle || !sidebar || !body) return;
+
+  const stored = localStorage.getItem(CHAT_SIDEBAR_WIDTH_KEY);
+  if (stored) {
+    const w = parseInt(stored, 10);
+    if (w >= CHAT_SIDEBAR_MIN) sidebar.style.setProperty('--chat-sidebar-width', `${w}px`);
+  }
+
+  let startX = 0;
+  let startWidth = 0;
+
+  function onMove(e) {
+    const bodyRect = body.getBoundingClientRect();
+    const maxW = bodyRect.width * CHAT_SIDEBAR_MAX_PERCENT;
+    const delta = e.clientX - startX;
+    let w = Math.round(startWidth + delta);
+    w = Math.max(CHAT_SIDEBAR_MIN, Math.min(maxW, w));
+    sidebar.style.setProperty('--chat-sidebar-width', `${w}px`);
+  }
+
+  function onUp() {
+    handle.classList.remove('chat__resize-handle--active');
+    document.removeEventListener('mousemove', onMove);
+    document.removeEventListener('mouseup', onUp);
+    document.body.style.cursor = '';
+    document.body.style.userSelect = '';
+    const w = sidebar.getBoundingClientRect().width;
+    localStorage.setItem(CHAT_SIDEBAR_WIDTH_KEY, String(Math.round(w)));
+  }
+
+  handle.addEventListener('mousedown', (e) => {
+    if (e.button !== 0) return;
+    e.preventDefault();
+    startX = e.clientX;
+    startWidth = sidebar.getBoundingClientRect().width;
+    handle.classList.add('chat__resize-handle--active');
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+  });
+}
+
+const FLOATING_WINDOW_MIN = { videos: { w: 320, h: 280 }, chat: { w: 280, h: 300 }, participants: { w: 200, h: 180 } };
+const FLOATING_WINDOW_MAX = { w: 1920, h: 1080 };
+
+const STREAM_MODAL_MIN = { w: 320, h: 240 };
+const SETTINGS_MODAL_MIN = { w: 360, h: 400 };
+const SHARE_MODAL_MIN = { w: 360, h: 400 };
+
+function setupSettingsModalResize(container, callbacks = {}) {
+  const content = container.querySelector('.settings-modal__content');
+  const handle = content?.querySelector('[data-resize-handle]');
+  if (!content || !handle || !callbacks.onWindowResize) return;
+  let startX = 0, startY = 0, startW = 0, startH = 0;
+  const onMouseDown = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const rect = content.getBoundingClientRect();
+    startX = e.clientX;
+    startY = e.clientY;
+    startW = rect.width;
+    startH = rect.height;
+    document.addEventListener('mousemove', onMouseMove);
+    document.addEventListener('mouseup', onMouseUp);
+  };
+  const onMouseMove = (e) => {
+    const dw = e.clientX - startX;
+    const dh = e.clientY - startY;
+    const w = Math.round(Math.max(SETTINGS_MODAL_MIN.w, Math.min(FLOATING_WINDOW_MAX.w, startW + dw)));
+    const h = Math.round(Math.max(SETTINGS_MODAL_MIN.h, Math.min(FLOATING_WINDOW_MAX.h, startH + dh)));
+    content.style.width = `${w}px`;
+    content.style.height = `${h}px`;
+    startX = e.clientX;
+    startY = e.clientY;
+    startW = w;
+    startH = h;
+    const pos = content.getBoundingClientRect();
+    const positions = { ...(callbacks.getWindowPositions?.() || {}), settings: { x: pos.left, y: pos.top, w, h } };
+    callbacks.onWindowResize?.('settings', positions);
+  };
+  const onMouseUp = () => {
+    document.removeEventListener('mousemove', onMouseMove);
+    document.removeEventListener('mouseup', onMouseUp);
+  };
+  handle.addEventListener('mousedown', onMouseDown);
+}
+
+function setupStreamModalResize(container, callbacks = {}) {
+  const content = container.querySelector('.stream-modal__content');
+  const handle = content?.querySelector('[data-resize-handle]');
+  if (!content || !handle || !callbacks.onWindowResize) return;
+  let startX = 0, startY = 0, startW = 0, startH = 0;
+  const onMouseDown = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const rect = content.getBoundingClientRect();
+    startX = e.clientX;
+    startY = e.clientY;
+    startW = rect.width;
+    startH = rect.height;
+    document.addEventListener('mousemove', onMouseMove);
+    document.addEventListener('mouseup', onMouseUp);
+  };
+  const onMouseMove = (e) => {
+    const dw = e.clientX - startX;
+    const dh = e.clientY - startY;
+    const w = Math.round(Math.max(STREAM_MODAL_MIN.w, Math.min(FLOATING_WINDOW_MAX.w, startW + dw)));
+    const h = Math.round(Math.max(STREAM_MODAL_MIN.h, Math.min(FLOATING_WINDOW_MAX.h, startH + dh)));
+    content.style.width = `${w}px`;
+    content.style.height = `${h}px`;
+    startX = e.clientX;
+    startY = e.clientY;
+    startW = w;
+    startH = h;
+    const pos = content.getBoundingClientRect();
+    const positions = { ...(callbacks.getWindowPositions?.() || {}), stream: { x: pos.left, y: pos.top, w, h } };
+    callbacks.onWindowResize?.('stream', positions);
+  };
+  const onMouseUp = () => {
+    document.removeEventListener('mousemove', onMouseMove);
+    document.removeEventListener('mouseup', onMouseUp);
+  };
+  handle.addEventListener('mousedown', onMouseDown);
+}
+
+function setupShareModalResize(container, callbacks = {}) {
+  const content = container.querySelector('.share-modal__content');
+  const handle = content?.querySelector('[data-resize-handle]');
+  if (!content || !handle || !callbacks.onWindowResize) return;
+  let startX = 0, startY = 0, startW = 0, startH = 0;
+  const onMouseDown = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const rect = content.getBoundingClientRect();
+    startX = e.clientX;
+    startY = e.clientY;
+    startW = rect.width;
+    startH = rect.height;
+    document.addEventListener('mousemove', onMouseMove);
+    document.addEventListener('mouseup', onMouseUp);
+  };
+  const onMouseMove = (e) => {
+    const dw = e.clientX - startX;
+    const dh = e.clientY - startY;
+    const w = Math.round(Math.max(SHARE_MODAL_MIN.w, Math.min(FLOATING_WINDOW_MAX.w, startW + dw)));
+    const h = Math.round(Math.max(SHARE_MODAL_MIN.h, Math.min(FLOATING_WINDOW_MAX.h, startH + dh)));
+    content.style.width = `${w}px`;
+    content.style.height = `${h}px`;
+    startX = e.clientX;
+    startY = e.clientY;
+    startW = w;
+    startH = h;
+    const pos = content.getBoundingClientRect();
+    const positions = { ...(callbacks.getWindowPositions?.() || {}), share: { x: pos.left, y: pos.top, w, h } };
+    callbacks.onWindowResize?.('share', positions);
+  };
+  const onMouseUp = () => {
+    document.removeEventListener('mousemove', onMouseMove);
+    document.removeEventListener('mouseup', onMouseUp);
+  };
+  handle.addEventListener('mousedown', onMouseDown);
+}
+
+function setupFloatingWindowResize(container, callbacks = {}) {
+  container.querySelectorAll('.floating-window[data-window]').forEach((win) => {
+    const handle = win.querySelector('[data-resize-handle]');
+    if (!handle || !callbacks.onWindowResize) return;
+    const windowId = win.dataset.window;
+    const mins = FLOATING_WINDOW_MIN[windowId] || { w: 200, h: 150 };
+    let startX = 0, startY = 0, startW = 0, startH = 0;
+    const onMouseDown = (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const rect = win.getBoundingClientRect();
+      startX = e.clientX;
+      startY = e.clientY;
+      startW = rect.width;
+      startH = rect.height;
+      document.addEventListener('mousemove', onMouseMove);
+      document.addEventListener('mouseup', onMouseUp);
+    };
+    const onMouseMove = (e) => {
+      const dw = e.clientX - startX;
+      const dh = e.clientY - startY;
+      let w = Math.round(Math.max(mins.w, Math.min(FLOATING_WINDOW_MAX.w, startW + dw)));
+      let h = Math.round(Math.max(mins.h, Math.min(FLOATING_WINDOW_MAX.h, startH + dh)));
+      win.style.width = `${w}px`;
+      win.style.height = `${h}px`;
+      startX = e.clientX;
+      startY = e.clientY;
+      startW = w;
+      startH = h;
+      const positions = { ...(callbacks.getWindowPositions?.() || {}), [windowId]: { ...(callbacks.getWindowPositions?.()?.[windowId] || {}), w, h } };
+      callbacks.onWindowResize?.(windowId, positions);
+    };
+    const onMouseUp = () => {
+      document.removeEventListener('mousemove', onMouseMove);
+      document.removeEventListener('mouseup', onMouseUp);
+    };
+    handle.addEventListener('mousedown', onMouseDown);
+  });
+}
+
+function setupDraggableModals(container, callbacks = {}) {
+  container.querySelectorAll('[data-draggable]').forEach((content) => {
+    const handle = content.querySelector('[data-drag-handle]');
+    if (!handle) return;
+    const windowId = content.dataset.window;
+    let startX = 0, startY = 0, startLeft = 0, startTop = 0;
+    const onMouseDown = (e) => {
+      if (e.target.closest('button')) return;
+      e.preventDefault();
+      const overlay = content.closest('.floating-window') || content.closest('.stream-modal') || content.closest('.settings-modal') || content.closest('.share-modal');
+      if (overlay) {
+        container.querySelectorAll('.floating-window, .stream-modal, .settings-modal, .share-modal').forEach((el) => el.classList.remove('overlay--front'));
+        overlay.classList.add('overlay--front');
+      }
+      const rect = content.getBoundingClientRect();
+      startX = e.clientX;
+      startY = e.clientY;
+      startLeft = rect.left;
+      startTop = rect.top;
+      content.style.transform = 'none';
+      content.style.left = `${rect.left}px`;
+      content.style.top = `${rect.top}px`;
+      document.addEventListener('mousemove', onMouseMove);
+      document.addEventListener('mouseup', onMouseUp);
+    };
+    const onMouseMove = (e) => {
+      const dx = e.clientX - startX;
+      const dy = e.clientY - startY;
+      const left = Math.max(0, Math.min(window.innerWidth - content.offsetWidth, startLeft + dx));
+      const top = Math.max(0, Math.min(window.innerHeight - content.offsetHeight, startTop + dy));
+      content.style.left = `${left}px`;
+      content.style.top = `${top}px`;
+      startX = e.clientX;
+      startY = e.clientY;
+      startLeft = left;
+      startTop = top;
+      if (windowId && callbacks.onWindowMove) {
+        callbacks.onWindowMove(windowId, { x: left, y: top });
+      }
+    };
+    const onMouseUp = () => {
+      document.removeEventListener('mousemove', onMouseMove);
+      document.removeEventListener('mouseup', onMouseUp);
+      if (windowId && callbacks.onWindowMove) {
+        callbacks.onWindowMove(windowId, { x: startLeft, y: startTop });
+      }
+    };
+    handle.addEventListener('mousedown', onMouseDown);
+  });
+}
+
+function attachRoomViewModalListeners(container, callbacks) {
+  container.querySelector('[data-action="leave"]')?.addEventListener('click', callbacks.onLeave);
+  container.querySelectorAll('[data-action="close-share"]').forEach((el) => {
+    el.addEventListener('click', () => container.querySelector('#share-modal')?.setAttribute('hidden', ''));
+  });
+  container.querySelectorAll('[data-action="close-stream-modal"]').forEach((el) => {
+    el.addEventListener('click', () => container.querySelector('#stream-modal')?.setAttribute('hidden', ''));
+  });
+  container.querySelector('[data-action="open-file-modal"]')?.addEventListener('click', () => {
+    container.querySelector('#file-modal')?.removeAttribute('hidden');
+  });
+  container.querySelectorAll('[data-action="close-file-modal"]').forEach((el) => {
+    el.addEventListener('click', () => container.querySelector('#file-modal')?.setAttribute('hidden', ''));
+  });
+}
+
+function attachRoomViewDownloadListeners(container, callbacks) {
+  container.addEventListener('click', (e) => {
+    const downloadBtn = e.target.closest('[data-action="download-file"]');
+    if (downloadBtn) {
+      const fileId = downloadBtn.dataset.fileId;
+      if (fileId) callbacks.onDownloadFile?.(fileId);
+      return;
+    }
+    const removeBtn = e.target.closest('[data-action="remove-gif"]');
+    if (removeBtn) callbacks.onRemoveGif?.(parseInt(removeBtn.dataset.index, 10));
+  });
+}
+
+function attachRoomViewShareListeners(container, callbacks) {
+  container.addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-action="open-stream-modal"]');
+    if (btn) callbacks.onOpenStreamModal?.(btn.dataset?.peerId);
+  });
+  container.querySelector('[data-action="share"]')?.addEventListener('click', () => {
+    container.querySelector('#share-modal')?.removeAttribute('hidden');
+    callbacks.onShareOpen?.();
+  });
+}
+
+function attachRoomViewChatInputListeners(container, callbacks, input) {
+  container.querySelector('[data-action="send"]')?.addEventListener('click', () => callbacks.onSend?.());
+  input?.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); callbacks.onSend?.(); }
+  });
+}
+
+function attachRoomViewChatMoreListeners(container, callbacks) {
+  const chatMoreMenu = container.querySelector('#chat-more-menu');
+  const chatMoreWrap = container.querySelector('.chat__more-wrap');
+  container.addEventListener('click', (e) => {
+    const toggleBtn = e.target.closest('[data-action="toggle-chat-more"]');
+    const emojiBtn = e.target.closest('[data-action="emoji"]');
+    const giphyBtn = e.target.closest('[data-action="giphy"]');
+    const fileBtn = e.target.closest('[data-action="open-file-modal"]');
+    if (toggleBtn) { chatMoreMenu?.toggleAttribute('hidden'); return; }
+    if (emojiBtn) { chatMoreMenu?.setAttribute('hidden', ''); container.querySelector('#giphy-picker')?.setAttribute('hidden', ''); container.querySelector('#emoji-picker')?.toggleAttribute('hidden'); return; }
+    if (giphyBtn) { chatMoreMenu?.setAttribute('hidden', ''); container.querySelector('#emoji-picker')?.setAttribute('hidden', ''); container.querySelector('#giphy-picker')?.toggleAttribute('hidden'); callbacks.onGiphyOpen?.(); return; }
+    if (fileBtn) { chatMoreMenu?.setAttribute('hidden', ''); container.querySelector('#file-modal')?.removeAttribute('hidden'); return; }
+    if (chatMoreWrap && !chatMoreWrap.contains(e.target) && !chatMoreMenu?.hasAttribute('hidden')) chatMoreMenu?.setAttribute('hidden', '');
+  });
+}
+
+function attachRoomViewEmojiListeners(container, input) {
+  container.querySelector('[data-action="close-emoji"]')?.addEventListener('click', () => container.querySelector('#emoji-picker')?.setAttribute('hidden', ''));
+  const emojiGrid = container.querySelector('#emoji-grid');
+  container.querySelector('#emoji-search')?.addEventListener('input', (e) => {
+    const q = e.target.value.trim();
+    const results = searchEmojis(q, 500);
+    if (emojiGrid) emojiGrid.innerHTML = results.map(([em]) => `<button type="button" class="emoji-picker__btn" data-emoji="${escapeHtml(em)}">${escapeHtml(em)}</button>`).join('');
+  });
+  emojiGrid?.addEventListener('click', (e) => {
+    const btn = e.target.closest('.emoji-picker__btn');
+    if (btn && input) { input.value += btn.dataset.emoji; input.focus(); container.querySelector('#emoji-picker')?.setAttribute('hidden', ''); }
+  });
+}
+
+function attachRoomViewGiphyListeners(container, callbacks) {
+  container.querySelector('[data-action="close-giphy"]')?.addEventListener('click', () => container.querySelector('#giphy-picker')?.setAttribute('hidden', ''));
+  container.querySelector('.giphy-picker__grid')?.addEventListener('click', (e) => {
+    const btn = e.target.closest('.giphy-picker__item');
+    if (btn?.dataset?.url) { callbacks.onGiphySelect?.(btn.dataset.url, btn.dataset.preview); container.querySelector('#giphy-picker')?.setAttribute('hidden', ''); }
+  });
+  let giphyTimeout;
+  container.querySelector('#giphy-search')?.addEventListener('input', (e) => {
+    const q = e.target.value.trim();
+    clearTimeout(giphyTimeout);
+    if (!q) return;
+    giphyTimeout = setTimeout(() => callbacks.onGiphySearch?.(q), 300);
+  });
+}
+
+function attachRoomViewEmojiGiphyListeners(container, callbacks, input) {
+  attachRoomViewEmojiListeners(container, input);
+  attachRoomViewGiphyListeners(container, callbacks);
+}
+
+function attachRoomViewChatListeners(container, callbacks, input) {
+  attachRoomViewChatInputListeners(container, callbacks, input);
+  attachRoomViewChatMoreListeners(container, callbacks);
+  attachRoomViewEmojiGiphyListeners(container, callbacks, input);
+}
+
+function attachRoomViewShareModalCopyListeners(container) {
+  container.addEventListener('click', (e) => {
+    const shareModal = container.querySelector('#share-modal');
+    if (!shareModal?.contains(e.target)) return;
+    const copyBtn = e.target.closest('[data-action="copy"]');
+    const copyLinkBtn = e.target.closest('[data-action="copy-link"]');
+    const openLinkBtn = e.target.closest('[data-action="open-link"]');
+    if (copyBtn) {
+      const roomId = shareModal.querySelector('.room-code:not(.room-link)')?.dataset?.roomId;
+      if (roomId && navigator.clipboard) {
+        navigator.clipboard.writeText(roomId);
+        const span = copyBtn.querySelector('span');
+        if (span) { span.textContent = t('copied'); setTimeout(() => (span.textContent = t('copy')), 2000); }
+      }
+      return;
+    }
+    if (copyLinkBtn) {
+      const urlEl = shareModal.querySelector('.room-link .room-link__url');
+      if (urlEl?.textContent && navigator.clipboard) {
+        navigator.clipboard.writeText(urlEl.textContent);
+        const span = copyLinkBtn.querySelector('span');
+        if (span) { span.textContent = t('linkCopied'); setTimeout(() => (span.textContent = t('copyLink')), 2000); }
+      }
+      return;
+    }
+    if (openLinkBtn) {
+      const urlEl = shareModal.querySelector('.room-link .room-link__url');
+      if (urlEl?.textContent) window.open(urlEl.textContent, '_blank');
+    }
+  });
+}
+
+export function attachRoomViewListeners(container, callbacks) {
+  setupDraggableModals(container, { onWindowMove: callbacks.onWindowMove });
+  setupFloatingWindowResize(container, { onWindowResize: callbacks.onWindowResize, getWindowPositions: callbacks.getWindowPositions });
+  setupStreamModalResize(container, { onWindowResize: callbacks.onWindowResize, getWindowPositions: callbacks.getWindowPositions });
+  setupSettingsModalResize(container, { onWindowResize: callbacks.onWindowResize, getWindowPositions: callbacks.getWindowPositions });
+  setupShareModalResize(container, { onWindowResize: callbacks.onWindowResize, getWindowPositions: callbacks.getWindowPositions });
+  attachRoomViewModalListeners(container, callbacks);
+  attachRoomViewDownloadListeners(container, callbacks);
+  attachRoomViewShareListeners(container, callbacks);
+  attachRoomViewShareModalCopyListeners(container);
+  const input = container.querySelector('#chat-input');
+  attachRoomViewChatListeners(container, callbacks, input);
+  attachChatResize(container);
+  const chatList = container.querySelector('#chat-messages');
+  if (chatList) {
+    chatList.scrollTop = chatList.scrollHeight;
+    chatList.addEventListener('scroll', () => updateScrollToBottomButton(container));
+    updateScrollToBottomButton(container);
+  }
+  container.querySelector('#chat-scroll-to-bottom')?.addEventListener('click', () => {
+    const list = container.querySelector('#chat-messages');
+    if (list) list.scrollTop = list.scrollHeight;
+    updateScrollToBottomButton(container);
+  });
+  container.querySelector('[data-action="toggle-mute"]')?.addEventListener('click', () => callbacks.onToggleMute?.());
+  container.querySelector('[data-action="toggle-video"]')?.addEventListener('click', () => callbacks.onToggleVideo?.());
+  function positionVolumeTooltip(wrap) {
+    const tooltip = wrap?.querySelector('.voip-view__volume-tooltip');
+    if (!tooltip) return;
+    const TOOLTIP_W = 130;
+    const MARGIN = 8;
+    const wrapRect = wrap.getBoundingClientRect();
+    const vw = window.innerWidth;
+    const spaceRight = vw - wrapRect.right;
+    const spaceLeft = wrapRect.left;
+    tooltip.classList.remove('voip-view__volume-tooltip--flip-h');
+    if (spaceRight < TOOLTIP_W + MARGIN && spaceLeft >= TOOLTIP_W + MARGIN) {
+      tooltip.classList.add('voip-view__volume-tooltip--flip-h');
+    }
+  }
+
+  container.addEventListener('click', (e) => {
+    const toggleBtn = e.target.closest('[data-action="volume-toggle"]');
+    const wrap = e.target.closest('.voip-view__volume-wrap');
+    if (toggleBtn) {
+      const w = toggleBtn.closest('.voip-view__volume-wrap');
+      container.querySelectorAll('.voip-view__volume-wrap--open').forEach((o) => { if (o !== w) o.classList.remove('voip-view__volume-wrap--open'); });
+      w?.classList.toggle('voip-view__volume-wrap--open');
+      if (w?.classList.contains('voip-view__volume-wrap--open')) requestAnimationFrame(() => positionVolumeTooltip(w));
+    } else if (!wrap) {
+      container.querySelectorAll('.voip-view__volume-wrap--open').forEach((o) => o.classList.remove('voip-view__volume-wrap--open'));
+    }
+  });
+  const volumeHideTimers = new Map();
+  container.addEventListener('mouseover', (e) => {
+    const wrap = e.target.closest('.voip-view__volume-wrap');
+    if (wrap) {
+      const t = volumeHideTimers.get(wrap);
+      if (t) {
+        clearTimeout(t);
+        volumeHideTimers.delete(wrap);
+      }
+      wrap.classList.add('voip-view__volume-wrap--hover');
+      requestAnimationFrame(() => positionVolumeTooltip(wrap));
+    }
+  });
+  container.addEventListener('mouseout', (e) => {
+    const wrap = e.target.closest('.voip-view__volume-wrap');
+    const related = e.relatedTarget;
+    if (!wrap || (related && wrap.contains(related))) return;
+    if (volumeHideTimers.has(wrap)) clearTimeout(volumeHideTimers.get(wrap));
+    volumeHideTimers.set(wrap, setTimeout(() => {
+      wrap.classList.remove('voip-view__volume-wrap--hover');
+      volumeHideTimers.delete(wrap);
+    }, 350));
+  });
+  container.addEventListener('input', (e) => {
+    const slider = e.target.closest('.voip-view__volume-slider');
+    if (slider?.dataset?.peerId) {
+      const val = parseInt(slider.value, 10);
+      callbacks.onPeerVolumeChange?.(slider.dataset.peerId, val);
+    }
+  });
+  const openSettingsModal = () => {
+    const modal = container.querySelector('#settings-modal');
+    if (!modal) return;
+    modal.removeAttribute('hidden');
+    callbacks.onSettingsOpen?.(true);
+  };
+  const closeSettingsModal = () => {
+    const modal = container.querySelector('#settings-modal');
+    if (!modal) return;
+    modal.setAttribute('hidden', '');
+    callbacks.onSettingsOpen?.(false);
+  };
+  container.querySelector('[data-action="toggle-video-layout"]')?.addEventListener('click', () => callbacks.onToggleVideoLayout?.());
+  container.querySelector('[data-action="toggle-settings"]')?.addEventListener('click', () => {
+    const modal = container.querySelector('#settings-modal');
+    if (!modal) return;
+    const isOpen = modal.hasAttribute('hidden');
+    if (isOpen) openSettingsModal();
+    else closeSettingsModal();
+  });
+  container.querySelectorAll('[data-action="close-settings-modal"]').forEach((el) => {
+    el.addEventListener('click', closeSettingsModal);
+  });
+  container.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+      const modal = container.querySelector('#settings-modal');
+      if (modal && !modal.hasAttribute('hidden')) closeSettingsModal();
+    }
+  });
+  container.querySelector('#input-device')?.addEventListener('change', (e) => {
+    const deviceId = e.target?.value || '';
+    callbacks.onInputDeviceChange?.(deviceId);
+  });
+  container.querySelector('#output-device')?.addEventListener('change', (e) => {
+    const deviceId = e.target?.value || '';
+    callbacks.onOutputDeviceChange?.(deviceId);
+  });
+  container.querySelector('#video-device')?.addEventListener('change', (e) => {
+    const deviceId = e.target?.value || '';
+    callbacks.onVideoDeviceChange?.(deviceId);
+  });
+  container.querySelector('#effect-tiles-upload-btn')?.addEventListener('click', () => {
+    container.querySelector('#background-upload-input')?.click();
+  });
+  container.querySelector('#background-upload-input')?.addEventListener('change', (e) => {
+    const file = e.target?.files?.[0];
+    if (file) callbacks.onCustomBackgroundUpload?.(file);
+    e.target.value = '';
+  });
+  container.querySelector('#effect-tiles-wrap')?.addEventListener('click', (e) => {
+    const removeBtn = e.target.closest('[data-action="remove-custom-bg"]');
+    if (removeBtn) {
+      e.stopPropagation();
+      e.preventDefault();
+      const id = removeBtn.dataset.effectId;
+      if (id) callbacks.onRemoveCustomBackground?.(id);
+      return;
+    }
+    const expandBtn = e.target.closest('#effect-tiles-expand-btn');
+    if (expandBtn) {
+      const more = container.querySelector('#effect-tiles-more');
+      const isExpanded = expandBtn.dataset.expanded === 'true';
+      expandBtn.dataset.expanded = !isExpanded;
+      more?.toggleAttribute('hidden', isExpanded);
+      const textSpan = expandBtn.querySelector('.effect-tiles-expand-btn__text');
+      const iconSpan = expandBtn.querySelector('.effect-tiles-expand-btn__icon');
+      if (textSpan) textSpan.textContent = isExpanded ? t('showMoreBackgrounds') : t('showLessBackgrounds');
+      if (iconSpan) iconSpan.innerHTML = isExpanded ? iconChevronDown() : iconChevronUp();
+      return;
+    }
+    const tile = e.target.closest('.effect-tile[data-effect]');
+    if (!tile) return;
+    const effect = tile.dataset.effect || 'none';
+    container.querySelectorAll('.effect-tile').forEach((t) => t.classList.remove('effect-tile--selected'));
+    tile.classList.add('effect-tile--selected');
+    callbacks.onBackgroundEffectChange?.(effect);
+  });
+  container.querySelector('#file-input')?.addEventListener('change', (e) => callbacks.onFileSelect?.(e.target.files));
+  container.querySelector('#folder-input')?.addEventListener('change', (e) => callbacks.onFileSelect?.(e.target.files));
+  container.querySelector('[data-input="file"]')?.addEventListener('click', () => container.querySelector('#file-input')?.click());
+  container.querySelector('[data-input="folder"]')?.addEventListener('click', () => container.querySelector('#folder-input')?.click());
+  const startBtn = container.querySelector('#start-screen-btn');
+  if (startBtn) startBtn.addEventListener('click', () => callbacks.onStartScreen?.());
+  const stopBtn = container.querySelector('#stop-screen-btn');
+  if (stopBtn) stopBtn.addEventListener('click', () => callbacks.onStopScreen?.());
+  container.querySelector('#pause-screen-btn')?.addEventListener('click', () => callbacks.onPauseScreen?.());
+  container.querySelector('#audio-screen-btn')?.addEventListener('click', () => callbacks.onAudioScreenToggle?.());
+  
+  const sidebar = container.querySelector('#chat-sidebar');
+  const overlay = document.getElementById('mobile-overlay');
+  const chatPanel = container.querySelector('#chat-panel');
+  const chatFloatingWindow = container.querySelector('.floating-window[data-window="chat"]');
+  const participantsFloatingWindow = container.querySelector('.floating-window[data-window="participants"]');
+
+  const toggleSidebar = () => {
+    if (participantsFloatingWindow) {
+      participantsFloatingWindow.classList.toggle('floating-window--hidden');
+    } else {
+      sidebar?.classList.toggle('chat__sidebar--open');
+      if (overlay) {
+        if (sidebar?.classList.contains('chat__sidebar--open') || chatPanel?.classList.contains('chat-panel--open')) overlay.removeAttribute('hidden');
+        else overlay.setAttribute('hidden', '');
+      }
+    }
+  };
+  const toggleChatPanel = () => {
+    if (chatFloatingWindow) {
+      chatFloatingWindow.classList.toggle('floating-window--hidden');
+      if (!chatFloatingWindow.classList.contains('floating-window--hidden')) callbacks.onChatPanelOpen?.();
+    } else {
+      const wasOpen = chatPanel?.classList.contains('chat-panel--open');
+      chatPanel?.classList.toggle('chat-panel--open');
+      if (!wasOpen && chatPanel?.classList.contains('chat-panel--open')) callbacks.onChatPanelOpen?.();
+      if (overlay) {
+        if (chatPanel?.classList.contains('chat-panel--open') || sidebar?.classList.contains('chat__sidebar--open')) overlay.removeAttribute('hidden');
+        else overlay.setAttribute('hidden', '');
+      }
+    }
+  };
+  const closeOverlays = () => {
+    sidebar?.classList.remove('chat__sidebar--open');
+    chatPanel?.classList.remove('chat-panel--open');
+    participantsFloatingWindow?.classList.remove('floating-window--hidden');
+    chatFloatingWindow?.classList.remove('floating-window--hidden');
+    overlay?.setAttribute('hidden', '');
+  };
+
+  container.querySelector('[data-action="toggle-sidebar"]')?.addEventListener('click', toggleSidebar);
+  container.querySelectorAll('[data-action="close-sidebar"]').forEach((el) => el.addEventListener('click', () => {
+    if (participantsFloatingWindow) participantsFloatingWindow.classList.add('floating-window--hidden');
+    else { sidebar?.classList.remove('chat__sidebar--open'); if (overlay && !chatPanel?.classList.contains('chat-panel--open')) overlay.setAttribute('hidden', ''); }
+  }));
+  if (chatFloatingWindow) {
+    chatFloatingWindow.addEventListener('mousedown', () => {
+      if (!chatFloatingWindow.classList.contains('floating-window--hidden')) {
+        callbacks.onChatPanelOpen?.();
+      }
+    });
+  }
+  container.querySelector('[data-action="toggle-chat-panel"]')?.addEventListener('click', toggleChatPanel);
+  container.querySelector('[data-action="close-chat-panel"]')?.addEventListener('click', () => {
+    if (chatFloatingWindow) chatFloatingWindow.classList.add('floating-window--hidden');
+    else { chatPanel?.classList.remove('chat-panel--open'); if (overlay && !sidebar?.classList.contains('chat__sidebar--open')) overlay.setAttribute('hidden', ''); }
+  });
+  overlay?.addEventListener('click', closeOverlays);
+
+  return {
+    getInputValue: () => input?.value?.trim() ?? '',
+    clearInput: () => { if (input) input.value = ''; },
+    onFileSelect: callbacks.onFileSelect,
+    setGiphyHint: (text) => { const el = container.querySelector('#giphy-hint'); if (el) el.textContent = text; },
+    setGiphyResults: (gifs) => {
+      const grid = container.querySelector('#giphy-grid');
+      if (!grid) return;
+      grid.innerHTML = gifs.map((g) => `<button type="button" class="giphy-picker__item" data-url="${escapeHtml(g.url)}" data-preview="${escapeHtml(g.preview || g.url)}"><img src="${escapeHtml(g.preview || g.url)}" alt="" loading="lazy" /></button>`).join('');
+    },
+    setGiphyPreview: (gifs) => {
+      const wrap = container.querySelector('#chat-gif-preview');
+      if (!wrap) return;
+      if (!gifs?.length) {
+        wrap.innerHTML = '';
+        wrap.setAttribute('hidden', '');
+        return;
+      }
+      wrap.innerHTML = gifs.map((g, i) =>
+        `<div class="chat__gif-preview-item"><img class="chat__gif-preview-img" src="${escapeHtml(g.previewUrl || g.url)}" alt="" /><button type="button" class="chat__gif-preview-remove" data-action="remove-gif" data-index="${i}" aria-label="${t('close')}">${iconX()}</button></div>`
+      ).join('');
+      wrap.removeAttribute('hidden');
+    },
+  };
+}
