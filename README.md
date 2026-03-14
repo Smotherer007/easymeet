@@ -247,6 +247,19 @@ npm run docker:build:and:push
 
 **Image:** `smotherer/easymeet:latest`
 
+### GitHub Actions (CI/CD)
+
+Bei jedem Push auf `main` baut und pusht eine GitHub Action automatisch das Docker-Image zu Docker Hub.
+
+**Einrichtung:** In den GitHub Repository Settings → Secrets and variables → Actions zwei Secrets anlegen:
+
+| Secret | Beschreibung |
+|--------|--------------|
+| `DOCKERHUB_USERNAME` | Dein Docker Hub Benutzername (z.B. `smotherer`) |
+| `DOCKERHUB_TOKEN` | Access Token von [Docker Hub → Account Settings → Security](https://hub.docker.com/settings/security) |
+
+Die Pipeline kann auch manuell unter **Actions → Build and Push Docker Image → Run workflow** gestartet werden.
+
 ### Environment Variables
 
 | Variable | Default | Description |
