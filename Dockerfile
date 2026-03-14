@@ -6,7 +6,6 @@ WORKDIR /app
 ENV NODE_ENV=development
 
 COPY package*.json ./
-COPY scripts ./scripts
 RUN npm ci
 
 COPY . .
