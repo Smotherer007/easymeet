@@ -4,6 +4,7 @@ import {
   categoryMaskToImageData,
   drawPersonWithMask,
   drawBlurBackground,
+  drawImageHorizontallyFlipped,
 } from './backgroundEffectsHelpers.js';
 
 let imageSegmenter = null;
@@ -317,7 +318,7 @@ export async function createVirtualBackgroundStream(sourceStream, imageUrl, opti
 
         ctx.save();
         ctx.clearRect(0, 0, w, h);
-        ctx.drawImage(bgImage, 0, 0, w, h);
+        drawImageHorizontallyFlipped(ctx, bgImage, w, h);
         drawPersonWithMask(personCtx, maskCtx, maskCanvas, videoFrame, lastMaskImageData, w, h);
         ctx.save();
         ctx.drawImage(personCanvas, 0, 0, w, h);

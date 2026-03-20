@@ -39,3 +39,12 @@ export function drawBlurBackground(blurCtx, videoFrame, w, h, blurAmount) {
   blurCtx.filter = 'none';
 }
 
+/** Virtuelles Hintergrundmotiv horizontal spiegeln (Person bleibt unverändert). */
+export function drawImageHorizontallyFlipped(ctx, image, w, h) {
+  ctx.save();
+  ctx.translate(w, 0);
+  ctx.scale(-1, 1);
+  ctx.drawImage(image, 0, 0, w, h);
+  ctx.restore();
+}
+

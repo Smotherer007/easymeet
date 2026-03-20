@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Virtueller Hintergrund:** Das gewählte **Hintergrundbild** wird beim Compositing **horizontal gespiegelt** (`drawImageHorizontallyFlipped`); die Person bleibt wie die Kamera-Eingabe (unverändert zur Segmentierung).
 - **Sounds:** `public/sounds/single-sound-message-icq-ooh.mp3` (Chat/Datei von anderen) und `the-sound-of-knocking-on-the-door.mp3` (Beitritt), angebunden in `src/sounds.js`; VoIP-Mitgliederzuwachs nutzt dasselbe Klopfen wie Chat-Join.
 - **Diagnose:** `src/utils/mediaDebug.js` — Logs **`[easymeet/media-debug]`** (als **warn**): automatisch in **Vite-Dev** (`npm run dev`), sonst `?easymeetMediaDebug=1` oder `localStorage easymeetMediaDebug=1`; abschalten in Dev: `easymeetMediaDebug=0`. UI-Pfad (`handleBackgroundEffectChange`), Kachel (`attachRemoteAudio`), Video-**track ended/mute**, verworfene Promise von `applyEffectToCallStream`.
 - **`electron/`** – Desktop-Hülle mit **Electron** (lädt EasyMeet per URL; Scripts `npm run electron` / `electron:dev` im Root). Siehe `electron/README.md`.
