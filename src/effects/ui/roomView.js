@@ -377,6 +377,48 @@ async function ensureInitialCallMedia(app, deps) {
   /* Pegel: attachRemoteAudio in syncMuteToPeers */
 }
 
+const ROOM_MEDIA_LATENCY_POLL_MS = 2000;
+
+function clearRoomMediaLatencyTimer(app) {
+  if (app._easymeetMediaLatencyTimer) {
+    clearInterval(app._easymeetMediaLatencyTimer);
+    app._easymeetMediaLatencyTimer = null;
+  }
+  const el = app.querySelector('#room-view-media-latency');
+  if (el) el.textContent = t('roomMediaLatencyNone');
+}
+
+function startRoomMediaLatencyDisplay(app) {
+  clearRoomMediaLatencyTimer(app);
+  /** Letzter gültiger Wert — getStats liefert RTT oft erst verzögert oder mal kurz null */
+  let lastGoodMs = null;
+  const tick = async () => {
+    const el = app.querySelector('#room-view-media-latency');
+    if (!el) return;
+    const hp = selectors.selectHostPeer(getState());
+    const fn = hp?.getWebRtcRttMs;
+    if (typeof fn !== 'function') {
+      el.textContent = t('roomMediaLatencyNone');
+      return;
+    }
+    const ms = await fn().catch(() => null);
+    if (ms != null && ms >= 0) lastGoodMs = ms;
+    const showMs = ms != null && ms >= 0 ? ms : lastGoodMs;
+    if (showMs == null || showMs < 0) {
+      el.textContent = t('roomMediaLatencyNone');
+      return;
+    }
+    el.textContent = t('roomMediaLatency').replace('{ms}', String(showMs));
+  };
+  void tick();
+  app._easymeetMediaLatencyTimer = setInterval(() => void tick(), ROOM_MEDIA_LATENCY_POLL_MS);
+}
+
+/** Beim Verlassen des Raums Interval stoppen (bootstrap). */
+export function stopRoomMediaLatencyDisplay(app) {
+  clearRoomMediaLatencyTimer(app);
+}
+
 function runInitialRoomSetup(app, deps) {
   const state = getState();
   const localStream = selectors.selectLocalStream(state);
@@ -391,6 +433,7 @@ function runInitialRoomSetup(app, deps) {
   syncModalVideo(app);
   setupFullscreenButton(app);
   setupPipButton(app);
+  startRoomMediaLatencyDisplay(app);
   void ensureInitialCallMedia(app, deps)
     .then(() => {
       const st = getState();

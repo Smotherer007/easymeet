@@ -7,6 +7,7 @@ import {
   iconGlobe,
   iconRefreshCw,
   iconLockInline,
+  iconPinnedRoomJump,
 } from '../../icons.js';
 import { fetchActiveRooms, fetchPinnedRooms } from '../../effects/network/api.js';
 
@@ -80,9 +81,25 @@ function peopleLabel(count) {
   return count === 1 ? t('activeRoomsOnlineOne') : t('activeRoomsOnlineMany').replace('{n}', String(count));
 }
 
-function appendRoomListItem(listEl, r, metaMainText, onPickRoom) {
+const MAX_ACTIVE_ROOM_NAMES_SHOWN = 8;
+
+function formatActiveRoomParticipantLine(participants) {
+  if (!Array.isArray(participants) || participants.length === 0) return '';
+  if (participants.length <= MAX_ACTIVE_ROOM_NAMES_SHOWN) {
+    return participants.join(', ');
+  }
+  const head = participants.slice(0, MAX_ACTIVE_ROOM_NAMES_SHOWN).join(', ');
+  const more = participants.length - MAX_ACTIVE_ROOM_NAMES_SHOWN;
+  return `${head} ${t('activeRoomsNamesMore').replace('{n}', String(more))}`;
+}
+
+/**
+ * @param {{ showJumpIcon?: boolean }} [options] – feste Räume: Pfeil (kein Online-Status)
+ */
+function appendRoomListItem(listEl, r, metaMainText, onPickRoom, options = {}) {
+  const { showJumpIcon = false } = options;
   const li = document.createElement('li');
-  li.className = 'landing-active-room';
+  li.className = showJumpIcon ? 'landing-active-room landing-active-room--pinned' : 'landing-active-room';
   li.setAttribute('role', 'button');
   li.tabIndex = 0;
   const code = document.createElement('span');
@@ -100,8 +117,28 @@ function appendRoomListItem(listEl, r, metaMainText, onPickRoom) {
     lockWrap.innerHTML = iconLockInline();
     meta.appendChild(lockWrap);
   }
-  li.appendChild(code);
+  if (showJumpIcon) {
+    const top = document.createElement('div');
+    top.className = 'landing-active-room__top';
+    top.appendChild(code);
+    const jump = document.createElement('span');
+    jump.className = 'landing-active-room__jump';
+    jump.setAttribute('aria-hidden', 'true');
+    jump.setAttribute('title', t('pinnedRoomsJumpHint'));
+    jump.innerHTML = iconPinnedRoomJump();
+    top.appendChild(jump);
+    li.appendChild(top);
+  } else {
+    li.appendChild(code);
+  }
   li.appendChild(meta);
+  const namesLine = formatActiveRoomParticipantLine(r.participants);
+  if (namesLine) {
+    const namesEl = document.createElement('span');
+    namesEl.className = 'landing-active-room__names';
+    namesEl.textContent = namesLine;
+    li.appendChild(namesEl);
+  }
   const open = () => onPickRoom?.(r.roomId, !!r.hasPassword);
   li.addEventListener('click', open);
   li.addEventListener('keydown', (e) => {
@@ -145,7 +182,7 @@ export async function refreshPinnedRoomsPanel(container, onPickRoom) {
   }
 
   for (const r of rooms) {
-    appendRoomListItem(listEl, r, t('pinnedRoomsMeta'), onPickRoom);
+    appendRoomListItem(listEl, r, t('pinnedRoomsMeta'), onPickRoom, { showJumpIcon: true });
   }
 }
 

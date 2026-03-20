@@ -239,13 +239,31 @@ export function getRoomPeers(roomId) {
   }));
 }
 
+/**
+ * Anzeige-Namen der VoIP-Peers eines Raums (sortiert, ohne leere Nicks).
+ * @param {RoomState|null} room
+ * @returns {string[]}
+ */
+export function listRoomParticipantNicks(room) {
+  if (!room?.peers) return [];
+  const nicks = Array.from(room.peers.values())
+    .map((p) => String(p.nick || '').trim())
+    .filter((n) => n.length > 0);
+  nicks.sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
+  return nicks;
+}
+
 /** Räume mit mindestens einem verbundenen Peer (für öffentliche Startseiten-Liste). */
 export function listActiveRoomsPublic() {
   const out = [];
   for (const [roomId, room] of msRooms.entries()) {
     const participantCount = room.peers.size;
     if (participantCount < 1) continue;
-    out.push({ roomId, participantCount });
+    out.push({
+      roomId,
+      participantCount,
+      participants: listRoomParticipantNicks(room),
+    });
   }
   out.sort((a, b) => a.roomId.localeCompare(b.roomId));
   return out;

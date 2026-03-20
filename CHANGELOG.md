@@ -9,8 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Raumansicht:** **Latenz** (WebRTC-RTT, Mittelwert Send-/Empfangstransport zum Server) neben dem **Raumtitel** in der Kopfzeile; immer sichtbar, ohne Messwert Platzhalter **`–`** (`roomMediaLatencyNone`); Tooltip mit Kurzerklärung; Aktualisierung ca. alle 2 s.
+- **Startseite / feste Räume:** Pfeil-Icon (**Absprung**) neben dem Raumcode – Hinweis auf Antippen/Beitritt, da kein Online-Status wie bei aktiven Räumen.
+- **Aktive Räume:** API `GET /api/rooms/active` liefert pro Raum **`participants`** (sortierte VoIP-Nicks); Startseite zeigt sie unter dem Raumcode (max. 8 Namen, danach „+n weitere“).
 - **Virtueller Hintergrund:** Das gewählte **Hintergrundbild** wird beim Compositing **horizontal gespiegelt** (`drawImageHorizontallyFlipped`); die Person bleibt wie die Kamera-Eingabe (unverändert zur Segmentierung).
-- **Sounds:** `public/sounds/single-sound-message-icq-ooh.mp3` (Chat/Datei von anderen) und `the-sound-of-knocking-on-the-door.mp3` (Beitritt), angebunden in `src/sounds.js`; VoIP-Mitgliederzuwachs nutzt dasselbe Klopfen wie Chat-Join.
+- **Sounds:** `public/sounds/single-sound-message-icq-ooh.mp3` (Chat/Datei von anderen), `the-sound-of-knocking-on-the-door.mp3` (Beitritt), `icq_file_done.mp3` (fremde **Bildschirmfreigabe**), angebunden in `src/sounds.js` / `bootstrap.js`; VoIP-Mitgliederzuwachs nutzt dasselbe Klopfen wie Chat-Join.
 - **Diagnose:** `src/utils/mediaDebug.js` — Logs **`[easymeet/media-debug]`** (als **warn**): automatisch in **Vite-Dev** (`npm run dev`), sonst `?easymeetMediaDebug=1` oder `localStorage easymeetMediaDebug=1`; abschalten in Dev: `easymeetMediaDebug=0`. UI-Pfad (`handleBackgroundEffectChange`), Kachel (`attachRemoteAudio`), Video-**track ended/mute**, verworfene Promise von `applyEffectToCallStream`.
 - **`electron/`** – Desktop-Hülle mit **Electron** (lädt EasyMeet per URL; Scripts `npm run electron` / `electron:dev` im Root). Siehe `electron/README.md`.
 - **Docker:** `.env.example`, `docker-compose.yml` mit optionalem `env_file: .env`, HTTP-Port-Mapping und zentral dokumentierten Variablen; **Dockerfile**-Kommentar zu Laufzeit-Env.
@@ -21,6 +24,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Medien-Latenz:** Anzeige bleibt stabiler (letzter gültiger Wert bei kurz fehlenden WebRTC-Stats); Auswertung akzeptiert mehr `candidate-pair`-Fälle und optional `inbound-rtp`/`remote-inbound-rtp` `roundTripTime`; Poll-Intervall 2 s.
 - **mediasoup / Hintergrundwechsel:** „Channel request handler … **consumer.resume**“: Server-Consumer laufen mit **`paused: false`**; der Client hat danach **`resumeConsumer`** an den Server geschickt — dort führte **`resume()`** trotzdem zu einem Worker-Fehler. **`resumeConsumer`-Notify entfernt**; Server **`resumeConsumer`** nur noch bei **`consumer.paused`**. **`consumerClosed`** läuft in derselben **`consumingAwaitQueue`** wie **`newConsumer`**, um Races in mediasoup-client zu vermeiden. Zusätzlich: **`videoEnabled: false`** nur wenn keine andere live Video-Spur.
 - **Video:** Keine Spiegelung in der WebRTC-/Canvas-Pipeline; **Anzeige** horizontal gespiegelt: **`scaleX(-1)`** auf **allen Video-Kacheln** (`.video-tile video`, lokal + remote) und **Kamera-Vorschau in den Einstellungen** (`.settings-modal .effect-preview-video`).
 - **Free-Layout:** Chat/Teilnehmer **öffnen & schließen** nur noch `patchState` + **`floating-window--hidden`** am DOM – kein `navigate('room-view')` mehr (vermeidet komplettes UI-Flackern).

@@ -11,8 +11,8 @@ import {
   fetchRoomStatus,
 } from '../effects/network/api.js';
 import * as peer from '../effects/network/mediasoupClient.js';
-import { playMessageSound, playJoinSound } from '../sounds.js';
-import { playLeaveTone, playStreamStartTone, installAudioUnlockOnUserGesture } from '../audio.js';
+import { playMessageSound, playJoinSound, playScreenShareSound } from '../sounds.js';
+import { playLeaveTone, installAudioUnlockOnUserGesture } from '../audio.js';
 import { stopSpeakingIndicator, cleanupAllSpeakingIndicators } from '../speaking-indicator.js';
 import {
   renderLanding,
@@ -65,6 +65,7 @@ import {
 import {
   attachRoomViewAndHandlers as attachRoomViewFromModule,
   patchMeetingScreenSharePresentation,
+  stopRoomMediaLatencyDisplay,
 } from '../effects/ui/roomView.js';
 
 export function bootstrap(appEl) {
@@ -523,6 +524,7 @@ function removeDeviceChangeHandlers(s) {
 }
 
 function finishCleanup(appEl, screen) {
+  stopRoomMediaLatencyDisplay(appEl);
   const s = getState();
   stopAllStreamsAndConnections(s);
   dispatch({ type: 'session/cleared' });
@@ -677,7 +679,7 @@ function dispatchVoipEvent(appEl, state, evt, p) {
     if (stream) attachRemoteAudio(p.peerId, stream, appEl);
   }
   if (evt === 'voip/screenStreamStarted') {
-    if (p.peerId !== selectors.selectMyPeerId(state)) playStreamStartTone();
+    if (p.peerId !== selectors.selectMyPeerId(state)) playScreenShareSound();
     if (selectors.selectScreen(state) === 'room-view') patchMeetingScreenSharePresentation(appEl, { skipVoip: true });
   }
   if (evt === 'voip/screenStreamStopped' && selectors.selectScreen(state) === 'room-view') {

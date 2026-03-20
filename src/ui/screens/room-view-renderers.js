@@ -296,12 +296,15 @@ export function renderScreenShareBannersHtml(screenStreams, myPeerId) {
 }
 
 export function renderRoomViewHeader(meetingTitle) {
+  const latencyTitle = escapeHtml(t('roomMediaLatencyTitle'));
+  const latencyPlaceholder = escapeHtml(t('roomMediaLatencyNone'));
   return `
     <div class="room-view__header room-view__header--centered">
       <div class="room-view__header-brand">
         <a href="/" class="room-view__logo-link">${iconLogoWordmark({ width: '110px', height: '28px' })}</a>
         <span class="room-view__header-sep"></span>
         <span class="room-view__meeting-title">${escapeHtml(meetingTitle)}</span>
+        <span class="room-view__media-latency" id="room-view-media-latency" title="${latencyTitle}" aria-live="polite">${latencyPlaceholder}</span>
       </div>
     </div>
   `;

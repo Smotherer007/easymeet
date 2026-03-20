@@ -80,8 +80,3 @@ export function playJoinTone() {
 export function playLeaveTone() {
   playTone(440, 0.15, 0.08);
 }
-
-/** Short tone – screen sharing started */
-export function playStreamStartTone() {
-  playTone(660, 0.1, 0.1);
-}

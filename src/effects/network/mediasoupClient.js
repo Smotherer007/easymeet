@@ -168,6 +168,53 @@ export async function getScreenStream() {
   });
 }
 
+/**
+ * RTT aus WebRTC-Stats: bevorzugt ausgewähltes/nominiertes candidate-pair,
+ * sonst jedes Paar mit currentRoundTripTime, sonst inbound-rtp roundTripTime (Sekunden).
+ * @param {RTCStatsReport | Map<string, object>} stats
+ * @returns {number|null} Millisekunden
+ */
+function extractRttMsFromRtcStats(stats) {
+  if (!stats || typeof stats.forEach !== 'function') return null;
+  /** @type {{ ms: number; prio: number }[]} */
+  const ranked = [];
+  /** @type {number[]} */
+  const anyPairMs = [];
+
+  stats.forEach((report) => {
+    if (report.type !== 'candidate-pair') return;
+    const rtt = report.currentRoundTripTime;
+    if (typeof rtt !== 'number' || rtt <= 0) return;
+    const ms = Math.round(rtt * 1000);
+    anyPairMs.push(ms);
+    let prio = 0;
+    if (report.selected === true) prio = 3;
+    else if (report.nominated === true) prio = 2;
+    else if (report.state === 'succeeded') prio = 1;
+    if (prio > 0) ranked.push({ ms, prio });
+  });
+
+  if (ranked.length) {
+    for (const p of [3, 2, 1]) {
+      const subset = ranked.filter((f) => f.prio === p).map((f) => f.ms);
+      if (subset.length) return Math.min(...subset);
+    }
+  }
+  /* Browser liefern manchmal RTT ohne selected/nominated — kleinster Wert = aktives Paar i. d. R. plausibel */
+  if (anyPairMs.length) return Math.min(...anyPairMs);
+
+  const rtpMs = [];
+  stats.forEach((report) => {
+    if (report.type !== 'remote-inbound-rtp' && report.type !== 'inbound-rtp') return;
+    const rt = report.roundTripTime;
+    if (typeof rt !== 'number' || rt <= 0) return;
+    rtpMs.push(Math.round(rt * 1000));
+  });
+  if (rtpMs.length) return Math.round(rtpMs.reduce((a, b) => a + b, 0) / rtpMs.length);
+
+  return null;
+}
+
 /* ---------- Transports (protoo requests) ---------- */
 
 async function createSendTransport(protoo, device) {
@@ -1152,6 +1199,23 @@ export async function setupRoomParticipant(peerObj, nick, localStream, callbacks
     notifyEasymeet(protoo, { type: 'file_share', nick, filename, ts, fileId });
   }
 
+  /** Mittlere RTT Send/Empfang zum SFU (WebRTC candidate-pair), für UI. */
+  async function getWebRtcRttMs() {
+    const rtts = [];
+    for (const tr of [sendTransport, recvTransport]) {
+      if (!tr || tr.closed) continue;
+      try {
+        const s = await tr.getStats();
+        const ms = extractRttMsFromRtcStats(s);
+        if (ms != null) rtts.push(ms);
+      } catch (_) {
+        /* ignore */
+      }
+    }
+    if (!rtts.length) return null;
+    return Math.round(rtts.reduce((a, b) => a + b, 0) / rtts.length);
+  }
+
   const wsShim = {
     get readyState() {
       return protoo.closed ? 3 : 1;
@@ -1198,5 +1262,7 @@ export async function setupRoomParticipant(peerObj, nick, localStream, callbacks
     },
     sendFileToRoom: (file, onProgress, fromNick, fileId) =>
       sendFileToViewers(protoo, file, onProgress, roomId, password, fromNick, fileId),
+
+    getWebRtcRttMs,
   };
 }

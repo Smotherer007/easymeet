@@ -8,7 +8,12 @@ import { fileURLToPath } from 'url';
 import { validateCreateRoomPayload, validateRegisterHostPayload, validateJoinPayload } from './validate.js';
 import { hashPassword, verifyPassword } from './password.js';
 import { normalizeRoomCode } from './roomCode.js';
-import { createWorkers, listActiveRoomsPublic, getRoom as getMediasoupRoom } from './mediasoup/rooms.js';
+import {
+  createWorkers,
+  listActiveRoomsPublic,
+  getRoom as getMediasoupRoom,
+  listRoomParticipantNicks,
+} from './mediasoup/rooms.js';
 import { attachProtooToHttpServer } from './mediasoup/protooSignaling.js';
 import { applyPersistentRooms } from './persistentRooms.js';
 
@@ -130,14 +135,20 @@ app.get('/api/rooms/active', (req, res) => {
     const ms = getMediasoupRoom(httpId);
     const n = ms?.peers?.size ?? 0;
     if (n < 1) continue;
-    if (!byId.has(httpId)) byId.set(httpId, { roomId: httpId, participantCount: n });
+    if (!byId.has(httpId)) {
+      byId.set(httpId, {
+        roomId: httpId,
+        participantCount: n,
+        participants: listRoomParticipantNicks(ms),
+      });
+    }
   }
   const payload = [...byId.values()]
     .sort((a, b) => a.roomId.localeCompare(b.roomId))
-    .map(({ roomId, participantCount }) => {
+    .map(({ roomId, participantCount, participants = [] }) => {
       const meta = rooms.get(roomId);
       const hasPassword = meta ? meta.passwordHash != null && meta.passwordHash !== '' : false;
-      return { roomId, participantCount, hasPassword };
+      return { roomId, participantCount, hasPassword, participants };
     });
   res.json({ rooms: payload });
 });

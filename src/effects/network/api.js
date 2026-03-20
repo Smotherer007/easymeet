@@ -93,7 +93,7 @@ export async function fetchJoinRoom(identifier, password, peerId) {
 }
 
 /**
- * @returns {Promise<import('../../shared/result.js').Result<{ rooms: Array<{ roomId: string; participantCount: number; hasPassword: boolean }> }>>}
+ * @returns {Promise<import('../../shared/result.js').Result<{ rooms: Array<{ roomId: string; participantCount: number; hasPassword: boolean; participants?: string[] }> }>>}
  */
 export async function fetchActiveRooms() {
   try {
