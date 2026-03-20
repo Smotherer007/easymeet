@@ -2,6 +2,7 @@
  * Render helpers for room-view (rule: ≤20 lines per function)
  */
 import { t } from '../../i18n.js';
+import { DEFAULT_AUDIO_SETTINGS } from '../../effects/storage/audioSettingsStorage.js';
 import {
   iconDownload,
   iconLoader2,
@@ -452,6 +453,10 @@ export function renderEffectTilesMore(backgroundImages, backgroundEffect) {
 
 export function renderSettingsModalContent(state) {
   const { settingsStyle, isVideoEnabled, hasBackgroundBlur, backgroundEffect, backgroundImages } = state;
+  const audioSettings = state.audioSettings && typeof state.audioSettings === 'object'
+    ? { ...DEFAULT_AUDIO_SETTINGS, ...state.audioSettings }
+    : { ...DEFAULT_AUDIO_SETTINGS };
+  const st = audioSettings.speakingThreshold;
   const effectTiles = hasBackgroundBlur
     ? `<div class="effect-tiles" id="effect-tiles"><button type="button" class="effect-tile ${backgroundEffect === 'none' ? 'effect-tile--selected' : ''}" data-effect="none" title="${t('backgroundNone')}"><span class="effect-tile__preview effect-tile__preview--none">${iconVideo()}</span><span class="effect-tile__label">${t('backgroundNone')}</span></button><button type="button" class="effect-tile ${backgroundEffect === 'blur' ? 'effect-tile--selected' : ''}" data-effect="blur" title="${t('backgroundBlur')}"><span class="effect-tile__preview effect-tile__preview--blur"></span><span class="effect-tile__label">${t('backgroundBlur')}</span></button>${renderEffectTilesFirst(backgroundImages, backgroundEffect)}</div>${renderEffectTilesMore(backgroundImages, backgroundEffect)}<input type="file" id="background-upload-input" accept="image/*" hidden /><button type="button" class="effect-tiles-upload-btn" id="effect-tiles-upload-btn" title="${t('uploadCustomBackground')}">${iconUpload()} ${t('uploadCustomBackground')}</button>`
     : `<p class="effect-preview-unsupported" id="effect-preview-unsupported">${t('backgroundEffectsNotSupported')}</p>`;
@@ -478,6 +483,22 @@ export function renderSettingsModalContent(state) {
           <div class="settings-modal__section">
             <h4>${t('inputDevice')}</h4>
             <div class="input-group"><select id="input-device"></select></div>
+          </div>
+          <div class="settings-modal__section settings-modal__section--audio-advanced">
+            <h4>${t('audioAdvancedTitle')}</h4>
+            <p class="settings-modal__hint settings-modal__hint--sm">${t('audioAdvancedHint')}</p>
+            <div class="settings-modal__range-row">
+              <label class="settings-modal__range-label" for="audio-speaking-threshold">${t('speakingThresholdLabel')}</label>
+              <div class="settings-modal__range-controls">
+                <input type="range" id="audio-speaking-threshold" min="5" max="45" step="1" value="${st}" />
+                <span class="settings-modal__range-value" id="audio-speaking-threshold-value">${st}</span>
+              </div>
+            </div>
+            <p class="settings-modal__hint settings-modal__hint--sm">${t('speakingThresholdHint')}</p>
+            <label class="settings-modal__check-row"><input type="checkbox" id="audio-noise-suppression" ${audioSettings.noiseSuppression ? 'checked' : ''} /> <span>${t('noiseSuppressionLabel')}</span></label>
+            <label class="settings-modal__check-row"><input type="checkbox" id="audio-echo-cancellation" ${audioSettings.echoCancellation ? 'checked' : ''} /> <span>${t('echoCancellationLabel')}</span></label>
+            <label class="settings-modal__check-row"><input type="checkbox" id="audio-auto-gain" ${audioSettings.autoGainControl ? 'checked' : ''} /> <span>${t('autoGainControlLabel')}</span></label>
+            <p class="settings-modal__hint settings-modal__hint--sm">${t('browserAudioConstraintsHint')}</p>
           </div>
           <div class="settings-modal__section">
             <h4>${t('outputDevice')}</h4>

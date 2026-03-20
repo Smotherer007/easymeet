@@ -52,6 +52,7 @@ import {
   writeNickname,
   writePeerVolumes,
 } from '../effects/storage/deviceStorage.js';
+import { hydrateAudioSettingsFromStorage } from '../effects/storage/audioSettingsStorage.js';
 import { getCustomBackgrounds } from '../effects/storage/customBackgroundStorage.js';
 import { reacquireAudioStreamIfNeeded } from '../effects/media/devices.js';
 import { refreshDeviceSelects } from '../effects/ui/devices.js';
@@ -109,6 +110,7 @@ function loadLayoutFromStorage() {
 
 function initFromStorage() {
   loadDeviceIdsFromStorage();
+  patchState({ audioSettings: hydrateAudioSettingsFromStorage() });
   const volumes = readPeerVolumes();
   if (Object.keys(volumes).length > 0) patchState({ peerVolume: new Map(Object.entries(volumes)) });
   loadLayoutFromStorage();
@@ -460,8 +462,11 @@ function setPeerVolume(peerId, percent) {
   savePeerVolumes();
   const container = document.getElementById('video-gallery') || document.getElementById('remote-audio-container');
   const tile = container?.querySelector(`.video-tile[data-peer-id="${peerId}"]`);
-  const mediaEl = tile?.querySelector('video, audio');
-  if (mediaEl) mediaEl.volume = Math.min(1, vol);
+  const v = Math.min(1, vol);
+  /* Remote mit Video+Audio: Ton läuft über separates audio.video-tile__remote-audio — alle Medien-Elemente setzen */
+  tile?.querySelectorAll('video, audio').forEach((el) => {
+    el.volume = v;
+  });
 }
 
 function handleStopScreen(appEl) {

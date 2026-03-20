@@ -9,6 +9,7 @@ import * as mediasoupClient from 'mediasoup-client';
 import { AwaitQueue } from 'awaitqueue';
 import * as cryptoUtil from '../../utils/crypto.js';
 import { mediaDebugLog, mediaDebugStreamInfo, mediaDebugTrackInfo } from '../../utils/mediaDebug.js';
+import { getAudioProcessingConstraints } from '../storage/audioSettingsStorage.js';
 import protooPkg from 'protoo-client';
 
 const ProtooPeer = protooPkg.Peer;
@@ -93,13 +94,12 @@ export async function getUserMedia(inputDeviceId = null, requestVideo = true, vi
    * explizites Gerät (Einstellungen / gespeicherte ID): `exact` — sonst ignoriert Chromium
    * `ideal` oft und es bleibt das erste Mikro/Kamera aktiv.
    */
+  const audioProc = videoOnly ? null : getAudioProcessingConstraints();
   const constraints = {
     audio: videoOnly
       ? false
       : {
-          noiseSuppression: true,
-          echoCancellation: true,
-          autoGainControl: false,
+          ...audioProc,
           ...(inputDeviceId && String(inputDeviceId).length ? { deviceId: { exact: inputDeviceId } } : {}),
         },
     video:

@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Einstellungen → Mikrofon & Sprache:** Regler **Sprech-Erkennung** (Schwelle für die „spricht gerade“-Hervorhebung), Checkboxen **Rauschunterdrückung**, **Echounterdrückung**, **AGC** — wirkt auf `getUserMedia` und wird bei laufendem Mikro per `applyConstraints` versucht; Persistenz `localStorage` (`easymeet_audioSettings`).
 - **Raumansicht:** **Latenz** (WebRTC-RTT, Mittelwert Send-/Empfangstransport zum Server) neben dem **Raumtitel** in der Kopfzeile; immer sichtbar, ohne Messwert Platzhalter **`–`** (`roomMediaLatencyNone`); Tooltip mit Kurzerklärung; Aktualisierung ca. alle 2 s.
 - **Startseite / feste Räume:** Pfeil-Icon (**Absprung**) neben dem Raumcode – Hinweis auf Antippen/Beitritt, da kein Online-Status wie bei aktiven Räumen.
 - **Aktive Räume:** API `GET /api/rooms/active` liefert pro Raum **`participants`** (sortierte VoIP-Nicks); Startseite zeigt sie unter dem Raumcode (max. 8 Namen, danach „+n weitere“).
@@ -24,6 +25,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Meeting-Leiste:** Kamera-Button nutzt dieselbe **Farblogik** wie das Mikro (an = Akzent, aus = rot); `updateMuteButton` / `updateVideoButton` behalten `meeting-control-btn` an der unteren Leiste.
+- **Teilnehmer-Lautstärke:** Slider aktualisiert bei Remote-Video jetzt auch das **versteckte Audio-Element** (`video-tile__remote-audio`), nicht nur das erste `video` (Split-Pipeline).
 - **Medien-Latenz:** Anzeige bleibt stabiler (letzter gültiger Wert bei kurz fehlenden WebRTC-Stats); Auswertung akzeptiert mehr `candidate-pair`-Fälle und optional `inbound-rtp`/`remote-inbound-rtp` `roundTripTime`; Poll-Intervall 2 s.
 - **mediasoup / Hintergrundwechsel:** „Channel request handler … **consumer.resume**“: Server-Consumer laufen mit **`paused: false`**; der Client hat danach **`resumeConsumer`** an den Server geschickt — dort führte **`resume()`** trotzdem zu einem Worker-Fehler. **`resumeConsumer`-Notify entfernt**; Server **`resumeConsumer`** nur noch bei **`consumer.paused`**. **`consumerClosed`** läuft in derselben **`consumingAwaitQueue`** wie **`newConsumer`**, um Races in mediasoup-client zu vermeiden. Zusätzlich: **`videoEnabled: false`** nur wenn keine andere live Video-Spur.
 - **Video:** Keine Spiegelung in der WebRTC-/Canvas-Pipeline; **Anzeige** horizontal gespiegelt: **`scaleX(-1)`** auf **allen Video-Kacheln** (`.video-tile video`, lokal + remote) und **Kamera-Vorschau in den Einstellungen** (`.settings-modal .effect-preview-video`).

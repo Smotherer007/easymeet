@@ -1,4 +1,5 @@
-const SPEAKING_THRESHOLD = 15;
+import { getSpeakingThreshold } from './effects/storage/audioSettingsStorage.js';
+
 const SMOOTHING = 0.7;
 const stopCallbacks = new Map();
 
@@ -33,7 +34,7 @@ export function startSpeakingIndicator(peerId, stream, container) {
     if (cancelled || !analyser || !container) return;
     analyser.getByteFrequencyData(dataArray);
     const avg = dataArray.reduce((a, b) => a + b, 0) / dataArray.length;
-    const speaking = avg > SPEAKING_THRESHOLD;
+    const speaking = avg > getSpeakingThreshold();
     if (speaking !== lastSpeaking) {
       lastSpeaking = speaking;
       // Highlight sidebar participant

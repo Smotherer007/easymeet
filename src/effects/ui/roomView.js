@@ -11,6 +11,7 @@ import { hasTenorKey, searchGifs } from '../../tenor.js';
 import { extractDropData, processDropData, zipFileList } from '../../utils/folder-zip.js';
 import { addCustomBackground, removeCustomBackground } from '../storage/customBackgroundStorage.js';
 import { writeDeviceId } from '../storage/deviceStorage.js';
+import { writeAudioSettings, getAudioProcessingConstraints } from '../storage/audioSettingsStorage.js';
 import { DEVICE_STORAGE, VIDEO_LAYOUT_STORAGE, WINDOW_POSITIONS_STORAGE } from '../../shared/constants.js';
 import { escapeHtml } from '../../shared/escape.js';
 import {
@@ -61,6 +62,35 @@ function alertMediaAccessError(err, kind) {
   const map = kind === 'video' ? mapCam : mapMic;
   const def = kind === 'video' ? 'cameraPermissionDenied' : 'microphonePermissionDenied';
   alert(t(map[name] ?? def));
+}
+
+function applyLiveAudioProcessingToLocalTracks() {
+  const proc = getAudioProcessingConstraints();
+  const s = getState();
+  for (const stream of [selectors.selectLocalStream(s), selectors.selectBaseLocalStream(s)]) {
+    stream?.getAudioTracks?.().forEach((track) => {
+      if (track.readyState !== 'live') return;
+      void track
+        .applyConstraints({
+          echoCancellation: proc.echoCancellation,
+          noiseSuppression: proc.noiseSuppression,
+          autoGainControl: proc.autoGainControl,
+        })
+        .catch(() => {});
+    });
+  }
+}
+
+function handleAudioSettingsChange(app, partial) {
+  const merged = writeAudioSettings(partial);
+  patchState({ audioSettings: merged });
+  if (
+    partial.noiseSuppression !== undefined ||
+    partial.echoCancellation !== undefined ||
+    partial.autoGainControl !== undefined
+  ) {
+    applyLiveAudioProcessingToLocalTracks();
+  }
 }
 
 function setupDropzone(el, onFileSelect) {
@@ -812,7 +842,12 @@ function buildRoomViewConfigPart2(app, deps) {
 
 export function attachRoomViewAndHandlers(app, deps) {
   let handlers;
-  const config = { ...buildRoomViewConfigNav(app, deps), ...buildRoomViewConfigChat(() => handlers), ...buildRoomViewConfigPart2(app, deps) };
+  const config = {
+    ...buildRoomViewConfigNav(app, deps),
+    ...buildRoomViewConfigChat(() => handlers),
+    ...buildRoomViewConfigPart2(app, deps),
+    onAudioSettingsChange: (partial) => handleAudioSettingsChange(app, partial),
+  };
   handlers = attachRoomViewListeners(app, config);
   setupDropzone(app.querySelector('#dropzone'), handlers.onFileSelect);
   setupDropzone(app.querySelector('#chat-dropzone'), handlers.onFileSelect);

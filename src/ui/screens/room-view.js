@@ -401,19 +401,27 @@ export function updateScreenShareBannersSection(container, screenStreams, myPeer
 }
 
 export function updateMuteButton(container, isMuted) {
-  const btn = container.querySelector('[data-action="toggle-mute"]');
-  if (!btn) return;
-  btn.className = `chat__sidebar-btn btn btn--ghost btn--sm chat__mute-btn--${isMuted ? 'muted' : 'unmuted'}`;
-  btn.innerHTML = isMuted ? iconMicOff() : iconMic();
-  btn.title = isMuted ? t('unmute') : t('mute');
+  const suffix = isMuted ? 'muted' : 'unmuted';
+  container.querySelectorAll('[data-action="toggle-mute"]').forEach((btn) => {
+    const meeting = btn.classList.contains('meeting-control-btn');
+    btn.className = meeting
+      ? `meeting-control-btn chat__mute-btn--${suffix}`
+      : `chat__sidebar-btn btn btn--ghost btn--sm chat__mute-btn--${suffix}`;
+    btn.innerHTML = isMuted ? iconMicOff() : iconMic();
+    btn.title = isMuted ? t('unmute') : t('mute');
+  });
 }
 
 export function updateVideoButton(container, isVideoEnabled) {
-  const btn = container.querySelector('[data-action="toggle-video"]');
-  if (!btn) return;
-  btn.className = `chat__sidebar-btn btn btn--ghost btn--sm video-btn--${isVideoEnabled ? 'on' : 'off'}`;
-  btn.innerHTML = isVideoEnabled ? iconVideo() : iconVideoOff();
-  btn.title = isVideoEnabled ? t('cameraOn') : t('cameraOff');
+  const suffix = isVideoEnabled ? 'on' : 'off';
+  container.querySelectorAll('[data-action="toggle-video"]').forEach((btn) => {
+    const meeting = btn.classList.contains('meeting-control-btn');
+    btn.className = meeting
+      ? `meeting-control-btn video-btn--${suffix}`
+      : `chat__sidebar-btn btn btn--ghost btn--sm video-btn--${suffix}`;
+    btn.innerHTML = isVideoEnabled ? iconVideo() : iconVideoOff();
+    btn.title = isVideoEnabled ? t('cameraOn') : t('cameraOff');
+  });
   const wrap = container.querySelector('#effect-tiles-wrap');
   if (wrap) wrap.dataset.cameraActive = isVideoEnabled ? 'true' : 'false';
 }
@@ -1040,6 +1048,22 @@ export function attachRoomViewListeners(container, callbacks) {
   container.querySelector('#input-device')?.addEventListener('change', (e) => {
     const deviceId = e.target?.value || '';
     callbacks.onInputDeviceChange?.(deviceId);
+  });
+  const audioTh = container.querySelector('#audio-speaking-threshold');
+  const audioThVal = container.querySelector('#audio-speaking-threshold-value');
+  audioTh?.addEventListener('input', () => {
+    if (audioThVal) audioThVal.textContent = audioTh.value;
+    const v = parseInt(audioTh.value, 10);
+    if (!Number.isNaN(v)) callbacks.onAudioSettingsChange?.({ speakingThreshold: v });
+  });
+  container.querySelector('#audio-noise-suppression')?.addEventListener('change', (e) => {
+    callbacks.onAudioSettingsChange?.({ noiseSuppression: e.target.checked });
+  });
+  container.querySelector('#audio-echo-cancellation')?.addEventListener('change', (e) => {
+    callbacks.onAudioSettingsChange?.({ echoCancellation: e.target.checked });
+  });
+  container.querySelector('#audio-auto-gain')?.addEventListener('change', (e) => {
+    callbacks.onAudioSettingsChange?.({ autoGainControl: e.target.checked });
   });
   container.querySelector('#output-device')?.addEventListener('change', (e) => {
     const deviceId = e.target?.value || '';

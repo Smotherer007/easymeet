@@ -2,6 +2,7 @@
  * Initialer App-State – Plain Data.
  */
 import { WINDOW_POSITION_DEFAULTS } from '../../shared/windowPositionsDefaults.js';
+import { DEFAULT_AUDIO_SETTINGS } from '../../effects/storage/audioSettingsStorage.js';
 
 /** @typedef {Object} AppState */
 
@@ -43,6 +44,7 @@ export function createInitialState() {
     outputDeviceId: null,
     inputDeviceId: null,
     videoDeviceId: null,
+    audioSettings: { ...DEFAULT_AUDIO_SETTINGS },
     _receivingProgress: null,
     _receivingFileId: null,
     _receivingTotal: null,
