@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **`electron/`** – Desktop-Hülle mit **Electron** (lädt EasyMeet per URL; Scripts `npm run electron` / `electron:dev` im Root). Siehe `electron/README.md`.
 - **Docker:** `.env.example`, `docker-compose.yml` mit optionalem `env_file: .env`, HTTP-Port-Mapping und zentral dokumentierten Variablen; **Dockerfile**-Kommentar zu Laufzeit-Env.
 - **Persistente Räume** per JSON-Datei, Pfad in **`EASYMEET_PERSISTENT_ROOMS`** (`.env`); Vorlage **`config/persistent-rooms.example.json`** → `config/persistent-rooms.json` (gitignored). **24h-TTL** greift nicht. Startseite: **„Feste Räume“** via `GET /api/rooms/pinned`.
 - Startseite: Liste **aktuell aktiver Räume** (mindestens eine Person im VoIP-Raum), API `GET /api/rooms/active`; die beiden Einstiegs-Kacheln sind ab ~640px Breite **nebeneinander**.
@@ -16,6 +17,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **Protoo-URL:** Nicht mehr an `import.meta.env.DEV` allein gekoppelt — **direkter Port 3001** nur bei **Vite auf :5173** oder **`VITE_MEDIASOUP_PROTOO_DIRECT`**. Sonst **`wss://<Origin>/ws`** (NPM/443). Siehe `docs/nginx-proxy-manager-protoo.md`.
+- **Docker:** `EXPOSE` im Dockerfile entfernt; **docker-compose** ohne `ports:` – Zugriff nur über internes Netz/Proxy; RTP-UDP weiterhin bis zum Container durchreichen.
 - Medien, Chat, Dateien und Bildschirmfreigabe laufen über **mediasoup + Protoo** auf dem Server (kein PeerJS mehr).
 - **Dockerfile:** **`node:22-bookworm-slim`** statt Alpine – mediasoup-**Prebuild** (glibc) läuft typisch ohne langes Kompilat; Fallback-Build mit `python3`/`pip`/`build-essential`. Zuvor: Node 22 Alpine + `py3-pip`.
 - Server lädt optional **`dotenv`** (`import 'dotenv/config'`), damit eine **`.env` im Projektroot** bei `npm run server` erkannt wird (z. B. `EASYMEET_PERSISTENT_ROOMS`).

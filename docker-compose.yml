@@ -4,8 +4,14 @@
 # 2. Netzwerk: docker network create frontend
 # 3. docker compose up -d
 #
+# Keine `ports:` – Zugriff nur intern (z. B. Nginx Proxy Manager im selben Netz → app:3001).
+# RTP-UDP (RTC_*) muss von eurem Proxy/Host zu diesem Container durchgereicht werden.
+#
+# Fehler „port is already allocated“ trotzdem? → meist docker-compose.override.yml
+# oder gemergte Compose mit ports:. Prüfen: docker compose config
+# Siehe docs/docker-compose-troubleshooting.md
+#
 # Ohne .env gelten die Default-Werte in ${VAR:-default}.
-# RTC_* im Container und der UDP-Portbereich unten müssen übereinstimmen.
 
 services:
   app:
@@ -20,9 +26,6 @@ services:
       - MEDIASOUP_ANNOUNCED_IP=${MEDIASOUP_ANNOUNCED_IP:-}
       - RTC_MIN_PORT=${RTC_MIN_PORT:-40000}
       - RTC_MAX_PORT=${RTC_MAX_PORT:-40200}
-    ports:
-      - "${EASYMEET_HTTP_PUBLISH_PORT:-3001}:${PORT:-3001}"
-      - "40000-40200:40000-40200/udp"
     networks:
       - frontend
     # Nach: cp config/persistent-rooms.example.json config/persistent-rooms.json

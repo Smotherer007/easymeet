@@ -42,9 +42,11 @@ function msWarn(...args) {
 
 /**
  * Protoo-WebSocket-URL.
- * In Vite-Dev: direkt Port 3001 — der Vite-WS-Proxy (/ws) verliert oft das Subprotokoll „protoo“,
- * dann verbindet der Browser ohne Fehlermeldung nicht zuverlässig (protoo-client nutzt protocol „protoo“).
- * Production: gleicher Host wie die Seite (ein Server für Static + API + /ws).
+ *
+ * - **Hinter NPM/443:** immer `wss://<gleiche Origin>/ws` — kein `:3001` auf der öffentlichen Domain.
+ * - **Nur Vite-Dev (Port 5173):** direkt `hostname:3001/ws`, weil der Vite-WS-Proxy `/ws` oft das
+ *   Subprotokoll „protoo“ nicht zuverlässig durchreicht.
+ * - **vite preview / Sonderfälle:** `VITE_MEDIASOUP_PROTOO_DIRECT=true` erzwingt wieder direkten Backend-Port.
  */
 function canonicalRoomIdForProtoo(roomId) {
   const s = String(roomId ?? '').trim().replace(/[^A-Z0-9]/gi, '').toUpperCase();
@@ -55,13 +57,26 @@ function getProtooUrl(roomId, peerId) {
   const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
   const id = canonicalRoomIdForProtoo(roomId);
   const q = new URLSearchParams({ roomId: id, peerId });
-  if (import.meta.env.DEV) {
+
+  const isViteDevServer = typeof location !== 'undefined' && String(location.port) === '5173';
+  const forceDirectBackend =
+    import.meta.env.VITE_MEDIASOUP_PROTOO_DIRECT === 'true' ||
+    import.meta.env.VITE_MEDIASOUP_PROTOO_DIRECT === '1';
+
+  if (isViteDevServer || forceDirectBackend) {
     const port = import.meta.env.VITE_MEDIASOUP_PROTOO_PORT || '3001';
     const url = `${proto}//${location.hostname}:${port}/ws?${q}`;
-    msLog('Dev: Protoo direkt (nicht über Vite-Proxy):', url);
+    msLog('Protoo direkt (Vite-Dev oder VITE_MEDIASOUP_PROTOO_DIRECT):', url);
     return url;
   }
-  return `${proto}//${location.host}/ws?${q}`;
+
+  const base = new URL(location.origin);
+  base.protocol = proto;
+  const wsUrl = new URL('/ws', base);
+  wsUrl.search = q.toString();
+  const out = wsUrl.toString();
+  msLog('Protoo über Seiten-Origin (z. B. 443 hinter Proxy):', out);
+  return out;
 }
 
 async function notifyEasymeet(protoo, payload) {
@@ -753,8 +768,7 @@ export async function setupRoomParticipant(peerObj, nick, localStream, callbacks
           attempt,
           '| URL:',
           url,
-          '| Läuft der Server? (npm run server / dev:all). Dev: Port',
-          import.meta.env.VITE_MEDIASOUP_PROTOO_PORT || '3001'
+          '| Server erreichbar? NPM muss /ws (WebSocket) zu Node durchreichen. Lokal: npm run dev:all'
         );
         reject(new Error(`protoo WebSocket failed (attempt ${attempt})`));
       });

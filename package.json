@@ -32,7 +32,9 @@
     "preview": "vite preview",
     "docker:build": "docker build --no-cache --platform linux/amd64 -t smotherer/easymeet:latest .",
     "docker:push": "docker push smotherer/easymeet:latest",
-    "docker:build:and:push": "npm run docker:build && npm run docker:push"
+    "docker:build:and:push": "npm run docker:build && npm run docker:push",
+    "electron": "npm run start --prefix electron",
+    "electron:dev": "npm run start:dev --prefix electron"
   },
   "devDependencies": {
     "concurrently": "^9.2.1"

@@ -35,7 +35,6 @@ ENV NODE_ENV=production
 ENV PORT=3001
 ENV MEDIASOUP_LISTEN_IP=0.0.0.0
 
-EXPOSE 3001
-EXPOSE 40000-40200/udp
+# Keine EXPOSE: Ports werden intern (Reverse-Proxy / Overlay-Netz) angebunden, nicht am Host veröffentlicht.
 
 CMD ["node", "server/index.js"]

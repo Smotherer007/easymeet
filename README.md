@@ -119,7 +119,9 @@ npm run preview   # Preview the build
 - Frontend: `http://localhost:5173`
 - API: `http://localhost:3001` (Vite proxy under `/api`)
 
-**Medien / Protoo (Dev):** Der Client verbindet in der Entwicklung **direkt** mit `ws://<host>:3001/ws` (nicht über den Vite-WS-Proxy), weil Protoo das Subprotokoll `protoo` braucht — der Vite-Proxy kann das stören. Im Browser siehst du dazu Logs mit dem Präfix **`[easymeet/ms]`**. Port per `VITE_MEDIASOUP_PROTOO_PORT` überschreibbar.
+**Medien / Protoo:** Auf **Vite-Dev** (`:5173`) verbindet der Client **direkt** mit `ws(s)://<host>:3001/ws` (Subprotokoll `protoo` — Vite-WS-Proxy oft ungeeignet). Logs: **`[easymeet/ms]`**. Port: `VITE_MEDIASOUP_PROTOO_PORT`.
+
+**Production / Nginx Proxy Manager:** Protoo nutzt **`wss://<deine-domain>/ws`** (gleiche Origin wie die Seite, **kein** `:3001` in der URL). Der Proxy muss **WebSocket-Upgrade** für den Pfad **`/ws`** zum Node-Backend (z. B. `http://easymeet:3001`) durchreichen. `vite preview` o. Ä. ohne Proxy: optional **`VITE_MEDIASOUP_PROTOO_DIRECT=true`** in `.env` (Build-Zeit).
 
 ---
 
@@ -132,6 +134,7 @@ easymeet_patrick/
 ├── vite.config.js          # Vite + API proxy
 ├── Dockerfile              # Multi-stage build
 ├── docker-compose.yml      # Production deployment
+├── electron/               # Desktop-Client (Electron, lädt Web-URL)
 ├── config/
 │   └── persistent-rooms.example.json  # Vorlage → persistent-rooms.json (gitignored)
 │
@@ -301,19 +304,23 @@ Die Pipeline kann auch manuell unter **Actions → Build and Push Docker Image �
 | `TENOR_API_KEY` | `LIVDSRZULELA` (Tenor demo key) | API key for GIF search; never exposed to client |
 | `MEDIASOUP_ANNOUNCED_IP` | _(leer)_ | **Wichtig in Docker/Cloud:** öffentliche IP oder Hostname für ICE (sonst oft kein Video/Audio). Siehe [mediasoup WebRtcTransportOptions](https://mediasoup.org/documentation/v3/mediasoup/api/#WebRtcTransportOptions) |
 | `MEDIASOUP_LISTEN_IP` | `0.0.0.0` | Bind-Adresse des WebRTC-Transports |
-| `RTC_MIN_PORT` / `RTC_MAX_PORT` | `40000`–`40200` | UDP-Portbereich für RTP (Docker: wie in `docker-compose.yml` mappen) |
+| `RTC_MIN_PORT` / `RTC_MAX_PORT` | `40000`–`40200` | UDP-Portbereich für RTP (muss intern bis zum Container durchgereicht werden, z. B. Proxy) |
 | `EASYMEET_PERSISTENT_ROOMS` | `config/persistent-rooms.json` in `.env.example` | Path to JSON with `{"rooms":[...]}` (relative to cwd or absolute). Omit to disable pinned rooms. |
 
-**Docker:** `.env.example` → `.env`, **`config/persistent-rooms.json`** on the host (copy from example) and **mount** it into the container at the same path as in `EASYMEET_PERSISTENT_ROOMS` (e.g. `/app/config/persistent-rooms.json`). The image ships **`config/persistent-rooms.example.json`** as a template only.
+**Docker:** `.env.example` → `.env` für allgemeine Vorlage; für **Produktion** siehe **`.env.production.example`** (Platzhalter inkl. `MEDIASOUP_ANNOUNCED_IP`). **`config/persistent-rooms.json`** auf dem Host anlegen und in den Container mounten (Pfad wie `EASYMEET_PERSISTENT_ROOMS`, z. B. `/app/config/persistent-rooms.json`). Im Image liegt **`config/persistent-rooms.example.json`** als Vorlage.
+
+**Container startet nicht / Port 40000 belegt:** Das Repo hat **keine** `ports:` in `docker-compose.yml`. Häufig stammt das Mapping von **`docker-compose.override.yml`** (wird automatisch gemerged). Prüfen mit `docker compose config` – Details: [docs/docker-compose-troubleshooting.md](docs/docker-compose-troubleshooting.md).
+
+**Nginx Proxy Manager / WebSocket:** [docs/nginx-proxy-manager-protoo.md](docs/nginx-proxy-manager-protoo.md) – `/ws` muss als WebSocket zum Backend (Port 3001 intern) durchgereicht werden.
 
 ### Running with Docker
 
 ```bash
-# Run standalone
-docker run -p 3001:3001 smotherer/easymeet:latest
+# Standalone – Ports nur bei Bedarf an den Host binden (Image setzt keine EXPOSE)
+docker run -p 3001:3001 -p 40000-40200:40000-40200/udp smotherer/easymeet:latest
 
-# Run with custom port
-docker run -p 8080:8080 -e PORT=8080 smotherer/easymeet:latest
+# Ohne Host-Mapping (nur internes Netz / anderer Stack)
+docker run --network=frontend smotherer/easymeet:latest
 ```
 
 ### docker-compose
@@ -328,9 +335,9 @@ docker network create frontend
 docker compose up -d
 ```
 
-HTTP wird als `${EASYMEET_HTTP_PUBLISH_PORT:-3001}:${PORT:-3001}` gemappt; RTP-UDP **40000–40200** entspricht den Defaults von `RTC_MIN_PORT` / `RTC_MAX_PORT` (bei abweichendem Bereich Compose-Ports und Env anpassen).
+Die **Compose-Datei veröffentlicht keine `ports:`** – der Dienst ist nur im Netz `frontend` erreichbar (z. B. Reverse-Proxy). **UDP 40000–40200** muss für WebRTC bis zu diesem Container durchgereicht werden (gleicher Bereich wie `RTC_*`).
 
-Kurzüberblick (siehe Repo-Datei für den aktuellen Stand):
+Kurzüberblick:
 
 ```yaml
 services:
@@ -342,9 +349,6 @@ services:
     environment:
       - PORT=${PORT:-3001}
       - MEDIASOUP_ANNOUNCED_IP=${MEDIASOUP_ANNOUNCED_IP:-}
-    ports:
-      - "${EASYMEET_HTTP_PUBLISH_PORT:-3001}:${PORT:-3001}"
-      - "40000-40200:40000-40200/udp"
     networks:
       - frontend
 networks:
@@ -352,18 +356,7 @@ networks:
     external: true
 ```
 
-**Without external network** – use this minimal compose file:
-
-```yaml
-services:
-  app:
-    image: smotherer/easymeet:latest
-    ports:
-      - "3001:3001"
-    environment:
-      - PORT=3001
-      - NODE_ENV=production
-```
+**Lokal mit Host-Ports** – optional `ports:` ergänzen, z. B. `"3001:3001"` und `40000-40200:40000-40200/udp`.
 
 ### Dockerfile Details
 
@@ -377,7 +370,19 @@ The production image:
 - Serves static files from `dist/`
 - Handles API routes under `/api`
 - Falls back to `index.html` for SPA routing
-- Exposes port 3001
+- **Keine `EXPOSE`** im Dockerfile; lauscht intern auf `PORT` (Standard 3001)
+
+### Desktop (Electron)
+
+Ordner **`electron/`**: schlanke **Electron-App**, die die Web-UI per URL lädt (Standard: öffentliche Demo, Dev: `http://localhost:5173`).
+
+```bash
+cd electron && npm install
+npm run electron:dev    # aus Repo-Root, vorher: npm run dev:all
+# oder aus electron/: npm run start:dev
+```
+
+Details: **[electron/README.md](electron/README.md)**.
 
 ---
 
