@@ -1,0 +1,41 @@
+{
+  "name": "easymeet-electron",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Desktop shell for EasyMeet (loads the web app)",
+  "author": "Patrick Weppelmann",
+  "license": "Apache-2.0",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "start:dev": "electron . --easymeet-url=http://localhost:5173",
+    "pack": "electron-builder --dir"
+  },
+  "devDependencies": {
+    "electron": "^34.0.0",
+    "electron-builder": "^25.1.8"
+  },
+  "build": {
+    "appId": "tech.easyroomtools.easymeet",
+    "productName": "EasyMeet",
+    "directories": {
+      "output": "dist-pack"
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "package.json"
+    ],
+    "mac": {
+      "category": "public.app-category.social-networking",
+      "target": ["dmg", "zip"]
+    },
+    "win": {
+      "target": ["nsis", "zip"]
+    },
+    "linux": {
+      "target": ["AppImage", "deb"],
+      "category": "Network"
+    }
+  }
+}
