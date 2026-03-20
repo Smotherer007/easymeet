@@ -2,8 +2,19 @@ const SPEAKING_THRESHOLD = 15;
 const SMOOTHING = 0.7;
 const stopCallbacks = new Map();
 
+function streamHasLiveAudio(stream) {
+  return !!stream?.getAudioTracks?.().some((t) => t.readyState === 'live');
+}
+
+/**
+ * Pegel-Anzeige für einen Peer. Vorherige Session für dieselbe peerId wird beendet,
+ * damit ein späterer Aufruf mit echtem Mikro (nach leerem initialem Stream) greift.
+ */
 export function startSpeakingIndicator(peerId, stream, container) {
-  if (stopCallbacks.has(peerId)) return () => {};
+  stopSpeakingIndicator(peerId);
+  if (!streamHasLiveAudio(stream)) {
+    return () => {};
+  }
   let ctx, source, analyser, dataArray, rafId, lastSpeaking = false, cancelled = false;
   try {
     ctx = new (window.AudioContext || window.webkitAudioContext)();

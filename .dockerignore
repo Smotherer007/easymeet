@@ -4,4 +4,5 @@ dist
 .git
 *.md
 .env*
+config/persistent-rooms.json
 .DS_Store

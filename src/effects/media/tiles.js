@@ -112,9 +112,14 @@ export function attachRemoteAudio(peerId, stream, app) {
   }
 
   if (!mediaEl) return;
-  applyStreamToMedia(mediaEl, stream, tileState.hasVideo, tileState.vol, selectOutputDeviceId(state));
+  applyStreamToMedia(mediaEl, stream, tileState.hasVideo, tileState.vol, selectOutputDeviceId(state), {
+    isLocal: tileState.isLocal,
+    tile,
+  });
 
-  const hasActiveAudio = stream?.getAudioTracks?.().length > 0 && stream.getAudioTracks().some((tr) => tr.enabled && tr.readyState !== 'ended');
+  const hasActiveAudio =
+    stream?.getAudioTracks?.().length > 0 &&
+    stream.getAudioTracks().some((tr) => tr.enabled && tr.readyState === 'live');
   stopSpeakingIndicator(peerId);
   const containerForIndicator = app || document.getElementById('app') || document.body;
   if (hasActiveAudio) startSpeakingIndicator(peerId, stream, containerForIndicator);
@@ -132,6 +137,7 @@ export function attachRemoteAudio(peerId, stream, app) {
 export function detachRemoteAudio(peerId) {
   const container = document.getElementById('video-gallery') || document.getElementById('remote-audio-container') || document.body;
   const tile = container?.querySelector(`.video-tile[data-peer-id="${peerId}"]`);
+  tile?.querySelector('audio.video-tile__remote-audio')?.remove();
   if (tile) tile.remove();
   if (container?.id === 'video-gallery') updateVideoGalleryColumns();
 }

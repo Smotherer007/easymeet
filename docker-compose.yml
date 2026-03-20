@@ -1,11 +1,33 @@
+# Easymeet – Production-Compose
+#
+# 1. Optional: cp .env.example .env und MEDIASOUP_ANNOUNCED_IP setzen.
+# 2. Netzwerk: docker network create frontend
+# 3. docker compose up -d
+#
+# Ohne .env gelten die Default-Werte in ${VAR:-default}.
+# RTC_* im Container und der UDP-Portbereich unten müssen übereinstimmen.
+
 services:
   app:
     image: smotherer/easymeet:latest
+    env_file:
+      - path: .env
+        required: false
     environment:
-      - PORT=3001
-      - NODE_ENV=production
+      - PORT=${PORT:-3001}
+      - NODE_ENV=${NODE_ENV:-production}
+      - MEDIASOUP_LISTEN_IP=${MEDIASOUP_LISTEN_IP:-0.0.0.0}
+      - MEDIASOUP_ANNOUNCED_IP=${MEDIASOUP_ANNOUNCED_IP:-}
+      - RTC_MIN_PORT=${RTC_MIN_PORT:-40000}
+      - RTC_MAX_PORT=${RTC_MAX_PORT:-40200}
+    ports:
+      - "${EASYMEET_HTTP_PUBLISH_PORT:-3001}:${PORT:-3001}"
+      - "40000-40200:40000-40200/udp"
     networks:
       - frontend
+    # Nach: cp config/persistent-rooms.example.json config/persistent-rooms.json
+    # volumes:
+    #   - ./config/persistent-rooms.json:/app/config/persistent-rooms.json:ro
 
 networks:
   frontend:

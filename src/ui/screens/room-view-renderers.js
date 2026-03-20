@@ -34,6 +34,7 @@ import {
 import { renderChatContent } from '../../link-embed.js';
 import { EMOJI_DATA } from '../../emoji-data.js';
 import { escapeHtml } from '../../shared/escape.js';
+import { mergeAndClampWindowRect } from '../utils/viewportWindowClamp.js';
 
 export { escapeHtml };
 
@@ -76,7 +77,7 @@ function renderFileShareMessage(m, getFileBlob, myNick) {
   const bodyHtml = renderFileShareBody(fileId, m.nick, m.filename, hasBlob);
   const isSelf = m.nick === (myNick ?? '');
   const selfClass = isSelf ? ' chat__msg--self' : '';
-  return `<div class="chat__msg chat__msg--file-share${selfClass}" data-file-id="${escapeHtml(fileId)}"><div class="chat__msg-header"><span class="chat__msg-nick">${escapeHtml(displayNick)}</span><span class="chat__msg-time">${formatTime(m.ts)}</span></div><div class="chat__msg-body chat__file-share-body">${bodyHtml}</div></div>`;
+  return `<div class="chat__msg chat__msg--file-share${selfClass}" data-file-id="${escapeHtml(fileId)}"><div class="chat__msg-header"><span class="chat__msg-nick">${escapeHtml(m.nick ?? '?')}</span><span class="chat__msg-time">${formatTime(m.ts)}</span></div><div class="chat__msg-body chat__file-share-body">${bodyHtml}</div></div>`;
 }
 
 export function renderMessagesHtml(messages, getFileBlob, myNick) {
@@ -112,7 +113,7 @@ export function getWindowPositions(defaults, windowPositions) {
   const pos = (id) => {
     const d = defaults[id] || { x: 20, y: 80, w: 400, h: 300 };
     const p = windowPositions[id] || {};
-    return { x: p.x ?? d.x, y: p.y ?? d.y, w: p.w ?? d.w, h: p.h ?? d.h };
+    return mergeAndClampWindowRect(id, d, p);
   };
   return pos;
 }
@@ -134,7 +135,7 @@ export function renderMeetingControlBarFloating(state) {
 
 export function renderFloatingWindowVideos(pos) {
   return `
-    <div class="floating-window" data-window="videos" data-draggable style="left:${pos.x}px;top:${pos.y}px;width:${pos.w}px;height:${pos.h}px;">
+    <div class="floating-window floating-window--videos" data-window="videos" data-draggable style="left:${pos.x}px;top:${pos.y}px;width:${pos.w}px;height:${pos.h}px;">
       <div class="floating-window__header" data-drag-handle>
         <span class="floating-window__title">${t('videos')}</span>
       </div>
@@ -237,7 +238,7 @@ export function renderVoipParticipantHtmlGrid(m, ctx) {
   const memberMuted = isSelf ? isMuted : (muteMap.get(peerId) ?? false);
   const memberHasVideo = isSelf ? isVideoEnabled : (videoMap.has(peerId) ? videoMap.get(peerId) : (() => {
     const s = getStreamForPeerId?.(peerId);
-    return s?.getVideoTracks?.().length > 0 && s.getVideoTracks().some((tr) => tr.enabled);
+    return (s?.getVideoTracks?.().length ?? 0) > 0;
   })());
   const vol = volumeMap.get(peerId) ?? 100;
   const streaming = ctx.isStreaming?.(peerId);

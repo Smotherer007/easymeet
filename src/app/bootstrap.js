@@ -7,14 +7,13 @@ import { t, getLang, setLang, onLangChange } from '../i18n.js';
 import { err } from '../shared/result.js';
 import {
   fetchCreateRoom,
-  fetchRegisterHost,
   fetchJoinRoom,
   fetchRoomStatus,
 } from '../effects/network/api.js';
-import * as peer from '../effects/network/peer.js';
+import * as peer from '../effects/network/mediasoupClient.js';
 import { playMessageSound, playJoinSound } from '../sounds.js';
 import { playJoinTone, playLeaveTone, playStreamStartTone } from '../audio.js';
-import { startSpeakingIndicator, stopSpeakingIndicator, cleanupAllSpeakingIndicators } from '../speaking-indicator.js';
+import { stopSpeakingIndicator, cleanupAllSpeakingIndicators } from '../speaking-indicator.js';
 import {
   renderLanding,
   attachLandingListeners,
@@ -42,6 +41,7 @@ import {
   BACKGROUND_IMAGES,
 } from '../effects/backgroundEffects.js';
 import { VIDEO_LAYOUT_STORAGE, WINDOW_POSITIONS_STORAGE } from '../shared/constants.js';
+import { mergeAndClampAllWindowPositions } from '../ui/utils/viewportWindowClamp.js';
 import { getState, patchState, dispatch, subscribe } from '../store/index.js';
 import * as selectors from '../domain/selectors/index.js';
 import {
@@ -89,8 +89,14 @@ function loadLayoutFromStorage() {
     const stored = localStorage.getItem(WINDOW_POSITIONS_STORAGE);
     if (stored) {
       try {
-        const pos = JSON.parse(stored);
-        if (pos && typeof pos === 'object') patchState({ windowPositions: pos });
+        const raw = JSON.parse(stored);
+        if (raw && typeof raw === 'object') {
+          const pos = mergeAndClampAllWindowPositions(raw);
+          patchState({ windowPositions: pos });
+          try {
+            localStorage.setItem(WINDOW_POSITIONS_STORAGE, JSON.stringify(pos));
+          } catch (_) {}
+        }
       } catch (_) {}
     }
   } catch (_) {}
@@ -136,13 +142,20 @@ function getJoinUrl(roomId) {
 
 function renderLandingScreen(appEl) {
   render(appEl, renderLanding());
-  attachLandingListeners(appEl, () => navigate(appEl, 'create-room'), () => navigate(appEl, 'join-room'));
+  attachLandingListeners(appEl, {
+    onCreateRoom: () => navigate(appEl, 'create-room'),
+    onJoinRoom: () => navigate(appEl, 'join-room'),
+    onPickActiveRoom: (roomId, hasPassword) => {
+      navigate(appEl, 'join-room', { joinRoomCode: roomId, joinRoomHasPassword: hasPassword });
+    },
+  });
 }
 
 function renderCreateRoomScreen(appEl) {
   render(appEl, renderCreateRoomForm());
   attachCreateRoomListeners(appEl, {
-    onBack: () => navigate(appEl, 'landing'),
+    /* Session/Peer-State zurücksetzen — sonst bleibt z. B. ein offenes Protoo nach abgebrochenem Flow */
+    onBack: () => cleanupAndNavigate(appEl, 'landing'),
     onCreate: (nick, pwd, code) => handleCreateRoom(appEl, nick, pwd, code),
     getJoinUrl,
     initialNickname: readNickname() || '',
@@ -164,7 +177,7 @@ function renderCreateRoomSuccessScreen(appEl, s) {
 function renderJoinRoomScreen(appEl, s) {
   render(appEl, renderJoinRoom(s.joinRoomCode ?? '', s.joinRoomHasPassword ?? true));
   attachJoinRoomListeners(appEl, {
-    onBack: () => navigate(appEl, 'landing'),
+    onBack: () => cleanupAndNavigate(appEl, 'landing'),
     onJoin: (roomId, pwd, nick) => handleJoinRoom(appEl, roomId, pwd, nick),
     initialNickname: readNickname() || '',
   });
@@ -215,9 +228,15 @@ function renderRoomViewContent(appEl, s) {
 }
 
 function setupRoomViewPostRender(appEl, s) {
+  const myPeerId = selectors.selectMyPeerId(s);
+  const localStream = selectors.selectLocalStream(s);
+  if (localStream && myPeerId) attachRemoteAudio(myPeerId, localStream, appEl);
+  selectors.selectRemoteStreams(s).forEach((stream, peerId) => {
+    attachRemoteAudio(peerId, stream, appEl);
+  });
   (selectors.selectVoipMembers(s) || []).forEach((m) => {
     const stream = getStreamForVideoTile(m.peerId);
-    if (stream) attachRemoteAudio(m.peerId, stream);
+    if (stream) attachRemoteAudio(m.peerId, stream, appEl);
   });
   if (selectors.selectSettingsPanelOpen(s)) refreshDeviceSelects(appEl);
   setupRoomViewDeviceHandlers(appEl, s);
@@ -322,17 +341,6 @@ async function applyEffectToPreview(appEl, sourceStream, effect, previewVideo) {
   }
 }
 
-function getHostPeerCallbacks() {
-  return {
-    dispatch,
-    getPeerVideoState: (peerId) => selectors.selectPeerVideoState(getState()).get(peerId),
-    getPeerBackgroundEffect: (peerId) => (peerId === selectors.selectMyPeerId(getState()) ? selectors.selectBackgroundEffect(getState()) : selectors.selectPeerBackgroundEffect(getState()).get(peerId)) ?? 'none',
-    getPeerMuteState: (peerId) => selectors.selectPeerMuteState(getState()).get(peerId),
-    roomId: selectors.selectRoomId(getState()) ?? '',
-    password: selectors.selectPassword(getState()) ?? '',
-  };
-}
-
 function setCreateRoomError(appEl, resultOrError) {
   const errorEl = appEl.querySelector('#create-error');
   const createBtn = appEl.querySelector('#create-room-btn');
@@ -354,12 +362,23 @@ async function doCreateRoomApiAndSetup(appEl, nick, pwd, code) {
     return err('PEER', e?.message ?? 'Peer-Verbindung fehlgeschlagen', e);
   }
   patchState({ peer: p });
-  const regResult = await fetchRegisterHost(roomId, id);
-  if (!regResult.success) return regResult;
   dispatch({ type: 'room/created', payload: { roomId, password: pwd, nickname: nick, peerId: id } });
   if (nick) writeNickname(nick);
-  const hostPeer = peer.setupHostPeer(p, nick, () => selectors.selectLocalStream(getState()), getHostPeerCallbacks());
-  patchState({ hostPeer });
+  let participant;
+  try {
+    participant = await peer.setupRoomParticipant(p, nick, () => selectors.selectLocalStream(getState()), {
+      dispatch,
+      roomId,
+      password: pwd,
+      getLocalStream: () => selectors.selectLocalStream(getState()),
+      getLocalBackgroundEffect: () => selectors.selectBackgroundEffect(getState()) || 'none',
+      getMuted: () => selectors.selectIsMuted(getState()),
+    });
+  } catch (e) {
+    rollbackFailedCreateState();
+    return err('PEER', e?.message ?? 'Verbindung fehlgeschlagen', e);
+  }
+  patchState({ hostPeer: participant, viewerConn: participant });
   navigate(appEl, 'create-room-success');
   return { success: true, data: undefined };
 }
@@ -374,16 +393,12 @@ async function handleCreateRoom(appEl, nickname, password, roomCode = '') {
   if (!result.success) setCreateRoomError(appEl, result);
 }
 
-function getViewerPeerOptions(state) {
-  return {
-    dispatch,
-    roomId: selectors.selectRoomId(state),
-    password: selectors.selectPassword(state),
-    getLocalStream: () => selectors.selectLocalStream(getState()),
-    getLocalBackgroundEffect: () => selectors.selectBackgroundEffect(getState()) || 'none',
-    getMuted: () => selectors.selectIsMuted(getState()),
-    localStream: selectors.selectLocalStream(state),
-  };
+function rollbackFailedJoinState() {
+  dispatch({ type: 'room/joinAttemptAborted' });
+}
+
+function rollbackFailedCreateState() {
+  dispatch({ type: 'room/createAttemptAborted' });
 }
 
 async function doJoinRoomApiAndSetup(appEl, roomId, password, nickname) {
@@ -400,18 +415,27 @@ async function doJoinRoomApiAndSetup(appEl, roomId, password, nickname) {
   const nick = selectors.selectNickname(getState());
   if (nick) writeNickname(nick);
   const joinResult = await fetchJoinRoom(roomId, selectors.selectPassword(getState()), id);
-  if (!joinResult.success) return joinResult;
-  const { hostPeerId, roomId: actualRoomId } = joinResult.data;
-  patchState({ roomId: actualRoomId || roomId });
-  const state = getState();
-  let result;
-  try {
-    result = await peer.setupViewerPeer(p, hostPeerId, selectors.selectNickname(state), getViewerPeerOptions(state));
-  } catch (e) {
-    return err('PEER', e?.message ?? 'Verbindung zum Host fehlgeschlagen', e);
+  if (!joinResult.success) {
+    rollbackFailedJoinState();
+    return joinResult;
   }
-  patchState({ viewerConn: result });
-  result.conn.on('data', (data) => { if (data?.type === 'host_leaving') cleanupAndNavigate(appEl, 'landing'); });
+  const actualRoomId = joinResult.data.roomId || roomId;
+  patchState({ roomId: actualRoomId });
+  let participant;
+  try {
+    participant = await peer.setupRoomParticipant(p, nick, null, {
+      dispatch,
+      roomId: actualRoomId,
+      password: selectors.selectPassword(getState()),
+      getLocalStream: () => selectors.selectLocalStream(getState()),
+      getLocalBackgroundEffect: () => selectors.selectBackgroundEffect(getState()) || 'none',
+      getMuted: () => selectors.selectIsMuted(getState()),
+    });
+  } catch (e) {
+    rollbackFailedJoinState();
+    return err('PEER', e?.message ?? 'Verbindung fehlgeschlagen', e);
+  }
+  patchState({ hostPeer: participant, viewerConn: participant });
   navigate(appEl, 'room-view');
   return { success: true, data: undefined };
 }
@@ -471,36 +495,26 @@ function handleStopScreen(appEl) {
   navigate(appEl, 'room-view');
 }
 
-function closeHostAndFinish(appEl, screen) {
-  const hostPeer = selectors.selectHostPeer(getState());
-  if (!hostPeer) return false;
-  hostPeer.broadcastHostLeaving?.();
-  setTimeout(() => {
-    hostPeer?.close();
-    patchState({ hostPeer: null });
-    finishCleanup(appEl, screen);
-  }, 100);
-  return true;
+/**
+ * mediasoup: hostPeer und viewerConn zeigen auf dasselbe Participant-Objekt — nur einmal schließen.
+ * Synchron ausführen (kein setTimeout), damit kein zweiter Join mit „hängender“ Session kollidiert.
+ */
+function closeActiveMediasoupParticipant() {
+  const s = getState();
+  const participant = selectors.selectHostPeer(s) || selectors.selectViewerConn(s);
+  if (!participant) return;
+  try {
+    participant.close?.();
+  } catch (e) {
+    console.warn('[easymeet] Participant schließen:', e?.message || e);
+  }
+  patchState({ hostPeer: null, viewerConn: null });
 }
 
 function cleanupAndNavigate(appEl, screen) {
-  if (closeHostAndFinish(appEl, screen)) return;
-  const viewerConn = selectors.selectViewerConn(getState());
-  if (viewerConn) {
-    viewerConn.close?.();
-    patchState({ viewerConn: null });
-  }
+  closeActiveMediasoupParticipant();
   finishCleanup(appEl, screen);
 }
-
-const RESET_STATE = {
-  localStream: null, hostStream: null, screenStreams: new Map(), remoteStreams: new Map(),
-  viewerScreenCall: null, frozenStream: null, frozenStreamStop: null, backgroundEffectStop: null,
-  backgroundEffect: 'none', baseLocalStream: null, settingsPanelOpen: false, peer: null,
-  viewerConn: null, roomId: null, messages: [], unreadChatCount: 0, members: [], voipMembers: [],
-  sharedFiles: [], receivedFiles: [], receivedFileBlobs: new Map(), peerMuteState: new Map(),
-  peerVideoState: new Map(), peerBackgroundEffect: new Map(), peerVolume: new Map(),
-};
 
 function stopAllStreamsAndConnections(s) {
   selectors.selectLocalStream(s)?.getTracks?.().forEach((t) => t.stop());
@@ -527,7 +541,7 @@ function removeDeviceChangeHandlers(s) {
 function finishCleanup(appEl, screen) {
   const s = getState();
   stopAllStreamsAndConnections(s);
-  patchState(RESET_STATE);
+  dispatch({ type: 'session/cleared' });
   const audioContainer = document.getElementById('remote-audio-container');
   if (audioContainer) audioContainer.innerHTML = '';
   removeDeviceChangeHandlers(s);
@@ -554,10 +568,10 @@ async function initFromUrl(appEl) {
 function setupBeforeUnload() {
   window.addEventListener('beforeunload', () => {
     const s = getState();
-    const hostPeer = selectors.selectHostPeer(s);
-    const viewerConn = selectors.selectViewerConn(s);
-    if (hostPeer) { hostPeer.broadcastHostLeaving?.(); hostPeer.close?.(); }
-    if (viewerConn) viewerConn.close?.();
+    const participant = selectors.selectHostPeer(s) || selectors.selectViewerConn(s);
+    try {
+      participant?.close?.();
+    } catch (_) {}
     try { s.backgroundEffectStop?.(); } catch (_) {}
     selectors.selectLocalStream(s)?.getTracks?.().forEach((t) => t.stop());
     selectors.selectPeer(s)?.destroy?.();
@@ -612,8 +626,17 @@ function handleVoipMembersUpdated(p) {
   dispatch({ type: 'chat/membersUpdated', payload: { list: list.map((m) => m.nick).filter(Boolean) } });
 }
 
-function handleVoipRemoteStreamAdded(state, p) {
-  attachRemoteAudio(p.peerId, p.stream);
+function handleVoipRemoteStreamAdded(appEl, state, p) {
+  attachRemoteAudio(p.peerId, p.stream, appEl);
+  /* Consumers können kommen bevor #video-gallery existiert — alle Streams erneut an die Galerie hängen */
+  if (selectors.selectScreen(state) === 'room-view') {
+    const myPeerId = selectors.selectMyPeerId(state);
+    const localStream = selectors.selectLocalStream(state);
+    if (localStream && myPeerId) attachRemoteAudio(myPeerId, localStream, appEl);
+    selectors.selectRemoteStreams(state).forEach((stream, peerId) => {
+      attachRemoteAudio(peerId, stream, appEl);
+    });
+  }
   const voipMembers = selectors.selectVoipMembers(state);
   if (!voipMembers.some((m) => m.peerId === p.peerId)) {
     const members = state.members ?? [];
@@ -662,11 +685,11 @@ function handleVoipOrRoomUpdate(appEl, state) {
 
 function dispatchVoipEvent(appEl, state, evt, p) {
   if (evt === 'voip/membersUpdated') handleVoipMembersUpdated(p);
-  if (evt === 'voip/remoteStreamAdded') handleVoipRemoteStreamAdded(state, p);
+  if (evt === 'voip/remoteStreamAdded') handleVoipRemoteStreamAdded(appEl, state, p);
   if (evt === 'voip/remoteStreamEnded') { detachRemoteAudio(p.peerId); stopSpeakingIndicator(p.peerId); }
   if (evt === 'voip/muteReceived' || evt === 'voip/videoStateUpdated') {
     const stream = selectors.selectRemoteStreams(state).get(p.peerId) || getStreamForPeerId(p.peerId);
-    if (stream) attachRemoteAudio(p.peerId, stream);
+    if (stream) attachRemoteAudio(p.peerId, stream, appEl);
   }
   if (evt === 'voip/screenStreamStarted') {
     if (p.peerId !== selectors.selectMyPeerId(state)) playStreamStartTone();

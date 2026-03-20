@@ -4,7 +4,7 @@
 
 import { getState } from '../../store/index.js';
 import { selectInputDeviceId, selectVideoDeviceId, selectOutputDeviceId, selectLocalStream } from '../../domain/selectors/index.js';
-import { getAudioDevices, getVideoDevices } from '../network/peer.js';
+import { getAudioDevices, getVideoDevices } from '../network/mediasoupClient.js';
 import { t } from '../../i18n.js';
 import { escapeHtml } from '../../shared/escape.js';
 

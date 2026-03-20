@@ -33,7 +33,7 @@ import {
 import { getCustomBackgrounds } from '../storage/customBackgroundStorage.js';
 import { readDeviceIds, writeDeviceId } from '../storage/deviceStorage.js';
 import { DEVICE_STORAGE } from '../../shared/constants.js';
-import * as peer from '../network/peer.js';
+import * as peer from '../network/mediasoupClient.js';
 import { startSpeakingIndicator, stopSpeakingIndicator } from '../../speaking-indicator.js';
 
 /**
@@ -156,7 +156,11 @@ export async function reacquireAudioStreamIfNeeded(app, attachRemoteAudio, setup
     const newDeviceId = inputDeviceId && inputs.some((d) => d.deviceId === inputDeviceId)
       ? inputDeviceId
       : (inputs[0]?.deviceId ?? undefined);
-    const newStream = await peer.getUserMedia(newDeviceId, selectHasVideoSupport(s) ?? false, selectVideoDeviceId(s) || undefined);
+    const newStream = await peer.getUserMediaResilient(
+      newDeviceId,
+      selectHasVideoSupport(s) ?? false,
+      selectVideoDeviceId(s) || undefined
+    );
     const newAudioTrack = newStream.getAudioTracks?.()[0];
     const newVideoTrack = newStream.getVideoTracks?.()[0];
     if (!newAudioTrack) return;

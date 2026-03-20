@@ -61,28 +61,6 @@ export async function fetchCreateRoom(password, roomCode) {
   }
 }
 
-/**
- * @param {string} roomId
- * @param {string} hostPeerId
- * @returns {Promise<import('../../shared/result.js').Result<void>>}
- */
-export async function fetchRegisterHost(roomId, hostPeerId) {
-  try {
-    const res = await fetch(`${API_BASE}/rooms/${roomId}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ hostPeerId }),
-    });
-    const data = await res.json().catch(() => ({}));
-    if (!res.ok) {
-      return err('API', data.error || 'Host konnte nicht registriert werden');
-    }
-    return ok(undefined);
-  } catch (e) {
-    return err('NETWORK', 'Verbindung fehlgeschlagen', e);
-  }
-}
-
 function normalizeRoomIdentifier(id) {
   return (id || '').trim().replace(/[^A-Z0-9]/gi, '').toUpperCase() || (id || '').trim();
 }
@@ -115,9 +93,39 @@ export async function fetchJoinRoom(identifier, password, peerId) {
 }
 
 /**
- * @param {string} identifier
- * @returns {Promise<import('../../shared/result.js').Result<{ exists: boolean; hasPassword: boolean }>>}
+ * @returns {Promise<import('../../shared/result.js').Result<{ rooms: Array<{ roomId: string; participantCount: number; hasPassword: boolean }> }>>}
  */
+export async function fetchActiveRooms() {
+  try {
+    const res = await fetch(`${API_BASE}/rooms/active`);
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      return err('API', data.error || 'Aktive Räume konnten nicht geladen werden');
+    }
+    const rooms = Array.isArray(data.rooms) ? data.rooms : [];
+    return ok({ rooms });
+  } catch (e) {
+    return err('NETWORK', 'Verbindung fehlgeschlagen', e);
+  }
+}
+
+/**
+ * @returns {Promise<import('../../shared/result.js').Result<{ rooms: Array<{ roomId: string; hasPassword: boolean }> }>>}
+ */
+export async function fetchPinnedRooms() {
+  try {
+    const res = await fetch(`${API_BASE}/rooms/pinned`);
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      return err('API', data.error || 'Feste Räume konnten nicht geladen werden');
+    }
+    const rooms = Array.isArray(data.rooms) ? data.rooms : [];
+    return ok({ rooms });
+  } catch (e) {
+    return err('NETWORK', 'Verbindung fehlgeschlagen', e);
+  }
+}
+
 export async function fetchRoomStatus(identifier) {
   try {
     const normalized = normalizeRoomIdentifier(identifier) || (identifier || '').trim();

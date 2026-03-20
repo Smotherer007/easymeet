@@ -30,7 +30,10 @@
 /** @typedef {{ type: 'host/leaving' }} HostLeavingEvent */
 /** @typedef {{ type: 'peer/volumeChanged'; payload: { peerId: string; percent: number } }} PeerVolumeChangedEvent */
 /** @typedef {{ type: 'cleanup/finished'; payload: { screen: Screen } }} CleanupFinishedEvent */
+/** @typedef {{ type: 'session/cleared' }} SessionClearedEvent */
+/** @typedef {{ type: 'room/joinAttemptAborted' }} RoomJoinAttemptAbortedEvent */
+/** @typedef {{ type: 'room/createAttemptAborted' }} RoomCreateAttemptAbortedEvent */
 
-/** @typedef {NavScreenEvent|CreateRoomRequestedEvent|JoinRoomRequestedEvent|RoomCreatedEvent|RoomJoinedEvent|LeaveRequestedEvent|ChatSendRequestedEvent|ChatMessageReceivedEvent|ChatMembersUpdatedEvent|VoipMembersUpdatedEvent|VoipMuteReceivedEvent|VoipMuteToggledEvent|ScreenStreamStartedEvent|ScreenStreamStoppedEvent|RemoteStreamAddedEvent|RemoteStreamEndedEvent|VideoStateUpdatedEvent|BackgroundEffectUpdatedEvent|FileReceivedEvent|FileProgressEvent|FileProgressClearedEvent|HostLeavingEvent|PeerVolumeChangedEvent|CleanupFinishedEvent} AppEvent */
+/** @typedef {NavScreenEvent|CreateRoomRequestedEvent|JoinRoomRequestedEvent|RoomCreatedEvent|RoomJoinedEvent|LeaveRequestedEvent|ChatSendRequestedEvent|ChatMessageReceivedEvent|ChatMembersUpdatedEvent|VoipMembersUpdatedEvent|VoipMuteReceivedEvent|VoipMuteToggledEvent|ScreenStreamStartedEvent|ScreenStreamStoppedEvent|RemoteStreamAddedEvent|RemoteStreamEndedEvent|VideoStateUpdatedEvent|BackgroundEffectUpdatedEvent|FileReceivedEvent|FileProgressEvent|FileProgressClearedEvent|HostLeavingEvent|PeerVolumeChangedEvent|CleanupFinishedEvent|SessionClearedEvent|RoomJoinAttemptAbortedEvent|RoomCreateAttemptAbortedEvent} AppEvent */
 
 export {};

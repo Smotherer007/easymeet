@@ -190,6 +190,10 @@ body {
   animation: fadeIn 0.3s ease;
 }
 
+.screen.landing {
+  max-width: 56rem;
+}
+
 @keyframes fadeIn {
   from { opacity: 0; transform: translateY(8px); }
   to { opacity: 1; transform: translateY(0); }
@@ -221,6 +225,133 @@ body {
   display: flex;
   flex-direction: column;
   gap: 1.25rem;
+}
+
+@media (min-width: 640px) {
+  .landing__cards {
+    flex-direction: row;
+    align-items: stretch;
+  }
+
+  .landing__cards .card {
+    flex: 1;
+    min-width: 0;
+  }
+}
+
+.landing__pinned {
+  margin-top: 2.5rem;
+  padding-top: 1.75rem;
+  border-top: 1px solid var(--glass-border);
+  text-align: left;
+}
+
+.landing__active {
+  margin-top: 2.5rem;
+  padding-top: 1.75rem;
+  border-top: 1px solid var(--glass-border);
+  text-align: left;
+}
+
+.landing__active-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.landing__active-title {
+  margin: 0;
+  font-size: 1.15rem;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.landing__active-refresh {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.landing__active-hint {
+  margin: 0.5rem 0 1rem;
+  font-size: 0.875rem;
+  color: var(--text-muted);
+}
+
+.landing__active-loading,
+.landing__active-error,
+.landing__active-empty {
+  margin: 0 0 0.75rem;
+  font-size: 0.9rem;
+  color: var(--text-muted);
+}
+
+.landing__active-error {
+  color: #f87171;
+}
+
+.landing__active-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 0.65rem;
+}
+
+.landing-active-room {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding: 0.85rem 1rem;
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius);
+  cursor: pointer;
+  transition: var(--transition);
+  text-align: left;
+}
+
+.landing-active-room:hover,
+.landing-active-room:focus-visible {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent-dim);
+  outline: none;
+}
+
+.landing-active-room__code {
+  font-weight: 700;
+  font-size: 1.05rem;
+  letter-spacing: 0.04em;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+
+.landing-active-room__meta {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.2rem;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.landing-active-room__lock {
+  display: inline-flex;
+  align-items: center;
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.landing-active-room:hover .landing-active-room__lock,
+.landing-active-room:focus-visible .landing-active-room__lock {
+  color: var(--accent);
+}
+
+.landing-active-room__lock-svg {
+  display: block;
 }
 
 .landing__footer {
@@ -750,16 +881,21 @@ body {
   flex-direction: column;
 }
 
+/* overflow: hidden nötig: sonst ragt der rechteckige Header über border-radius des Fensters (eckige Oberecken). */
 .floating-window[data-window="videos"] {
   min-width: 320px;
   min-height: 280px;
-  overflow: visible;
+  overflow: hidden;
+}
+
+.floating-window[data-window="videos"] .floating-window__header {
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
 }
 
 .floating-window--videos .floating-window__body,
 .floating-window[data-window="videos"] .floating-window__body {
   padding: 0;
-  overflow: visible;
+  overflow: auto;
 }
 
 .floating-window--videos .video-gallery,
@@ -1020,6 +1156,11 @@ body {
   background: rgba(10, 10, 15, 0.4);
 }
 
+/* Mindesthöhe: verhindert 0px-Zeilen bei knappem Flex-Layout */
+.video-gallery.video-gallery--grid {
+  min-height: min(52vh, 640px);
+}
+
 /* Freies Layout: Tiles verschiebbar */
 .video-gallery--free {
   display: block;
@@ -1078,6 +1219,18 @@ body {
   z-index: 3;
 }
 
+/* Video an Kachel-Radius clippen (overflow:visible auf .video-tile für Volume-Tooltip).
+ * transform auf <video> (Spiegeln) bricht in WebKit/Chromium oft border-radius-Clipping → clip-path. */
+.video-tile__media-wrap {
+  position: absolute;
+  inset: 0;
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  z-index: 0;
+  -webkit-clip-path: inset(0 round var(--radius-lg));
+  clip-path: inset(0 round var(--radius-lg));
+}
+
 .video-tile video {
   width: 100%;
   height: 100%;
@@ -1085,7 +1238,7 @@ body {
   display: block;
   position: relative;
   z-index: 0;
-  border-radius: inherit;
+  border-radius: 0;
 }
 
 /* Eigenes Video spiegeln (wie beim Blick in den Spiegel) */
@@ -1093,11 +1246,10 @@ body {
   transform: scaleX(-1);
 }
 
-/* Remote participant: correct mirrored stream (natural view) */
+/* Remote-Teilnehmer: übertragener Stream ebenfalls horizontal spiegeln */
 .video-tile:not(.video-tile--local) video {
   transform: scaleX(-1);
 }
-
 
 .video-tile__name {
   position: absolute;

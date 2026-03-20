@@ -55,10 +55,12 @@ import {
 } from '../../icons.js';
 import { EMOJI_DATA, searchEmojis } from '../../emoji-data.js';
 import { renderChatContent } from '../../link-embed.js';
+import { WINDOW_POSITION_DEFAULTS } from '../../shared/windowPositionsDefaults.js';
+import { mergeAndClampWindowRect, clampWindowRectById, clampDraggablePosition } from '../utils/viewportWindowClamp.js';
 
 function renderFloatingWindows(state) {
   const { windowPositions = {}, voipMembers = [], messages = [], isMuted = false, isVideoEnabled = false, hostStream = null, paused = false, audioEnabled = true, roomId = '', unreadChatCount = 0, isHost = false } = state;
-  const defaults = { videos: { x: 20, y: 80, w: 560, h: 420 }, chat: { x: 520, y: 80, w: 380, h: 450 }, participants: { x: 520, y: 380, w: 280, h: 300 }, stream: { x: 100, y: 100, w: 800, h: 500 } };
+  const defaults = { ...WINDOW_POSITION_DEFAULTS };
   const pos = getWindowPositions(defaults, windowPositions);
   const muteMap = state.peerMuteState instanceof Map ? state.peerMuteState : new Map();
   const volumeMap = state.peerVolume instanceof Map ? state.peerVolume : new Map();
@@ -114,15 +116,12 @@ export function renderRoomView(state) {
     windowPositions = {},
   } = state;
 
-  const streamDefaults = { x: 100, y: 100, w: 800, h: 500 };
-  const streamPos = windowPositions.stream || {};
-  const streamStyle = `left:${streamPos.x ?? streamDefaults.x}px;top:${streamPos.y ?? streamDefaults.y}px;width:${streamPos.w ?? streamDefaults.w}px;height:${streamPos.h ?? streamDefaults.h}px;transform:none`;
-  const settingsDefaults = { x: 100, y: 80, w: 560, h: 520 };
-  const settingsPos = windowPositions.settings || {};
-  const settingsStyle = `left:${settingsPos.x ?? settingsDefaults.x}px;top:${settingsPos.y ?? settingsDefaults.y}px;width:${settingsPos.w ?? settingsDefaults.w}px;height:${settingsPos.h ?? settingsDefaults.h}px;transform:none`;
-  const shareDefaults = { x: 120, y: 100, w: 420, h: 520 };
-  const sharePos = windowPositions.share || {};
-  const shareStyle = `left:${sharePos.x ?? shareDefaults.x}px;top:${sharePos.y ?? shareDefaults.y}px;width:${sharePos.w ?? shareDefaults.w}px;height:${sharePos.h ?? shareDefaults.h}px;transform:none`;
+  const streamRect = mergeAndClampWindowRect('stream', WINDOW_POSITION_DEFAULTS.stream, windowPositions.stream);
+  const streamStyle = `left:${streamRect.x}px;top:${streamRect.y}px;width:${streamRect.w}px;height:${streamRect.h}px;transform:none`;
+  const settingsRect = mergeAndClampWindowRect('settings', WINDOW_POSITION_DEFAULTS.settings, windowPositions.settings);
+  const settingsStyle = `left:${settingsRect.x}px;top:${settingsRect.y}px;width:${settingsRect.w}px;height:${settingsRect.h}px;transform:none`;
+  const shareRect = mergeAndClampWindowRect('share', WINDOW_POSITION_DEFAULTS.share, windowPositions.share);
+  const shareStyle = `left:${shareRect.x}px;top:${shareRect.y}px;width:${shareRect.w}px;height:${shareRect.h}px;transform:none`;
 
   const joinUrl = roomId && getJoinUrl ? getJoinUrl(roomId) : '';
   const formattedRoomId = roomId ? roomId.replace(/(.{3})/g, '$1-').replace(/-$/, '') : '';
@@ -328,7 +327,8 @@ export function updateVoipParticipants(container, members, myPeerId, isMuted, sc
       const memberMuted = isSelf ? isMuted : (muteMap.get(peerId) ?? false);
       const memberHasVideo = isSelf ? isVideoEnabled : (videoMap.has(peerId) ? videoMap.get(peerId) : (() => {
         const s = getStreamForPeerId?.(peerId);
-        return s?.getVideoTracks?.().length > 0 && s.getVideoTracks().some((t) => t.enabled);
+        /* Wie video-tiles: Track reicht; enabled kann beim Consumer kurz false sein */
+        return (s?.getVideoTracks?.().length ?? 0) > 0;
       })());
       const vol = volumeMap.get(peerId) ?? 100;
       const streaming = streams.has(peerId);
@@ -471,16 +471,21 @@ function setupSettingsModalResize(container, callbacks = {}) {
   const onMouseMove = (e) => {
     const dw = e.clientX - startX;
     const dh = e.clientY - startY;
-    const w = Math.round(Math.max(SETTINGS_MODAL_MIN.w, Math.min(FLOATING_WINDOW_MAX.w, startW + dw)));
-    const h = Math.round(Math.max(SETTINGS_MODAL_MIN.h, Math.min(FLOATING_WINDOW_MAX.h, startH + dh)));
+    let w = Math.round(Math.max(SETTINGS_MODAL_MIN.w, Math.min(FLOATING_WINDOW_MAX.w, startW + dw)));
+    let h = Math.round(Math.max(SETTINGS_MODAL_MIN.h, Math.min(FLOATING_WINDOW_MAX.h, startH + dh)));
     content.style.width = `${w}px`;
     content.style.height = `${h}px`;
+    const rect = content.getBoundingClientRect();
+    const c = clampWindowRectById('settings', { x: rect.left, y: rect.top, w: rect.width, h: rect.height });
+    content.style.left = `${c.x}px`;
+    content.style.top = `${c.y}px`;
+    content.style.width = `${c.w}px`;
+    content.style.height = `${c.h}px`;
     startX = e.clientX;
     startY = e.clientY;
-    startW = w;
-    startH = h;
-    const pos = content.getBoundingClientRect();
-    const positions = { ...(callbacks.getWindowPositions?.() || {}), settings: { x: pos.left, y: pos.top, w, h } };
+    startW = c.w;
+    startH = c.h;
+    const positions = { ...(callbacks.getWindowPositions?.() || {}), settings: { x: c.x, y: c.y, w: c.w, h: c.h } };
     callbacks.onWindowResize?.('settings', positions);
   };
   const onMouseUp = () => {
@@ -509,16 +514,21 @@ function setupStreamModalResize(container, callbacks = {}) {
   const onMouseMove = (e) => {
     const dw = e.clientX - startX;
     const dh = e.clientY - startY;
-    const w = Math.round(Math.max(STREAM_MODAL_MIN.w, Math.min(FLOATING_WINDOW_MAX.w, startW + dw)));
-    const h = Math.round(Math.max(STREAM_MODAL_MIN.h, Math.min(FLOATING_WINDOW_MAX.h, startH + dh)));
+    let w = Math.round(Math.max(STREAM_MODAL_MIN.w, Math.min(FLOATING_WINDOW_MAX.w, startW + dw)));
+    let h = Math.round(Math.max(STREAM_MODAL_MIN.h, Math.min(FLOATING_WINDOW_MAX.h, startH + dh)));
     content.style.width = `${w}px`;
     content.style.height = `${h}px`;
+    const rect = content.getBoundingClientRect();
+    const c = clampWindowRectById('stream', { x: rect.left, y: rect.top, w: rect.width, h: rect.height });
+    content.style.left = `${c.x}px`;
+    content.style.top = `${c.y}px`;
+    content.style.width = `${c.w}px`;
+    content.style.height = `${c.h}px`;
     startX = e.clientX;
     startY = e.clientY;
-    startW = w;
-    startH = h;
-    const pos = content.getBoundingClientRect();
-    const positions = { ...(callbacks.getWindowPositions?.() || {}), stream: { x: pos.left, y: pos.top, w, h } };
+    startW = c.w;
+    startH = c.h;
+    const positions = { ...(callbacks.getWindowPositions?.() || {}), stream: { x: c.x, y: c.y, w: c.w, h: c.h } };
     callbacks.onWindowResize?.('stream', positions);
   };
   const onMouseUp = () => {
@@ -547,16 +557,21 @@ function setupShareModalResize(container, callbacks = {}) {
   const onMouseMove = (e) => {
     const dw = e.clientX - startX;
     const dh = e.clientY - startY;
-    const w = Math.round(Math.max(SHARE_MODAL_MIN.w, Math.min(FLOATING_WINDOW_MAX.w, startW + dw)));
-    const h = Math.round(Math.max(SHARE_MODAL_MIN.h, Math.min(FLOATING_WINDOW_MAX.h, startH + dh)));
+    let w = Math.round(Math.max(SHARE_MODAL_MIN.w, Math.min(FLOATING_WINDOW_MAX.w, startW + dw)));
+    let h = Math.round(Math.max(SHARE_MODAL_MIN.h, Math.min(FLOATING_WINDOW_MAX.h, startH + dh)));
     content.style.width = `${w}px`;
     content.style.height = `${h}px`;
+    const rect = content.getBoundingClientRect();
+    const c = clampWindowRectById('share', { x: rect.left, y: rect.top, w: rect.width, h: rect.height });
+    content.style.left = `${c.x}px`;
+    content.style.top = `${c.y}px`;
+    content.style.width = `${c.w}px`;
+    content.style.height = `${c.h}px`;
     startX = e.clientX;
     startY = e.clientY;
-    startW = w;
-    startH = h;
-    const pos = content.getBoundingClientRect();
-    const positions = { ...(callbacks.getWindowPositions?.() || {}), share: { x: pos.left, y: pos.top, w, h } };
+    startW = c.w;
+    startH = c.h;
+    const positions = { ...(callbacks.getWindowPositions?.() || {}), share: { x: c.x, y: c.y, w: c.w, h: c.h } };
     callbacks.onWindowResize?.('share', positions);
   };
   const onMouseUp = () => {
@@ -591,11 +606,18 @@ function setupFloatingWindowResize(container, callbacks = {}) {
       let h = Math.round(Math.max(mins.h, Math.min(FLOATING_WINDOW_MAX.h, startH + dh)));
       win.style.width = `${w}px`;
       win.style.height = `${h}px`;
+      const rect = win.getBoundingClientRect();
+      const c = clampWindowRectById(windowId, { x: rect.left, y: rect.top, w: rect.width, h: rect.height });
+      win.style.left = `${c.x}px`;
+      win.style.top = `${c.y}px`;
+      win.style.width = `${c.w}px`;
+      win.style.height = `${c.h}px`;
       startX = e.clientX;
       startY = e.clientY;
-      startW = w;
-      startH = h;
-      const positions = { ...(callbacks.getWindowPositions?.() || {}), [windowId]: { ...(callbacks.getWindowPositions?.()?.[windowId] || {}), w, h } };
+      startW = c.w;
+      startH = c.h;
+      const prev = callbacks.getWindowPositions?.()?.[windowId] || {};
+      const positions = { ...(callbacks.getWindowPositions?.() || {}), [windowId]: { ...prev, x: c.x, y: c.y, w: c.w, h: c.h } };
       callbacks.onWindowResize?.(windowId, positions);
     };
     const onMouseUp = () => {
@@ -634,8 +656,7 @@ function setupDraggableModals(container, callbacks = {}) {
     const onMouseMove = (e) => {
       const dx = e.clientX - startX;
       const dy = e.clientY - startY;
-      const left = Math.max(0, Math.min(window.innerWidth - content.offsetWidth, startLeft + dx));
-      const top = Math.max(0, Math.min(window.innerHeight - content.offsetHeight, startTop + dy));
+      const { left, top } = clampDraggablePosition(startLeft + dx, startTop + dy, content.offsetWidth, content.offsetHeight);
       content.style.left = `${left}px`;
       content.style.top = `${top}px`;
       startX = e.clientX;
@@ -792,7 +813,61 @@ function attachRoomViewShareModalCopyListeners(container) {
   });
 }
 
+/** Modals mit hidden nicht anfassen; schwebende Fenster auch clippen wenn zugeklappt (beim Öffnen sichtbar im Viewport). */
+function shouldClampDraggable(el) {
+  const modal = el.closest('#stream-modal, #settings-modal, #share-modal');
+  if (modal?.hasAttribute('hidden')) return false;
+  return true;
+}
+
+function clampAllDraggableWindows(container, callbacks) {
+  const getWp = callbacks.getWindowPositions;
+  const onResize = callbacks.onWindowResize;
+  if (!getWp || !onResize) return;
+  let merged = { ...getWp() };
+  let changed = false;
+  container.querySelectorAll('[data-draggable][data-window]').forEach((el) => {
+    if (!shouldClampDraggable(el)) return;
+    const id = el.dataset.window;
+    if (!id) return;
+    const rect = el.getBoundingClientRect();
+    if (rect.width < 8 || rect.height < 8) return;
+    const c = clampWindowRectById(id, { x: rect.left, y: rect.top, w: rect.width, h: rect.height });
+    const moved =
+      Math.abs(c.x - rect.left) > 0.5 ||
+      Math.abs(c.y - rect.top) > 0.5 ||
+      Math.abs(c.w - rect.width) > 0.5 ||
+      Math.abs(c.h - rect.height) > 0.5;
+    if (moved) {
+      el.style.left = `${c.x}px`;
+      el.style.top = `${c.y}px`;
+      el.style.width = `${c.w}px`;
+      el.style.height = `${c.h}px`;
+      merged = { ...merged, [id]: { ...(merged[id] || {}), x: c.x, y: c.y, w: c.w, h: c.h } };
+      changed = true;
+    }
+  });
+  if (changed) onResize('_viewport', merged);
+}
+
 export function attachRoomViewListeners(container, callbacks) {
+  container._easymeetViewportClampAbort?.abort();
+  const viewportClampAc = new AbortController();
+  container._easymeetViewportClampAbort = viewportClampAc;
+  const vSignal = viewportClampAc.signal;
+  let clampRaf = 0;
+  const scheduleViewportClamp = () => {
+    cancelAnimationFrame(clampRaf);
+    clampRaf = requestAnimationFrame(() => {
+      clampRaf = 0;
+      clampAllDraggableWindows(container, callbacks);
+    });
+  };
+  window.addEventListener('resize', scheduleViewportClamp, { signal: vSignal });
+  window.visualViewport?.addEventListener('resize', scheduleViewportClamp, { signal: vSignal });
+  window.visualViewport?.addEventListener('scroll', scheduleViewportClamp, { signal: vSignal });
+  requestAnimationFrame(scheduleViewportClamp);
+
   setupDraggableModals(container, { onWindowMove: callbacks.onWindowMove });
   setupFloatingWindowResize(container, { onWindowResize: callbacks.onWindowResize, getWindowPositions: callbacks.getWindowPositions });
   setupStreamModalResize(container, { onWindowResize: callbacks.onWindowResize, getWindowPositions: callbacks.getWindowPositions });

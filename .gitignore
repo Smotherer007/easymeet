@@ -2,6 +2,7 @@ node_modules
 dist
 .env
 .env.local
+config/persistent-rooms.json
 *.log
 .DS_Store
 .cursor/

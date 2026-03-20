@@ -1,0 +1,15 @@
+{
+  "rooms": [
+    {
+      "id": "OPENLOBBY"
+    },
+    {
+      "id": "STANDUP",
+      "passwordEnv": "EASYMEET_ROOM_STANDUP_PASSWORD"
+    },
+    {
+      "id": "TEAM",
+      "password": "nur-in-vertrauenswürdiger-umgebung"
+    }
+  ]
+}

@@ -1,10 +1,13 @@
 /**
  * App reducer – pure: (state, event) -> nextState.
  * No I/O, deterministic.
- * Each case handler ≤20 lines.
+ *
+ * Hinweis: `new MediaStream()` in room/joined|created ist bewusst — leerer Platzhalter
+ * bis Effects gUM ausführen (Host-API-Objekt, keine Netzwerk-I/O).
  */
 
 import { createInitialState } from './initialState.js';
+import { getSessionResetSlice, getJoinAttemptRollbackSlice } from './sessionResetSlice.js';
 
 function reduceNavigationScreen(state, payload) {
   const { screen, data = {} } = payload ?? {};
@@ -23,8 +26,9 @@ function reduceRoomEntered(state, payload, isHost) {
     messages: [],
     members: [nick].filter(Boolean),
     voipMembers: voip,
-    isMuted: true,
-    peerMuteState: new Map([[p.peerId, true]]),
+    /** Nicht stumm starten — sonst holt ensureInitialCallMedia kein Mikro (mediasoup: kein Audio-Producer). Nutzer kann stumm schalten. */
+    isMuted: false,
+    peerMuteState: new Map([[p.peerId, false]]),
     localStream: new MediaStream(),
     baseLocalStream: new MediaStream(),
     isHost,
@@ -269,6 +273,14 @@ function reducePeerConnectionEstablished(state, payload) {
   };
 }
 
+function reduceSessionCleared(state) {
+  return { ...state, ...getSessionResetSlice() };
+}
+
+function reduceCallSetupAborted(state) {
+  return { ...state, ...getJoinAttemptRollbackSlice() };
+}
+
 const HANDLERS = {
   'navigation/screen': reduceNavigationScreen,
   'room/created': reduceRoomCreated,
@@ -276,6 +288,9 @@ const HANDLERS = {
   'room/join': (s) => s,
   'room/leave': reduceRoomLeave,
   'room/memberJoined': reduceRoomMemberJoined,
+  'session/cleared': reduceSessionCleared,
+  'room/joinAttemptAborted': reduceCallSetupAborted,
+  'room/createAttemptAborted': reduceCallSetupAborted,
   'chat/messageReceived': reduceChatMessageReceived,
   'chat/membersUpdated': reduceChatMembersUpdated,
   'voip/membersUpdated': reduceVoipMembersUpdated,

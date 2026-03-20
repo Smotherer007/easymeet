@@ -1,10 +1,16 @@
+import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
 import path from 'path';
 import fs from 'fs';
+import http from 'http';
 import { fileURLToPath } from 'url';
 import { validateCreateRoomPayload, validateRegisterHostPayload, validateJoinPayload } from './validate.js';
 import { hashPassword, verifyPassword } from './password.js';
+import { normalizeRoomCode } from './roomCode.js';
+import { createWorkers, listActiveRoomsPublic, getRoom as getMediasoupRoom } from './mediasoup/rooms.js';
+import { attachProtooToHttpServer } from './mediasoup/protooSignaling.js';
+import { applyPersistentRooms } from './persistentRooms.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -24,13 +30,10 @@ function generateRoomId() {
   return id;
 }
 
-function normalizeAsCode(str) {
-  return (str || '').trim().replace(/[^A-Z0-9]/gi, '').toUpperCase();
-}
-
 function cleanupExpiredRooms() {
   const now = Date.now();
   for (const [id, room] of rooms.entries()) {
+    if (room.persistent) continue;
     if (now - room.createdAt > ROOM_TTL) rooms.delete(id);
   }
 }
@@ -44,7 +47,7 @@ app.post('/api/rooms', async (req, res) => {
   }
   const { password, roomCode } = parsed.data;
   const passwordHash = password ? await hashPassword(password) : null;
-  let roomId = (roomCode && normalizeAsCode(roomCode)) || null;
+  let roomId = (roomCode && normalizeRoomCode(roomCode)) || null;
   if (!roomId || rooms.has(roomId)) {
     roomId = generateRoomId();
     while (rooms.has(roomId)) roomId = generateRoomId();
@@ -73,7 +76,7 @@ app.patch('/api/rooms/:roomId', (req, res) => {
 function findRoomByIdentifier(identifier) {
   const id = (identifier || '').trim();
   if (!id) return null;
-  const code = normalizeAsCode(id);
+  const code = normalizeRoomCode(id);
   if (!code) return null;
   const room = rooms.get(code);
   return room ? { roomId: code, room } : null;
@@ -94,10 +97,7 @@ async function handleJoin(req, res) {
     const valid = await verifyPassword(providedPassword, room.passwordHash);
     if (!valid) return res.status(401).json({ error: 'Invalid password' });
   }
-  if (!room.hostPeerId) {
-    return res.status(503).json({ error: 'Host not ready yet' });
-  }
-  res.json({ hostPeerId: room.hostPeerId, roomId: actualRoomId });
+  res.json({ roomId: actualRoomId });
 }
 
 app.post('/api/join', async (req, res) => {
@@ -117,6 +117,44 @@ app.get('/api/rooms', (req, res) => {
     exists: !!room,
     hasPassword: room ? (room.passwordHash != null && room.passwordHash !== '') : false,
   });
+});
+
+/** Muss vor /api/rooms/:roomId stehen, sonst wird „active“ als Raum-ID interpretiert. */
+app.get('/api/rooms/active', (req, res) => {
+  res.setHeader('Cache-Control', 'no-store');
+  cleanupExpiredRooms();
+  const fromMs = listActiveRoomsPublic();
+  const byId = new Map(fromMs.map((r) => [r.roomId, r]));
+  /* Fallback: alle HTTP-Räume prüfen (nach Normalisierung doppelt zu fromMs, sonst ergänzend) */
+  for (const httpId of rooms.keys()) {
+    const ms = getMediasoupRoom(httpId);
+    const n = ms?.peers?.size ?? 0;
+    if (n < 1) continue;
+    if (!byId.has(httpId)) byId.set(httpId, { roomId: httpId, participantCount: n });
+  }
+  const payload = [...byId.values()]
+    .sort((a, b) => a.roomId.localeCompare(b.roomId))
+    .map(({ roomId, participantCount }) => {
+      const meta = rooms.get(roomId);
+      const hasPassword = meta ? meta.passwordHash != null && meta.passwordHash !== '' : false;
+      return { roomId, participantCount, hasPassword };
+    });
+  res.json({ rooms: payload });
+});
+
+/** Feste Räume (JSON-Pfad EASYMEET_PERSISTENT_ROOMS – ohne VoIP, immer sichtbar für Join). */
+app.get('/api/rooms/pinned', (req, res) => {
+  res.setHeader('Cache-Control', 'no-store');
+  const list = [];
+  for (const [roomId, room] of rooms.entries()) {
+    if (!room.persistent) continue;
+    list.push({
+      roomId,
+      hasPassword: room.passwordHash != null && room.passwordHash !== '',
+    });
+  }
+  list.sort((a, b) => a.roomId.localeCompare(b.roomId));
+  res.json({ rooms: list });
 });
 
 app.get('/api/rooms/:roomId', (req, res) => {
@@ -168,6 +206,18 @@ if (fs.existsSync(finalDistPath)) {
 }
 
 const PORT = process.env.PORT || 3001;
-app.listen(PORT, () => {
-  console.log(`EasyMeet API running on http://localhost:${PORT}`);
+
+async function startServer() {
+  await applyPersistentRooms(rooms);
+  await createWorkers();
+  const server = http.createServer(app);
+  attachProtooToHttpServer(server);
+  server.listen(PORT, () => {
+    console.log(`EasyMeet API + mediasoup running on http://localhost:${PORT}`);
+  });
+}
+
+startServer().catch((err) => {
+  console.error('Server start failed:', err);
+  process.exit(1);
 });

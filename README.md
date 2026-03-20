@@ -1,10 +1,10 @@
 # EasyMeet
 
-**P2P video conferencing in the browser** – Chat, file sharing, screen sharing, and virtual backgrounds. No installation, no app – everything runs directly in the web browser.
+**Browser video conferencing (mediasoup SFU)** – Chat, file sharing, screen sharing, and virtual backgrounds. No installation, no app – everything runs directly in the web browser; media and signaling go through your **EasyMeet server**.
 
-[![Node.js](https://img.shields.io/badge/Node.js-20+-green.svg)](https://nodejs.org/)
+[![Node.js](https://img.shields.io/badge/Node.js-22+-green.svg)](https://nodejs.org/)
 [![Vite](https://img.shields.io/badge/Vite-7-646CFF.svg)](https://vitejs.dev/)
-[![PeerJS](https://img.shields.io/badge/PeerJS-WebRTC-blue.svg)](https://peerjs.com/)
+[![mediasoup](https://img.shields.io/badge/mediasoup-SFU-orange.svg)](https://mediasoup.org/)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://www.apache.org/licenses/LICENSE-2.0)
 
 ---
@@ -28,12 +28,12 @@
 
 | Feature | Description |
 |---------|-------------|
-| **P2P Video Conferencing** | Host ↔ Viewer(s) directly via WebRTC – no media servers, low latency |
+| **Video Conferencing** | Audio/Video über **mediasoup** (SFU auf dem Server) |
 | **Audio & Video** | Microphone, camera, mute, video on/off |
 | **Device Switching** | Switch microphone and camera during calls (exact constraint for reliable selection) |
 | **Screen Sharing** | `getDisplayMedia` with optional system audio |
 | **Chat** | Text messages, emojis, GIFs (Tenor/Giphy) |
-| **File Sharing** | Files via P2P; folders as ZIP |
+| **File Sharing** | Files via **Protoo/easymeet** chunks to the room (server-vermittelt); folders as ZIP |
 | **Virtual Backgrounds** | Blur, preset images (e.g. The Office, Matrix), custom uploads |
 | **Speaking Indicator** | Visual display of speaking activity |
 | **Voice Rooms** | Audio-only mode for voice-only conferences |
@@ -64,10 +64,10 @@ The app provides a clear interface with:
 |------|-------------|
 | **Frontend** | Vite 7, Vanilla JS (ES Modules), CSS |
 | **Backend** | Node.js, Express |
-| **Realtime** | PeerJS, WebRTC |
+| **Realtime** | mediasoup (SFU), Protoo-WebSocket (wie mediasoup-demo), WebRTC |
 | **UI** | Lucide Icons |
 | **Virtual Backgrounds** | MediaPipe Tasks Vision, Selfie Segmentation |
-| **Other** | bcrypt, qrcode, fflate, sdp-transform |
+| **Other** | bcrypt, qrcode, fflate, protoo-client |
 | **Deployment** | Docker, docker-compose |
 
 ---
@@ -76,7 +76,7 @@ The app provides a clear interface with:
 
 ### Prerequisites
 
-- **Node.js** 20 or higher
+- **Node.js** 22 or higher (Voraussetzung für aktuelle **mediasoup**-Versionen)
 - **npm**
 
 ### Installation
@@ -104,6 +104,10 @@ npm run server
 npm run dev:all
 ```
 
+**Hinweis:** Nur `npm run dev` startet **kein** Backend. Dann schlagen Aufrufe wie `/api/join` fehl (`vite http proxy error … ECONNREFUSED`). Immer **`npm run dev:all`** nutzen oder in einem zweiten Terminal **`npm run server`**. Ziel-URL des Proxys: `VITE_PROXY_API_TARGET` in `.env` (Standard: `http://localhost:3001`).
+
+**Feste Räume (lokal):** `cp .env.example .env` und `cp config/persistent-rooms.example.json config/persistent-rooms.json` – der Server liest den Pfad aus **`EASYMEET_PERSISTENT_ROOMS`** (siehe `.env.example`).
+
 ### Production Build
 
 ```bash
@@ -114,6 +118,8 @@ npm run preview   # Preview the build
 **URLs:**
 - Frontend: `http://localhost:5173`
 - API: `http://localhost:3001` (Vite proxy under `/api`)
+
+**Medien / Protoo (Dev):** Der Client verbindet in der Entwicklung **direkt** mit `ws://<host>:3001/ws` (nicht über den Vite-WS-Proxy), weil Protoo das Subprotokoll `protoo` braucht — der Vite-Proxy kann das stören. Im Browser siehst du dazu Logs mit dem Präfix **`[easymeet/ms]`**. Port per `VITE_MEDIASOUP_PROTOO_PORT` überschreibbar.
 
 ---
 
@@ -126,6 +132,8 @@ easymeet_patrick/
 ├── vite.config.js          # Vite + API proxy
 ├── Dockerfile              # Multi-stage build
 ├── docker-compose.yml      # Production deployment
+├── config/
+│   └── persistent-rooms.example.json  # Vorlage → persistent-rooms.json (gitignored)
 │
 ├── src/
 │   ├── main.js             # App entry, bootstrap
@@ -146,7 +154,7 @@ easymeet_patrick/
 │   │
 │   ├── store/              # State management
 │   ├── effects/            # I/O & side effects
-│   │   ├── network/        # api.js, peer.js
+│   │   ├── network/        # api.js, mediasoupClient.js
 │   │   ├── media/          # devices.js, tiles.js
 │   │   ├── ui/             # roomView.js, devices.js
 │   │   └── storage/        # deviceStorage, customBackgroundStorage
@@ -156,8 +164,9 @@ easymeet_patrick/
 │   ├── ui/screens/         # landing, create-room, join-room, room-view
 │   └── utils/              # crypto.js, folder-zip.js
 │
-├── server/                 # Express backend
-│   ├── index.js            # API routes
+├── server/                 # Express + mediasoup + Protoo
+│   ├── index.js            # API routes, HTTP server
+│   ├── mediasoup/          # rooms, protooSignaling, config
 │   ├── validate.js
 │   └── password.js
 │
@@ -166,7 +175,7 @@ easymeet_patrick/
 │   └── backgrounds/        # Images for virtual backgrounds
 │
 ├── docs/
-│   └── WIKI.md             # Full documentation (German)
+│   └── WIKI.md             # Verweis auf internes Wiki (Sammlung „Entwicklung“)
 │
 └── scripts/
     └── setup-mediapipe.js  # Download MediaPipe models
@@ -179,13 +188,13 @@ easymeet_patrick/
 ### Flow
 
 1. **Host** creates a room (optional password)
-2. **Server** registers the room and stores the host PeerId
-3. **Viewer** joins via code/URL, receives host PeerId
-4. **P2P** – Audio, video, chat, files run directly between host and viewer(s)
+2. **Server** registers the room and startet einen **mediasoup-Router** pro Raum
+3. **Teilnehmer** joinen via Code/URL; **WebRTC** läuft Client ↔ Server (SFU), nicht rein P2P
+4. **Chat/Dateien** über Protoo-Notifications (`easymeet.*`); Medien über **Producer/Consumer** und server-getriebene **`newConsumer`** (übliches mediasoup/Protoo-Muster)
 
 ### Four-Layer Model
 
-- **Layer 4 (I/O):** PeerJS, DOM, fetch, localStorage
+- **Layer 4 (I/O):** mediasoup-client + protoo-client, DOM, fetch, localStorage
 - **Layer 3 (Domain):** Reducer, Events, Invariants
 - **Layer 2 (Utilities):** Result helper, Protocol, Selectors
 - **Layer 1 (Primitives):** map, filter, reduce
@@ -218,6 +227,29 @@ curl -X POST http://localhost:3001/api/rooms \
 ```
 
 **Response:** `{ "roomId": "ABC123", "hostPeerId": null }`
+
+### Persistent rooms (config)
+
+Fixed rooms can be created **on every server start** and are **not deleted** by the 24h TTL cleanup (dynamic rooms still expire).
+
+1. Set **`EASYMEET_PERSISTENT_ROOMS`** in **`.env`** to the JSON file path (relative to the process working directory or absolute). See **`.env.example`** (default: `config/persistent-rooms.json`).
+2. Copy **`config/persistent-rooms.example.json`** → **`config/persistent-rooms.json`** (gitignored) and edit.
+
+```json
+{
+  "rooms": [
+    { "id": "OPENLOBBY" },
+    { "id": "STANDUP", "passwordEnv": "EASYMEET_ROOM_STANDUP_PASSWORD" },
+    { "id": "TEAM", "password": "only-if-deployment-is-trusted" }
+  ]
+}
+```
+
+- **`id`** or **`roomId`**: room code (same normalization as join: alphanumeric, uppercase).
+- **`password`**: optional; omit or empty for an open room.
+- **`passwordEnv`**: read the password from that environment variable (good for Docker secrets).
+
+At startup you should see: `persistent-rooms: N Raum/Räume … geladen (TTL ausgenommen)`.
 
 ---
 
@@ -267,6 +299,12 @@ Die Pipeline kann auch manuell unter **Actions → Build and Push Docker Image �
 | `PORT` | `3001` | Port the server listens on |
 | `NODE_ENV` | `production` | Set automatically in Dockerfile |
 | `TENOR_API_KEY` | `LIVDSRZULELA` (Tenor demo key) | API key for GIF search; never exposed to client |
+| `MEDIASOUP_ANNOUNCED_IP` | _(leer)_ | **Wichtig in Docker/Cloud:** öffentliche IP oder Hostname für ICE (sonst oft kein Video/Audio). Siehe [mediasoup WebRtcTransportOptions](https://mediasoup.org/documentation/v3/mediasoup/api/#WebRtcTransportOptions) |
+| `MEDIASOUP_LISTEN_IP` | `0.0.0.0` | Bind-Adresse des WebRTC-Transports |
+| `RTC_MIN_PORT` / `RTC_MAX_PORT` | `40000`–`40200` | UDP-Portbereich für RTP (Docker: wie in `docker-compose.yml` mappen) |
+| `EASYMEET_PERSISTENT_ROOMS` | `config/persistent-rooms.json` in `.env.example` | Path to JSON with `{"rooms":[...]}` (relative to cwd or absolute). Omit to disable pinned rooms. |
+
+**Docker:** `.env.example` → `.env`, **`config/persistent-rooms.json`** on the host (copy from example) and **mount** it into the container at the same path as in `EASYMEET_PERSISTENT_ROOMS` (e.g. `/app/config/persistent-rooms.json`). The image ships **`config/persistent-rooms.example.json`** as a template only.
 
 ### Running with Docker
 
@@ -280,33 +318,38 @@ docker run -p 8080:8080 -e PORT=8080 smotherer/easymeet:latest
 
 ### docker-compose
 
-The included `docker-compose.yml` runs the app in a container and expects an external network named `frontend`:
+Die `docker-compose.yml` erwartet ein externes Netz `frontend` und liest optional eine **`.env`** (Vorlage: **`.env.example`**) für IP, Ports und feste Räume.
+
+```bash
+cp .env.example .env
+cp config/persistent-rooms.example.json config/persistent-rooms.json
+# .env: MEDIASOUP_ANNOUNCED_IP; Compose-Volume für config/persistent-rooms.json siehe docker-compose.yml
+docker network create frontend
+docker compose up -d
+```
+
+HTTP wird als `${EASYMEET_HTTP_PUBLISH_PORT:-3001}:${PORT:-3001}` gemappt; RTP-UDP **40000–40200** entspricht den Defaults von `RTC_MIN_PORT` / `RTC_MAX_PORT` (bei abweichendem Bereich Compose-Ports und Env anpassen).
+
+Kurzüberblick (siehe Repo-Datei für den aktuellen Stand):
 
 ```yaml
 services:
   app:
     image: smotherer/easymeet:latest
+    env_file:
+      - path: .env
+        required: false
     environment:
-      - PORT=3001
-      - NODE_ENV=production
+      - PORT=${PORT:-3001}
+      - MEDIASOUP_ANNOUNCED_IP=${MEDIASOUP_ANNOUNCED_IP:-}
+    ports:
+      - "${EASYMEET_HTTP_PUBLISH_PORT:-3001}:${PORT:-3001}"
+      - "40000-40200:40000-40200/udp"
     networks:
       - frontend
-
 networks:
   frontend:
     external: true
-```
-
-**Create the network first:**
-
-```bash
-docker network create frontend
-```
-
-**Start:**
-
-```bash
-docker-compose up -d
 ```
 
 **Without external network** – use this minimal compose file:
@@ -326,10 +369,11 @@ services:
 
 | Stage | Base Image | Purpose |
 |-------|------------|---------|
-| `builder` | `node:20-alpine` | `npm ci`, `npm run build` → produces `dist/` |
-| Production | `node:20-alpine` | Copies `dist/` and `server/`, runs `node server/index.js` |
+| `builder` | `node:22-bookworm-slim` | `npm ci`, `npm run build` → produces `dist/` |
+| Production | `node:22-bookworm-slim` | mediasoup-Prebuild (glibc); Fallback-Build: `python3`, `pip`, `build-essential` |
 
 The production image:
+- Enthält **`config/persistent-rooms.example.json`**; echte Räume per Volume + `EASYMEET_PERSISTENT_ROOMS` (siehe `.env.example`)
 - Serves static files from `dist/`
 - Handles API routes under `/api`
 - Falls back to `index.html` for SPA routing
@@ -339,7 +383,7 @@ The production image:
 
 ## Documentation
 
-- **Full documentation (German):** [docs/WIKI.md](docs/WIKI.md)
+- **Wiki (Entwicklung):** EasyMeet – Entwickler- & Architektur-Dokumentation; Kurzverweis: [docs/WIKI.md](docs/WIKI.md)
 - Covers: Project structure, architecture, API reference, configuration, development, deployment
 - **[CONTRIBUTING.md](CONTRIBUTING.md)** – How to contribute
 - **[CHANGELOG.md](CHANGELOG.md)** – Version history

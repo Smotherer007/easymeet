@@ -5,29 +5,31 @@
 - **Hauptsprache**: JavaScript (TypeScript-ready)
 - **Frontend**: Vite + Browser APIs + modulare Screens
 - **Backend**: Node.js + Express
-- **Realtime**: PeerJS/WebRTC (Data + Media Channels)
+- **Realtime**: mediasoup (SFU) + Protoo-WebSocket + WebRTC (Browser ↔ Server)
 - **Zielplattform**: Browser Client + Node Server
 
 ---
 
 ## Verbindliche Programmier-Prinzipien
 
-Diese Regeln sind verpflichtend, keine Vorschlaege.
+Die folgenden Punkte **2–5** und die **DOP-Umbauprinzipien** sind verbindlich fuer **neuen** Code und fuer Refactors, die du anfasst.
 
-### 1. Eine Funktion = Eine Rolle (<=20 Zeilen)
+**Ausnahme (bewusst nicht verbindlich):** Maximale **Zeilenanzahl** pro Funktion — im bestehenden Code nicht durchsetzbar ohne Massiv-Refactor; bei neuem Code trotzdem moeglichst **eine Rolle pro Funktion** anstreben.
 
-Jede Funktion erfuellt genau eine Aufgabe.
+### 1. Eine Funktion = Eine Rolle (ohne Zeilenlimit-Pflicht)
+
+Jede Funktion soll **eine** klar erkennbare Rolle haben (Validierung, Transformation, Abfrage, I/O).
 
 | Rolle              | Rueckgabe       | Seiteneffekte | Beispiele |
 | ------------------ | --------------- | ------------- | --------- |
-| Validierung        | `Result<T>`     | Keine         | `validateJoinRequest`, `validateChatMessage` |
-| Transformation     | Neue Daten      | Keine         | `normalizePeerEvent`, `buildViewModel` |
-| Abfrage            | Datenausschnitt | Keine         | `selectActiveParticipants`, `findTransferById` |
-| I/O                | `Result<T>`     | Ja (extern)   | `fetchRoomStatus`, `sendPeerMessage`, `savePeerVolumes` |
+| Validierung        | `Result<T>`     | Keine         | `validateJoinPayload`, `validateChatMessage` |
+| Transformation     | Neue Daten      | Keine         | `normalizeRoomIdentifier`, `getSessionResetSlice` |
+| Abfrage            | Datenausschnitt | Keine         | `selectMyPeerId`, `selectVoipMembers` |
+| I/O                | `Result<T>`     | Ja (extern)   | `fetchJoinRoom`, `setupRoomParticipant`, `attachRemoteAudio` |
 
-Verboten: Rollen mischen (Validierung + DOM + Netzwerk in derselben Funktion).
+Verboten: **Rollen mischen** (z. B. Validierung + DOM + `fetch` in derselben Funktion ohne Zwischenschritte).
 
-Erforderlich: Trenne in kleine, klar benannte Funktionen.
+Erreichbar durch: Hilfsfunktionen extrahieren; Zustandsaenderungen wo moeglich ueber **Events** + Reducer statt losem `patchState`.
 
 ---
 
@@ -112,7 +114,7 @@ function validateJoinPayload(payload: unknown): Result<{ roomId: string; nick: s
 ### 5. Vier-Schichten-Architektur (strict)
 
 ```text
-Layer 4: I/O & Orchestration (PeerJS, WebRTC, DOM, fetch, storage)
+Layer 4: I/O & Orchestration (mediasoup-client, protoo-client, WebRTC, DOM, fetch, storage)
    ->
 Layer 3: Domain Operations (Reducer, Domain-Transitionen, Invarianten)
    ->
@@ -128,6 +130,15 @@ Regeln:
 3. Keine Aufrufe nach oben.
 4. Call-Graph bei groesseren Umbauten explizit dokumentieren.
 
+### Architektur-Leitstand (Ist-Zustand, wird ausgebaut)
+
+| Bereich | Regel |
+|--------|--------|
+| `src/domain/reducers` | Keine Imports aus `effects/` oder `app/` — nur Domain + `initialState` + reine Slices (z. B. `sessionResetSlice.js`). |
+| Session-Ende | `dispatch({ type: 'session/cleared' })` — Patch kommt aus `getSessionResetSlice()` im Reducer, nicht als riesiges Objekt im Bootstrap. |
+| Fehlgeschlagener Join/Create nach `room/joined` / `room/created` | `dispatch({ type: 'room/joinAttemptAborted' })` bzw. `room/createAttemptAborted` — Rollback-Patch `getJoinAttemptRollbackSlice()`. |
+| `patchState` | Legacy-Komposition: schrittweise durch **explizite Events** ersetzen, wo sich der Aufwand lohnt. |
+
 ---
 
 ## DOP-Umbauprinzipien fuer dieses Projekt
@@ -138,7 +149,7 @@ Diese Prinzipien gelten zusaetzlich beim Refactoring.
 2. Single Source of Truth: Kein paralleler Wahrheitszustand fuer dieselbe Information.
 3. Reducer sind rein: `(state, event) -> nextState` ohne I/O.
 4. Selectors statt ad-hoc Reads: UI liest nur ueber Selektoren.
-5. Effects isolieren: PeerJS, WebRTC, DOM, localStorage nur in `src/effects/*`.
+5. Effects isolieren: mediasoup/protoo, WebRTC, DOM, localStorage nur in `src/effects/*`.
 6. Invarianten pruefen: Nach jedem Dispatch Domain-Regeln validieren (mindestens in Dev).
 7. Idempotenz: Doppelte/spaete Netzwerk-Events duerfen den Zustand nicht zerstoeren.
 8. Reihenfolge bewusst machen: Sequenznummer oder Timestamp-Strategie klar festlegen.
@@ -322,7 +333,7 @@ project/
 ### Migrationshinweis fuer dieses Repo
 
 - `src/main.js`: schrittweise auf `src/app` + `src/store` aufteilen.
-- `src/peer.js`: in `effects/network` + `protocol` + domain events zerlegen.
+- `src/effects/network/mediasoupClient.js`: Protoo + mediasoup; I/O nur hier bzw. `api.js`.
 - `src/screens/*`: nach `src/ui/screens` migrieren und nur noch ueber Selectors lesen.
 - `server/index.js`: I/O-Rand beibehalten, Domain-Regeln in pure Funktionen auslagern.
 

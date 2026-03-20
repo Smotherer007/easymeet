@@ -6,7 +6,7 @@
 import { getState, patchState } from '../../store/index.js';
 import * as selectors from '../../domain/selectors/index.js';
 import { t } from '../../i18n.js';
-import * as peer from '../network/peer.js';
+import * as peer from '../network/mediasoupClient.js';
 import { hasTenorKey, searchGifs } from '../../tenor.js';
 import { extractDropData, processDropData, zipFileList } from '../../utils/folder-zip.js';
 import { addCustomBackground, removeCustomBackground } from '../storage/customBackgroundStorage.js';
@@ -33,6 +33,28 @@ import {
 import { applyEffectToCallStream } from '../media/devices.js';
 import { refreshDeviceSelects } from './devices.js';
 import { startSpeakingIndicator, stopSpeakingIndicator } from '../../speaking-indicator.js';
+
+/** DOMException.name → passender Hinweis (nicht jeder Fehler ist „Berechtigung verweigert“). */
+function alertMediaAccessError(err, kind) {
+  const name = err?.name;
+  const mapMic = {
+    NotReadableError: 'microphoneNotReadableError',
+    NotFoundError: 'microphoneNotFoundError',
+    OverconstrainedError: 'microphoneOverconstrainedError',
+    ConstraintNotSatisfiedError: 'microphoneOverconstrainedError',
+    SecurityError: 'microphoneSecurityError',
+  };
+  const mapCam = {
+    NotReadableError: 'cameraNotReadableError',
+    NotFoundError: 'cameraNotFoundError',
+    OverconstrainedError: 'cameraOverconstrainedError',
+    ConstraintNotSatisfiedError: 'cameraOverconstrainedError',
+    SecurityError: 'cameraSecurityError',
+  };
+  const map = kind === 'video' ? mapCam : mapMic;
+  const def = kind === 'video' ? 'cameraPermissionDenied' : 'microphonePermissionDenied';
+  alert(t(map[name] ?? def));
+}
 
 function setupDropzone(el, onFileSelect) {
   if (!el) return;
@@ -141,7 +163,7 @@ function handleToggleVideoLayout(app, navigate) {
   navigate('room-view');
   selectors.selectVoipMembers(getState()).forEach((m) => {
     const stream = getStreamForVideoTile(m.peerId);
-    if (stream) attachRemoteAudio(m.peerId, stream);
+    if (stream) attachRemoteAudio(m.peerId, stream, app);
   });
 }
 
@@ -184,23 +206,125 @@ function sendChatMessage(handlers) {
   handlers.setGiphyPreview?.([]);
 }
 
-function runInitialRoomSetup(app) {
+/**
+ * mediasoup: Verbindung (join/create) läuft oft bevor localStream existiert — dann erzeugt
+ * produceLocalTracks() keine Producer. Beim ersten Öffnen der Raumansicht Medien holen und
+ * updateLocalStream auslösen (wie nach manuellem Mute/Kamera-Toggle).
+ */
+async function ensureInitialCallMedia(app, deps) {
+  const { setupAudioTrackEndedHandler } = deps;
+  const state = getState();
+  const participant = selectors.selectHostPeer(state) || selectors.selectViewerConn(state);
+  if (!participant?.updateLocalStream) return;
+
+  let localStream = selectors.selectLocalStream(state);
+  const isMuted = selectors.selectIsMuted(state);
+  const isVideoEnabled = selectors.selectIsVideoEnabled(state);
+
+  if (localStream?.getTracks?.()?.length) {
+    const needAudio = !isMuted && !localStream.getAudioTracks?.()?.some((t) => t.readyState === 'live');
+    const needVideo = isVideoEnabled && !localStream.getVideoTracks?.()?.some((t) => t.readyState === 'live');
+    if (!needAudio && !needVideo) {
+      syncMuteToPeers(app);
+      if (selectors.selectIsVideoEnabled(getState())) syncVideoToPeers(app);
+      return;
+    }
+    if (needAudio) {
+      try {
+        const micStream = await peer.getUserMediaResilient(
+          selectors.selectInputDeviceId(state) || undefined,
+          false,
+          undefined
+        );
+        const mic = micStream.getAudioTracks?.()[0];
+        micStream.getVideoTracks?.().forEach((t) => t.stop());
+        if (mic && mic.readyState !== 'ended') {
+          const liveVideo = localStream.getVideoTracks?.().filter((t) => t.readyState === 'live') ?? [];
+          const merged = new MediaStream([mic, ...liveVideo]);
+          merged.getAudioTracks().forEach((t) => { t.enabled = !isMuted; });
+          merged.getVideoTracks().forEach((t) => { t.enabled = isVideoEnabled; });
+          patchState({
+            localStream: merged,
+            baseLocalStream: merged,
+            hasVideoSupport: isVideoEnabled || merged.getVideoTracks().length > 0,
+          });
+          setupAudioTrackEndedHandler(mic);
+        } else {
+          micStream.getTracks().forEach((t) => t.stop());
+        }
+      } catch (e) {
+        console.warn('ensureInitialCallMedia: Mikro nachladen fehlgeschlagen:', e?.message || e);
+      }
+    }
+    syncMuteToPeers(app);
+    if (selectors.selectIsVideoEnabled(getState())) syncVideoToPeers(app);
+    /* Pegel: attachRemoteAudio in syncMuteToPeers */
+    return;
+  }
+
+  if (isMuted && !isVideoEnabled) return;
+
+  let newStream;
+  try {
+    if (!isMuted && isVideoEnabled) {
+      newStream = await peer.getUserMediaResilient(
+        selectors.selectInputDeviceId(state) || undefined,
+        true,
+        selectors.selectVideoDeviceId(state) || undefined
+      );
+    } else if (!isMuted) {
+      newStream = await peer.getUserMediaResilient(
+        selectors.selectInputDeviceId(state) || undefined,
+        false,
+        undefined
+      );
+    } else {
+      newStream = await peer.getUserMediaResilient(
+        selectors.selectInputDeviceId(state) || undefined,
+        'videoOnly',
+        selectors.selectVideoDeviceId(state) || undefined
+      );
+    }
+  } catch (err) {
+    console.warn('Erstes Medien-Setup (mediasoup):', err?.message || err);
+    return;
+  }
+
+  if (!newStream?.getTracks?.()?.length) return;
+
+  newStream.getAudioTracks().forEach((t) => { t.enabled = !isMuted; });
+  newStream.getVideoTracks().forEach((t) => { t.enabled = isVideoEnabled; });
+
+  patchState({
+    localStream: newStream,
+    baseLocalStream: newStream,
+    hasVideoSupport: isVideoEnabled || newStream.getVideoTracks().length > 0,
+  });
+
+  const audioTrack = newStream.getAudioTracks()[0];
+  if (audioTrack && audioTrack.readyState !== 'ended') setupAudioTrackEndedHandler(audioTrack);
+
+  syncMuteToPeers(app);
+  if (selectors.selectIsVideoEnabled(getState())) syncVideoToPeers(app);
+
+  /* Pegel: attachRemoteAudio in syncMuteToPeers */
+}
+
+function runInitialRoomSetup(app, deps) {
   const state = getState();
   const localStream = selectors.selectLocalStream(state);
   const myPeerId = selectors.selectMyPeerId(state);
-  if (localStream && myPeerId) {
-    attachRemoteAudio(myPeerId, localStream);
-    startSpeakingIndicator(myPeerId, localStream, app);
-  }
+  /* Sprech-Indikator nur in attachRemoteAudio (bei live Audio) — kein zweiter Aufruf mit leerem localStream */
+  if (localStream && myPeerId) attachRemoteAudio(myPeerId, localStream, app);
   selectors.selectRemoteStreams(state).forEach((stream, peerId) => {
-    attachRemoteAudio(peerId, stream);
-    startSpeakingIndicator(peerId, stream, app);
+    attachRemoteAudio(peerId, stream, app);
   });
   updateVideoGalleryColumns();
   syncStreamThumbs(app);
   syncModalVideo(app);
   setupFullscreenButton(app);
   setupPipButton(app);
+  void ensureInitialCallMedia(app, deps).catch((e) => console.warn('ensureInitialCallMedia', e));
 }
 
 function buildRoomViewConfigNav(app, deps) {
@@ -235,7 +359,7 @@ function buildRoomViewConfigPart2(app, deps) {
   const { handleStopScreen, setupAudioTrackEndedHandler, getStreamForViewers, createFrozenStream, applyEffectToPreview, navigate, setPeerVolume } = deps;
   return {
     onToggleMute: () => handleToggleMute(app, setupAudioTrackEndedHandler, navigate),
-    onToggleVideo: () => handleToggleVideo(app, applyEffectToPreview, applyEffectToCallStream, navigate),
+    onToggleVideo: () => handleToggleVideo(app, applyEffectToPreview, applyEffectToCallStream, navigate, setupAudioTrackEndedHandler),
     onSettingsOpen: (isOpen) => handleSettingsOpen(app, isOpen, applyEffectToPreview, refreshDeviceSelects, navigate),
     onInputDeviceChange: (deviceId) => handleInputDeviceChange(app, deviceId, setupAudioTrackEndedHandler, refreshDeviceSelects, navigate),
     onVideoDeviceChange: (deviceId) => handleVideoDeviceChange(app, deviceId, refreshDeviceSelects, navigate),
@@ -256,7 +380,7 @@ export function attachRoomViewAndHandlers(app, deps) {
   handlers = attachRoomViewListeners(app, config);
   setupDropzone(app.querySelector('#dropzone'), handlers.onFileSelect);
   setupDropzone(app.querySelector('#chat-dropzone'), handlers.onFileSelect);
-  runInitialRoomSetup(app);
+  runInitialRoomSetup(app, deps);
 }
 
 function doMuteLocalStream(s) {
@@ -278,7 +402,11 @@ function reenableExistingAudio(s) {
 }
 
 async function acquireNewAudioStream(s, setupAudioTrackEndedHandler) {
-  const newStream = await peer.getUserMedia(selectors.selectInputDeviceId(s) || undefined, false, undefined);
+  const newStream = await peer.getUserMediaResilient(
+    selectors.selectInputDeviceId(s) || undefined,
+    false,
+    undefined
+  );
   const newAudioTrack = newStream.getAudioTracks?.()[0];
   if (!newAudioTrack) return false;
   newStream.getVideoTracks?.().forEach((t) => t.stop());
@@ -299,7 +427,7 @@ async function doUnmuteLocalStream(s, setupAudioTrackEndedHandler) {
     return false;
   } catch (err) {
     console.error('Mikrofon-Zugriff fehlgeschlagen:', err);
-    alert(t('microphonePermissionDenied'));
+    alertMediaAccessError(err, 'audio');
     patchState({ isMuted: true });
     return false;
   }
@@ -316,7 +444,7 @@ function syncMuteToPeers(app) {
   const nextMute = new Map(selectors.selectPeerMuteState(state));
   nextMute.set(myPeerId, selectors.selectIsMuted(state));
   patchState({ peerMuteState: nextMute });
-  if (myPeerId) attachRemoteAudio(myPeerId, localStream);
+  if (myPeerId) attachRemoteAudio(myPeerId, localStream, app);
   updateVoipParticipants(app, selectors.selectVoipMembers(state), myPeerId, selectors.selectIsMuted(state), selectors.selectScreenStreams(state), getStreamForPeerId, getStreamForScreenShare, selectors.selectPeerMuteState(state), selectors.selectPeerVolume(state), selectors.selectBackgroundEffect(state), selectors.selectPeerVideoState(state), selectors.selectIsVideoEnabled(state), selectors.selectPeerBackgroundEffect(state));
   updateMuteButton(app, selectors.selectIsMuted(state));
 }
@@ -369,31 +497,51 @@ function reenableExistingVideo(s) {
   return false;
 }
 
-async function acquireNewVideoStream(s) {
-  const audioTrack = selectors.selectLocalStream(s)?.getAudioTracks?.()[0];
-  const requestBoth = !!audioTrack;
+async function acquireNewVideoStream(s, setupAudioTrackEndedHandler) {
+  const wantMic = !selectors.selectIsMuted(s);
+  const existingAudio = selectors.selectLocalStream(s)?.getAudioTracks?.()?.[0];
+  const existingAudioOk = existingAudio && existingAudio.readyState !== 'ended';
+  const requestBoth = existingAudioOk || wantMic;
   let newStream;
-  try { newStream = await peer.getUserMedia(selectors.selectInputDeviceId(s) || undefined, requestBoth ? true : 'videoOnly', selectors.selectVideoDeviceId(s) || undefined); }
-  catch { newStream = await peer.getUserMedia(null, requestBoth ? true : 'videoOnly', null); }
+  try {
+    newStream = await peer.getUserMediaResilient(
+      selectors.selectInputDeviceId(s) || undefined,
+      requestBoth ? true : 'videoOnly',
+      selectors.selectVideoDeviceId(s) || undefined
+    );
+  } catch {
+    newStream = await peer.getUserMedia(null, requestBoth ? true : 'videoOnly', null);
+  }
   const videoTrack = newStream.getVideoTracks?.()[0];
   if (!videoTrack) return false;
-  const tracks = audioTrack ? [audioTrack, videoTrack] : [videoTrack];
+  const audioTrackToUse = existingAudioOk ? existingAudio : (wantMic ? newStream.getAudioTracks?.()?.[0] : undefined);
+  const tracks = [];
+  if (audioTrackToUse) tracks.push(audioTrackToUse);
+  tracks.push(videoTrack);
   const localStream = new MediaStream(tracks);
   localStream.getAudioTracks().forEach((t) => { t.enabled = !selectors.selectIsMuted(s); });
-  newStream.getAudioTracks().forEach((t) => t.stop());
+  newStream.getAudioTracks().forEach((t) => {
+    if (t !== audioTrackToUse) t.stop();
+  });
+  newStream.getVideoTracks().forEach((t) => {
+    if (t !== videoTrack) t.stop();
+  });
+  if (audioTrackToUse && audioTrackToUse.readyState !== 'ended' && typeof setupAudioTrackEndedHandler === 'function') {
+    setupAudioTrackEndedHandler(audioTrackToUse);
+  }
   const videoDeviceId = videoTrack.getSettings?.()?.deviceId || selectors.selectVideoDeviceId(s);
   patchState({ localStream, baseLocalStream: localStream, hasVideoSupport: true, videoDeviceId, isVideoEnabled: true });
   if (videoDeviceId) writeDeviceId(DEVICE_STORAGE.video, videoDeviceId);
   return true;
 }
 
-async function turnOnVideoStream(s) {
+async function turnOnVideoStream(s, setupAudioTrackEndedHandler) {
   if (reenableExistingVideo(s)) return true;
   try {
-    return await acquireNewVideoStream(s);
+    return await acquireNewVideoStream(s, setupAudioTrackEndedHandler);
   } catch (err) {
     console.error('Kamera-Zugriff fehlgeschlagen:', err);
-    alert(t('cameraPermissionDenied'));
+    alertMediaAccessError(err, 'video');
     return false;
   }
 }
@@ -417,7 +565,7 @@ function syncVideoToPeers(app) {
   selectors.selectViewerConn(state)?.updateLocalStream?.(localStream);
   updateVideoButton(app, selectors.selectIsVideoEnabled(state));
   if (myPeerId) {
-    attachRemoteAudio(myPeerId, localStream);
+    attachRemoteAudio(myPeerId, localStream, app);
     if (selectors.selectHostPeer(state)) selectors.selectHostPeer(state).broadcastVideo?.(myPeerId, selectors.selectIsVideoEnabled(state));
     else selectors.selectViewerConn(state)?.sendVideo?.(selectors.selectIsVideoEnabled(state));
     if (selectors.selectScreen(state) === 'room-view') {
@@ -441,13 +589,13 @@ function syncPreviewVideoIfSettingsOpen(app) {
   }
 }
 
-async function handleToggleVideo(app, applyEffectToPreview, applyEffectToCallStream, navigate) {
+async function handleToggleVideo(app, applyEffectToPreview, applyEffectToCallStream, navigate, setupAudioTrackEndedHandler) {
   const s = getState();
   if (selectors.selectIsVideoEnabled(s)) {
     patchState({ isVideoEnabled: false });
     turnOffVideoStream(s);
     await setupPreviewWhenVideoOff(app, s, applyEffectToPreview);
-  } else if (!(await turnOnVideoStream(s))) return;
+  } else if (!(await turnOnVideoStream(s, setupAudioTrackEndedHandler))) return;
   cleanupPreviewWhenVideoOn(app);
   syncVideoToPeers(app);
   await applyEffectAfterVideoToggle(app, applyEffectToCallStream, navigate);
@@ -519,7 +667,11 @@ async function handleSettingsOpen(app, isOpen, applyEffectToPreview, refreshDevi
 function stopEffectAndAcquireStream(s, deviceId) {
   try { s.backgroundEffectStop?.(); } catch (_) {}
   patchState({ backgroundEffectStop: null });
-  return peer.getUserMedia(deviceId || undefined, selectors.selectHasVideoSupport(s) ?? false, selectors.selectVideoDeviceId(s) || undefined);
+  return peer.getUserMediaResilient(
+    deviceId || undefined,
+    selectors.selectHasVideoSupport(s) ?? false,
+    selectors.selectVideoDeviceId(s) || undefined
+  );
 }
 
 function buildLocalStreamFromTracks(audioTrack, videoTrack, s) {
@@ -552,7 +704,7 @@ function syncPeersAndSpeakingAfterInputChange(app, localStream, inputDeviceId, v
   selectors.selectViewerConn(getState())?.updateLocalStream?.(localStream);
   const myPeerId = selectors.selectMyPeerId(getState());
   if (myPeerId) {
-    attachRemoteAudio(myPeerId, localStream);
+    attachRemoteAudio(myPeerId, localStream, app);
     if (selectors.selectScreen(getState()) === 'room-view') {
       stopSpeakingIndicator(myPeerId);
       startSpeakingIndicator(myPeerId, localStream, app);
@@ -595,6 +747,8 @@ async function handleInputDeviceChange(app, deviceId, setupAudioTrackEndedHandle
     if (!swapInputDeviceAndSync(app, s, deviceId, newStream, setupAudioTrackEndedHandler)) return;
     refreshDeviceSelects(app);
     await applyPreviousEffectAfterDeviceChange(app, previousEffect, navigate);
+    /* Nach Effekt-Pipeline: Mute-Status + mediasoup nochmal sauber anbinden (Producer/Peers) */
+    syncMuteToPeers(app);
   } catch (err) {
     console.error('Mikrofon-Wechsel fehlgeschlagen:', err);
   }
@@ -621,7 +775,7 @@ function syncPeersAndPreviewAfterVideoChange(app, localStream, deviceId) {
   selectors.selectHostPeer(getState())?.updateLocalStream?.(localStream);
   selectors.selectViewerConn(getState())?.updateLocalStream?.(localStream);
   const myPeerId = selectors.selectMyPeerId(getState());
-  if (myPeerId) attachRemoteAudio(myPeerId, localStream);
+  if (myPeerId) attachRemoteAudio(myPeerId, localStream, app);
   const preview = app.querySelector('#effect-preview-video');
   const modal = app.querySelector('#settings-modal');
   if (preview && modal && !modal.hasAttribute('hidden') && localStream) preview.srcObject = localStream;
@@ -648,9 +802,14 @@ async function handleVideoDeviceChange(app, deviceId, refreshDeviceSelects, navi
     const previousEffect = selectors.selectBackgroundEffect(s);
     try { s.backgroundEffectStop?.(); } catch (_) {}
     patchState({ backgroundEffectStop: null });
-    const newStream = await peer.getUserMedia(selectors.selectInputDeviceId(s) || undefined, true, deviceId || undefined);
+    const newStream = await peer.getUserMediaResilient(
+      selectors.selectInputDeviceId(s) || undefined,
+      true,
+      deviceId || undefined
+    );
     if (!swapVideoDeviceAndSync(app, s, deviceId, newStream)) return;
     await applyPreviousEffectAfterDeviceChange(app, previousEffect, navigate);
+    syncMuteToPeers(app);
   } catch (err) {
     console.error('Kamera-Wechsel fehlgeschlagen:', err);
   }
@@ -699,17 +858,6 @@ async function prepareFileList(files, progressArea, showProgress) {
   return fileList;
 }
 
-function getFileConnections(hostPeer, viewerConn) {
-  const connMap = hostPeer?.getConnections?.();
-  const allConns = connMap ? Array.from(connMap.entries()) : [];
-  if (!allConns.length && !viewerConn?.conn) return [];
-  if (hostPeer && allConns.length) {
-    const now = hostPeer.getConnections();
-    return Array.from(now.values()).map((e) => e.conn).filter((c) => c?.open);
-  }
-  return viewerConn?.conn?.open ? [viewerConn.conn] : [];
-}
-
 function createProgressUpdater(progressArea, fileName) {
   const transferProgress = { bytes: 0, total: 0 };
   return (progress) => {
@@ -725,16 +873,17 @@ function createProgressUpdater(progressArea, fileName) {
   };
 }
 
-async function sendSingleFile(app, file, connections, hostPeer, viewerConn, nick, progressArea) {
+async function sendSingleFile(app, file, hostPeer, viewerConn, nick, progressArea) {
   const fileId = `file-${Date.now()}-${Math.random().toString(36).slice(2)}`;
   const ts = Date.now();
-  if (hostPeer) hostPeer.broadcastFileShare?.(nick, file.name, ts, fileId);
-  else viewerConn?.sendFileShare?.(fileId, file.name, ts);
+  const participant = hostPeer || viewerConn;
+  if (participant?.broadcastFileShare) participant.broadcastFileShare(nick, file.name, ts, fileId);
+  else if (participant?.sendFileShare) participant.sendFileShare(fileId, file.name, ts);
   const updateProgress = createProgressUpdater(progressArea, file.name);
   updateProgress();
-  if (connections.length) {
+  if (participant?.sendFileToRoom) {
     try {
-      await peer.sendFileToViewers(connections, file, updateProgress, selectors.selectRoomId(getState()) ?? '', selectors.selectPassword(getState()) ?? '', nick, fileId);
+      await participant.sendFileToRoom(file, updateProgress, nick, fileId);
       const blob = new Blob([await file.arrayBuffer()], { type: file.type || 'application/octet-stream' });
       const blobs = new Map(selectors.selectReceivedFileBlobs(getState()));
       blobs.set(fileId, { blob, filename: file.name, mimeType: file.type || 'application/octet-stream' });
@@ -752,13 +901,11 @@ async function handleFileSelect(app, files, navigate) {
   const fileList = await prepareFileList(files, progressArea, showProgress);
   const hostPeer = selectors.selectHostPeer(getState());
   const viewerConn = selectors.selectViewerConn(getState());
-  const connMap = hostPeer?.getConnections?.();
-  const allConns = connMap ? Array.from(connMap.entries()) : [];
-  if (!allConns.length && !viewerConn?.conn) return;
+  const participant = hostPeer || viewerConn;
+  if (!participant?.sendFileToRoom) return;
   const nick = selectors.selectNickname(getState()) ?? '?';
   for (const file of fileList) {
-    const connections = getFileConnections(hostPeer, viewerConn);
-    await sendSingleFile(app, file, connections, hostPeer, viewerConn, nick, progressArea);
+    await sendSingleFile(app, file, hostPeer, viewerConn, nick, progressArea);
   }
 }
 
@@ -774,13 +921,10 @@ function setupViewerScreenShare(s, stream, handleStopScreen, myPeerId, nick) {
   const screenStreams = new Map(selectors.selectScreenStreams(s));
   screenStreams.set(myPeerId ?? '', { stream, nick });
   patchState({ screenStreams });
-  const hostPeerId = selectors.selectViewerConn(s)?.conn?.peer;
-  const peerObj = selectors.selectPeer(s);
-  if (hostPeerId && peerObj) {
-    selectors.selectViewerConn(s)?.conn?.send?.({ type: 'screen_stream', peerId: peerObj.id, nick });
-    const viewerScreenCall = peerObj.call(hostPeerId, stream);
-    patchState({ viewerScreenCall });
-    if (viewerScreenCall) viewerScreenCall.on('close', () => handleStopScreen());
+  const participant = selectors.selectHostPeer(s) || selectors.selectViewerConn(s);
+  if (participant?.setScreenStream) {
+    participant.setScreenStream(stream);
+    participant.broadcastScreenSharing?.(myPeerId ?? '', nick);
   }
 }
 
