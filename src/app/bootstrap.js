@@ -12,7 +12,7 @@ import {
 } from '../effects/network/api.js';
 import * as peer from '../effects/network/mediasoupClient.js';
 import { playMessageSound, playJoinSound } from '../sounds.js';
-import { playJoinTone, playLeaveTone, playStreamStartTone, installAudioUnlockOnUserGesture } from '../audio.js';
+import { playLeaveTone, playStreamStartTone, installAudioUnlockOnUserGesture } from '../audio.js';
 import { stopSpeakingIndicator, cleanupAllSpeakingIndicators } from '../speaking-indicator.js';
 import {
   renderLanding,
@@ -605,7 +605,7 @@ function handleChatMessageReceived(appEl, state, p) {
 function handleVoipMembersUpdated(p) {
   const list = p.members || p || [];
   const currentCount = list.length;
-  if (currentCount > lastMemberCount) playJoinTone();
+  if (currentCount > lastMemberCount) playJoinSound();
   else if (currentCount < lastMemberCount) playLeaveTone();
   lastMemberCount = currentCount;
   dispatch({ type: 'chat/membersUpdated', payload: { list: list.map((m) => m.nick).filter(Boolean) } });

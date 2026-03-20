@@ -176,6 +176,34 @@ export function selectBaseLocalStream(state) {
 }
 
 /**
+ * Erste livee Video-Spur in base+local für Reparatur nach Effekt-Stop.
+ * Zuerst mit deviceId (echte Kamera); sonst **base** (dort nur Roh erwartet), dann local — viele Browser liefern kein deviceId.
+ */
+export function selectFirstLiveDeviceVideoTrackFromStreams(base, local) {
+  const withDeviceId = (stream) => {
+    const tracks = stream?.getVideoTracks?.() ?? [];
+    for (const t of tracks) {
+      if (t && t.readyState === 'live' && t.kind === 'video' && t.getSettings?.()?.deviceId) return t;
+    }
+    return null;
+  };
+  for (const stream of [base, local]) {
+    const x = withDeviceId(stream);
+    if (x) return x;
+  }
+  const anyLive = (stream) => {
+    const tracks = stream?.getVideoTracks?.() ?? [];
+    for (const t of tracks) {
+      if (t && t.readyState === 'live' && t.kind === 'video') return t;
+    }
+    return null;
+  };
+  const b = anyLive(base);
+  if (b) return b;
+  return anyLive(local);
+}
+
+/**
  * Echte Kamera-Spur für Hintergrund-Effekte (Insertable Streams).
  * Bei aktivem Effekt ist `localStream` die Generator-Ausgabe, `baseLocalStream` die Roh-Kamera (andere Track-Instanz).
  * Wenn fälschlich dieselbe Spur in beiden steckt, gibt es nur diese eine Referenz.
@@ -183,10 +211,21 @@ export function selectBaseLocalStream(state) {
 export function selectCameraVideoTrackForEffects(state) {
   const base = state.baseLocalStream;
   const local = state.localStream;
-  const bv = base?.getVideoTracks?.()?.[0];
-  const lv = local?.getVideoTracks?.()?.[0];
-  if (bv && lv && bv !== lv) return bv;
-  return bv ?? lv ?? null;
+  const bv = base?.getVideoTracks?.()?.[0] ?? null;
+  const lv = local?.getVideoTracks?.()?.[0] ?? null;
+  if (bv && bv.readyState !== 'ended') {
+    /* Ohne Effekt: oft localStream === baseLocalStream → dieselbe Spur ist OK (Roh-Kamera).
+     * Mit Effekt: getrennte Streams, gleiche Video-Spur = oft absichtlich dieselbe Roh-Kamera in base+local
+     * (Reparatur nach Stop) — dann anhand deviceId unterscheiden von „Generator doppelt“. */
+    if (lv && bv === lv && base !== local) {
+      const deviceId = bv.getSettings?.()?.deviceId;
+      if (deviceId) return bv;
+      return null;
+    }
+    return bv;
+  }
+  if (lv && lv.readyState !== 'ended') return lv;
+  return selectFirstLiveDeviceVideoTrackFromStreams(base, local);
 }
 
 /**

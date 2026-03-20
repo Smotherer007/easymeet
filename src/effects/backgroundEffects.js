@@ -1,6 +1,10 @@
 import { ImageSegmenter, FilesetResolver } from '@mediapipe/tasks-vision';
 import { getCustomBackgrounds } from './storage/customBackgroundStorage.js';
-import { categoryMaskToImageData, drawPersonWithMask, drawBlurBackground } from './backgroundEffectsHelpers.js';
+import {
+  categoryMaskToImageData,
+  drawPersonWithMask,
+  drawBlurBackground,
+} from './backgroundEffectsHelpers.js';
 
 let imageSegmenter = null;
 
@@ -63,10 +67,11 @@ export function isInsertableStreamsSupported() {
  * @param {MediaStream} sourceStream
  * @param {Object} options
  * @param {number} [options.blurAmount=15]
+ * @param {boolean} [options.stopSourceVideoTrackOnCleanup] – bei Quelle = dedizierter Klon (call stream): mit stoppen, sonst Leak
  * @returns {Promise<{ stream: MediaStream; stop: () => void }>}
  */
 export async function createBlurredStream(sourceStream, options = {}) {
-  const { blurAmount = 15 } = options;
+  const { blurAmount = 15, stopSourceVideoTrackOnCleanup = false } = options;
   const videoTrack = sourceStream.getVideoTracks()[0];
   if (!videoTrack) throw new Error('No video track');
   const clonedTrack = videoTrack.clone();
@@ -177,8 +182,7 @@ export async function createBlurredStream(sourceStream, options = {}) {
 
         ctx.restore();
 
-        const newFrame = new VideoFrame(canvas, { timestamp: ts });
-        controller.enqueue(newFrame);
+        controller.enqueue(new VideoFrame(canvas, { timestamp: ts }));
         videoFrame.close();
       } catch (err) {
         console.warn('Background blur frame error:', err);
@@ -200,7 +204,14 @@ export async function createBlurredStream(sourceStream, options = {}) {
     stream: processedStream,
     stop: () => {
       stopped = true;
-      clonedTrack.stop();
+      try {
+        clonedTrack.stop();
+      } catch (_) {}
+      if (stopSourceVideoTrackOnCleanup) {
+        try {
+          videoTrack.stop();
+        } catch (_) {}
+      }
       pipeAbort.abort();
     },
   };
@@ -210,9 +221,12 @@ export async function createBlurredStream(sourceStream, options = {}) {
  * Creates a stream with virtual background (image).
  * @param {MediaStream} sourceStream
  * @param {string} imageUrl - URL of the background image
+ * @param {Object} [options]
+ * @param {boolean} [options.stopSourceVideoTrackOnCleanup] – bei Quelle = dedizierter Klon: mit stoppen (wie createBlurredStream)
  * @returns {Promise<{ stream: MediaStream; stop: () => void }>}
  */
-export async function createVirtualBackgroundStream(sourceStream, imageUrl) {
+export async function createVirtualBackgroundStream(sourceStream, imageUrl, options = {}) {
+  const { stopSourceVideoTrackOnCleanup = false } = options;
   const videoTrack = sourceStream.getVideoTracks()[0];
   if (!videoTrack) throw new Error('No video track');
   const clonedTrack = videoTrack.clone();
@@ -303,15 +317,11 @@ export async function createVirtualBackgroundStream(sourceStream, imageUrl) {
 
         ctx.save();
         ctx.clearRect(0, 0, w, h);
-        
         ctx.drawImage(bgImage, 0, 0, w, h);
         drawPersonWithMask(personCtx, maskCtx, maskCanvas, videoFrame, lastMaskImageData, w, h);
-
-        // Draw the segmented person over the background.
         ctx.save();
         ctx.drawImage(personCanvas, 0, 0, w, h);
         ctx.restore();
-
         ctx.restore();
 
         controller.enqueue(new VideoFrame(canvas, { timestamp: ts }));
@@ -336,7 +346,14 @@ export async function createVirtualBackgroundStream(sourceStream, imageUrl) {
     stream: processedStream,
     stop: () => {
       stopped = true;
-      clonedTrack.stop();
+      try {
+        clonedTrack.stop();
+      } catch (_) {}
+      if (stopSourceVideoTrackOnCleanup) {
+        try {
+          videoTrack.stop();
+        } catch (_) {}
+      }
       pipeAbort.abort();
     },
   };

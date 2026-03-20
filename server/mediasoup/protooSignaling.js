@@ -94,7 +94,9 @@ async function consumeProducerForPeer(consumerPeer, producer, room) {
       producerId: producer.id,
       rtpCapabilities: consumerPeer.rtpCapabilities,
       enableRtx: true,
-      paused: true,
+      /* paused: true + sofort resume() traf nach schnellem Producer-Neuaufbau (z. B. Hintergrundwechsel) in
+       * mediasoup gelegentlich „Channel request handler … not found“ beim resume — Client ist nach newConsumer bereit. */
+      paused: false,
       ignoreDtx: true,
       appData: {
         peerId: producer.appData.peerId,
@@ -137,7 +139,6 @@ async function consumeProducerForPeer(consumerPeer, producer, room) {
       consumerScore: consumer.score,
       appData: consumer.appData,
     });
-    await consumer.resume();
   } catch (err) {
     console.warn('newConsumer request failed:', err?.message || err);
     try {
@@ -407,7 +408,14 @@ async function handleProtooNotification(roomId, room, msPeer, notification) {
 
     case 'resumeConsumer': {
       const consumer = msPeer.consumers.get(data.consumerId);
-      if (consumer) await consumer.resume();
+      /* Consumer oft mit paused:false erzeugt — erneutes resume() trifft im Worker „handler not found“. */
+      if (consumer && consumer.paused && !consumer.closed) {
+        try {
+          await consumer.resume();
+        } catch (e) {
+          console.warn('resumeConsumer:', e?.message || e);
+        }
+      }
       break;
     }
 

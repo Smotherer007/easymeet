@@ -24,8 +24,13 @@
     "files": [
       "main.js",
       "preload.js",
-      "package.json"
+      "settings-preload.js",
+      "settings.html",
+      "config-storage.js",
+      "package.json",
+      "assets/**"
     ],
+    "icon": "assets/icon.png",
     "mac": {
       "category": "public.app-category.social-networking",
       "target": ["dmg", "zip"]

@@ -38,3 +38,4 @@ export function drawBlurBackground(blurCtx, videoFrame, w, h, blurAmount) {
   blurCtx.drawImage(videoFrame, 0, 0, w, h);
   blurCtx.filter = 'none';
 }
+

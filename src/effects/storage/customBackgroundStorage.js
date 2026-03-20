@@ -62,8 +62,6 @@ async function compressImage(file) {
         resolve(err('IMAGE', 'Canvas not available'));
         return;
       }
-      ctx.translate(width, 0);
-      ctx.scale(-1, 1);
       ctx.drawImage(img, 0, 0, width, height);
       let dataUrl = canvas.toDataURL('image/jpeg', 0.8);
       if (dataUrl.length > MAX_IMAGE_SIZE_BYTES * 1.4) {

@@ -374,7 +374,7 @@ The production image:
 
 ### Desktop (Electron)
 
-Ordner **`electron/`**: schlanke **Electron-App**, die die Web-UI per URL lädt (Standard: öffentliche Demo, Dev: `http://localhost:5173`).
+Ordner **`electron/`**: schlanke **Electron-App**, die die Web-UI per URL lädt (Standard: öffentliche Demo, Dev: `http://localhost:5173`). **Server-Adresse** lässt sich im App-Menü setzen und wird persistent gespeichert (siehe `electron/README.md`).
 
 ```bash
 cd electron && npm install

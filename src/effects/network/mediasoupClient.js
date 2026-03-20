@@ -8,6 +8,7 @@
 import * as mediasoupClient from 'mediasoup-client';
 import { AwaitQueue } from 'awaitqueue';
 import * as cryptoUtil from '../../utils/crypto.js';
+import { mediaDebugLog, mediaDebugStreamInfo, mediaDebugTrackInfo } from '../../utils/mediaDebug.js';
 import protooPkg from 'protoo-client';
 
 const ProtooPeer = protooPkg.Peer;
@@ -484,6 +485,10 @@ export async function setupRoomParticipant(peerObj, nick, localStream, callbacks
   let sendTransport = null;
   let recvTransport = null;
 
+  /** Seriell mit produceLocalTracks (Retry-Timer): sonst kurz !cam + live-Video → zweiter produce/replace-Race ab Effekt 2 */
+  let _updateLock = false;
+  let _pendingStream = null;
+
   /** Wie mediasoup-demo RoomClient: AwaitQueue für newConsumer */
   const consumingAwaitQueue = new AwaitQueue();
 
@@ -667,17 +672,14 @@ export async function setupRoomParticipant(peerObj, nick, localStream, callbacks
 
         accept();
         msLog('newConsumer ok', { remotePeerId, kind, source: src, consumerId });
-        /* Server resumed den Consumer nach accept — lokal Track sicher aktivieren */
         try {
           if (consumer.paused) consumer.resume();
           if (consumer.track) consumer.track.enabled = true;
         } catch (e) {
           console.warn('consumer local resume nach newConsumer', e);
         }
-        /* Optional: Demo sendet notify — darf lokales resume nicht blockieren */
-        protoo.notify('resumeConsumer', { consumerId: consumer.id }).catch((e) => {
-          msWarn('resumeConsumer notify (optional):', e?.message || e);
-        });
+        /* Kein resumeConsumer an den Server: Consumer wird serverseitig mit paused:false erzeugt —
+         * notify + consumer.resume() dort löste „Channel request handler … consumer.resume“ im Worker. */
       });
     } catch (err) {
       console.error('[easymeet/ms] newConsumer failed', err);
@@ -713,11 +715,13 @@ export async function setupRoomParticipant(peerObj, nick, localStream, callbacks
       return;
     }
     if (method === 'consumerClosed' && data?.consumerId) {
-      const info = consumers.get(data.consumerId);
-      if (info) {
+      const closedId = data.consumerId;
+      void consumingAwaitQueue.push(async () => {
+        const info = consumers.get(closedId);
+        if (!info) return;
         const wasVideo = info.consumer.kind === 'video' && isWebcamVideoSource(info.source);
         info.consumer.close();
-        consumers.delete(data.consumerId);
+        consumers.delete(closedId);
         const srcPeerId = info.peerId;
         if (isScreenShareSource(info.source)) {
           const ss = peerScreenStreams.get(srcPeerId);
@@ -734,19 +738,23 @@ export async function setupRoomParticipant(peerObj, nick, localStream, callbacks
             });
           }
         } else {
-          if (wasVideo) {
-            dispatch?.({ type: 'voip/videoStateUpdated', payload: { peerId: srcPeerId, isVideoEnabled: false } });
-          }
           const peerStream = peerStreams.get(srcPeerId);
           if (peerStream) {
             peerStream.removeTrack(info.consumer.track);
-            if (peerStream.getTracks().length === 0) {
-              peerStreams.delete(srcPeerId);
-              dispatch?.({ type: 'voip/remoteStreamEnded', payload: { peerId: srcPeerId } });
+          }
+          if (wasVideo) {
+            const ps = peerStreams.get(srcPeerId);
+            const stillHasLiveVideo = ps?.getVideoTracks?.()?.some((t) => t && t.readyState === 'live');
+            if (!stillHasLiveVideo) {
+              dispatch?.({ type: 'voip/videoStateUpdated', payload: { peerId: srcPeerId, isVideoEnabled: false } });
             }
           }
+          if (peerStream && peerStream.getTracks().length === 0) {
+            peerStreams.delete(srcPeerId);
+            dispatch?.({ type: 'voip/remoteStreamEnded', payload: { peerId: srcPeerId } });
+          }
         }
-      }
+      });
     }
   });
 
@@ -881,7 +889,7 @@ export async function setupRoomParticipant(peerObj, nick, localStream, callbacks
           console.error('[easymeet/mediasoup] Audio-Produce fehlgeschlagen:', e?.message || e);
         }
       }
-      if (trackUsable(videoTrack) && !producers.has('cam')) {
+      if (trackUsable(videoTrack) && !producers.has('cam') && !_updateLock) {
         try {
           const p = await produceDemoWebcam(sendTransport, videoTrack);
           if (p) producers.set('cam', p);
@@ -1012,12 +1020,10 @@ export async function setupRoomParticipant(peerObj, nick, localStream, callbacks
     dispatch?.({ type: 'voip/backgroundEffectUpdated', payload: { peerId: pid, effect: effect || 'none' } });
   }
 
-  let _updateLock = false;
-  let _pendingStream = null;
-
   async function updateLocalStream(newStream) {
     if (!newStream) return;
     if (_updateLock) {
+      mediaDebugLog('ms:update-local-stream:queued', { stream: mediaDebugStreamInfo(newStream) });
       _pendingStream = newStream;
       return;
     }
@@ -1040,6 +1046,12 @@ export async function setupRoomParticipant(peerObj, nick, localStream, callbacks
       const newVideoTrack = newStream.getVideoTracks?.()?.[0] ?? null;
       const micProducer = producers.get('mic');
       const camProducer = producers.get('cam');
+      mediaDebugLog('ms:do-update-local-stream:start', {
+        in: mediaDebugStreamInfo(newStream),
+        newVideo: mediaDebugTrackInfo(newVideoTrack),
+        camProducerTrack: mediaDebugTrackInfo(camProducer?.track),
+        hadCamProducer: Boolean(camProducer),
+      });
       if (micProducer && newAudioTrack) {
         try {
           await micProducer.replaceTrack({ track: newAudioTrack });
@@ -1059,27 +1071,53 @@ export async function setupRoomParticipant(peerObj, nick, localStream, callbacks
         micProducer.close();
         producers.delete('mic');
       }
+      /* replaceTrack reicht bei MediaStreamTrackGenerator / Effekt-Pipeline oft nicht — Encoder bleibt auf alter Spur.
+       * Neuen Producer erzeugen (Server schließt doppelte Webcam-Producer in produce ohnehin). */
       if (camProducer && newVideoTrack) {
-        try {
-          await camProducer.replaceTrack({ track: newVideoTrack });
-        } catch (re) {
-          console.warn('[easymeet/mediasoup] replaceTrack(Cam) fehlgeschlagen, Producer neu:', re?.message || re);
-          await closeProducerById(camProducer.id);
-          camProducer.close();
-          producers.delete('cam');
-          const p = await produceDemoWebcam(sendTransport, newVideoTrack);
-          if (p) producers.set('cam', p);
+        /* Auch neu erzeugen, wenn Producer noch auf ended-Spur hängt (Effektwechsel / Pipeline-Stop). */
+        const needNewCamProducer =
+          camProducer.track !== newVideoTrack || camProducer.track.readyState === 'ended';
+        if (needNewCamProducer) {
+          mediaDebugLog('ms:cam-producer:recreate', {
+            reason: camProducer.track?.readyState === 'ended' ? 'old-track-ended' : 'track-swap',
+          });
+          try {
+            await closeProducerById(camProducer.id);
+            camProducer.close();
+            producers.delete('cam');
+            const p = await produceDemoWebcam(sendTransport, newVideoTrack);
+            if (p) producers.set('cam', p);
+            mediaDebugLog('ms:cam-producer:recreate:done', {
+              ok: Boolean(p),
+              newProducerTrack: mediaDebugTrackInfo(p?.track),
+            });
+          } catch (re) {
+            console.warn('[easymeet/mediasoup] Cam-Producer neu erzeugen fehlgeschlagen:', re?.message || re);
+            mediaDebugLog('ms:cam-producer:recreate:done', { ok: false, error: re?.message || String(re) });
+          }
+        } else {
+          mediaDebugLog('ms:cam-producer:keep', {
+            trackId: newVideoTrack?.id,
+            readyState: newVideoTrack?.readyState,
+          });
         }
       } else if (!camProducer && newVideoTrack) {
         const p = await produceDemoWebcam(sendTransport, newVideoTrack);
         if (p) producers.set('cam', p);
+        mediaDebugLog('ms:cam-producer:first', { ok: Boolean(p), track: mediaDebugTrackInfo(p?.track) });
       } else if (camProducer && !newVideoTrack) {
         await closeProducerById(camProducer.id);
         camProducer.close();
         producers.delete('cam');
+        mediaDebugLog('ms:cam-producer:removed', { reason: 'no-video-in-stream' });
       }
+      mediaDebugLog('ms:do-update-local-stream:done', {
+        hasCam: producers.has('cam'),
+        hasMic: producers.has('mic'),
+      });
     } catch (e) {
       console.error('updateLocalStream (mediasoup):', e);
+      mediaDebugLog('ms:do-update-local-stream:error', { message: e?.message || String(e) });
       throw e;
     }
   }

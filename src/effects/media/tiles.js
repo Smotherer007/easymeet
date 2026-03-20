@@ -19,6 +19,7 @@ import {
   updateExistingTile,
   applyStreamToMedia,
 } from './tilesHelpers.js';
+import { mediaDebugWireStreamVideoTracks, mediaDebugLog, mediaDebugStreamInfo } from '../../utils/mediaDebug.js';
 
 const TILE_WIDTH = 280;
 const TILE_HEIGHT = 210;
@@ -116,6 +117,18 @@ export function attachRemoteAudio(peerId, stream, app) {
     isLocal: tileState.isLocal,
     tile,
   });
+
+  if (tileState.isLocal && stream) {
+    mediaDebugWireStreamVideoTracks(stream, `tile:${peerId}`);
+    const vids = stream.getVideoTracks?.() ?? [];
+    const anyLive = vids.some((t) => t && t.readyState === 'live');
+    if (vids.length && !anyLive) {
+      mediaDebugLog('tile:local:no-live-video-after-attach', {
+        peerId,
+        stream: mediaDebugStreamInfo(stream),
+      });
+    }
+  }
 
   const hasActiveAudio =
     stream?.getAudioTracks?.().length > 0 &&

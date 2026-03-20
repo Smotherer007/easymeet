@@ -8,6 +8,7 @@ import {
   selectPeerVideoState,
   selectPeerMuteState,
   selectIsMuted,
+  selectIsVideoEnabled,
   selectVoipMembers,
   selectPeerVolumeFor,
 } from '../../domain/selectors/index.js';
@@ -22,7 +23,9 @@ export function getTileState(state, peerId, stream) {
 
   let hasVideo = false;
   if (isLocal) {
-    hasVideo = streamHasVideo;
+    /* Wie Remote: Kamera laut UI an → Stream mit Video-Spur anzeigen, auch wenn enabled kurz falsch (Generator/Wechsel). */
+    const camOn = selectIsVideoEnabled(state);
+    hasVideo = camOn ? streamHasVideoTrack || streamHasVideo : streamHasVideo;
   } else {
     const signaledVideo = peerVideoState.has(peerId) ? peerVideoState.get(peerId) : false;
     /* Tracks haben Vorrang vor Signalisierung — „Kamera aus“-Overlay nicht über laufendes Consumer-Video */
@@ -115,7 +118,10 @@ export function createCameraOffElement() {
 export function createNewTile(container, peerId, tileState) {
   const { isLocal, hasVideo } = tileState;
   const tile = document.createElement('div');
-  tile.className = 'video-tile' + (isLocal ? ' video-tile--local' : '') + (!hasVideo ? ' video-tile--no-video' : '');
+  tile.className =
+    'video-tile' +
+    (isLocal ? ' video-tile--local' : '') +
+    (!hasVideo ? ' video-tile--no-video' : '');
   tile.dataset.peerId = peerId;
   const mediaEl = createMediaElement(isLocal);
   const mediaWrap = document.createElement('div');

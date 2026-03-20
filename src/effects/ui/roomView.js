@@ -33,9 +33,13 @@ import {
   getStreamForPeerId,
   applyOutputDeviceToAllAudios,
 } from '../media/tiles.js';
-import { applyEffectToCallStream } from '../media/devices.js';
+import {
+  applyEffectToCallStream,
+  recoverCameraAfterEffectLoss,
+} from '../media/devices.js';
 import { refreshDeviceSelects } from './devices.js';
 import { startSpeakingIndicator, stopSpeakingIndicator } from '../../speaking-indicator.js';
+import { mediaDebugLog, mediaDebugStreamInfo, mediaDebugTrackInfo } from '../../utils/mediaDebug.js';
 
 /** DOMException.name → passender Hinweis (nicht jeder Fehler ist „Berechtigung verweigert“). */
 function alertMediaAccessError(err, kind) {
@@ -387,7 +391,25 @@ function runInitialRoomSetup(app, deps) {
   syncModalVideo(app);
   setupFullscreenButton(app);
   setupPipButton(app);
-  void ensureInitialCallMedia(app, deps).catch((e) => console.warn('ensureInitialCallMedia', e));
+  void ensureInitialCallMedia(app, deps)
+    .then(() => {
+      const st = getState();
+      if (!selectors.selectIsVideoEnabled(st)) return undefined;
+      const ls = selectors.selectLocalStream(st);
+      if (!ls?.getVideoTracks?.()?.some((t) => t && t.readyState === 'live')) return undefined;
+      const eff = selectors.selectBackgroundEffect(st) ?? 'none';
+      return applyEffectToCallStream(
+        eff,
+        app,
+        attachRemoteAudio,
+        updateVoipParticipants,
+        updateEffectTilesSelection,
+        getStreamForPeerId,
+        getStreamForScreenShare,
+        deps.navigate
+      );
+    })
+    .catch((e) => console.warn('ensureInitialCallMedia / outgoing-orientation', e));
 }
 
 const TOOLBAR_MINIMIZE_MS = 400;
@@ -953,10 +975,9 @@ function syncVideoToPeers(app) {
 }
 
 async function applyEffectAfterVideoToggle(app, applyEffectToCallStream, navigate) {
-  const eff = selectors.selectBackgroundEffect(getState());
-  if (eff && eff !== 'none' && selectors.selectLocalStream(getState())?.getVideoTracks?.().length) {
-    await applyEffectToCallStream(eff, app, attachRemoteAudio, updateVoipParticipants, updateEffectTilesSelection, getStreamForPeerId, getStreamForScreenShare, navigate);
-  }
+  if (!selectors.selectLocalStream(getState())?.getVideoTracks?.()?.length) return;
+  const eff = selectors.selectBackgroundEffect(getState()) ?? 'none';
+  await applyEffectToCallStream(eff, app, attachRemoteAudio, updateVoipParticipants, updateEffectTilesSelection, getStreamForPeerId, getStreamForScreenShare, navigate);
 }
 
 function syncPreviewVideoIfSettingsOpen(app) {
@@ -1007,6 +1028,9 @@ function cleanupPreviewVideo(previewVideo) {
 
 function showLocalStreamInPreview(previewVideo, st) {
   if (selectors.selectIsVideoEnabled(st) && selectors.selectLocalStream(st)?.getVideoTracks?.().length) {
+    /* Dedicated preview camera (_previewStream) must not linger: otherwise handleBackgroundEffectChange
+     * wrongly takes the preview-only path while the UI already shows the call's localStream. */
+    stopPreviewStreams();
     previewVideo.srcObject = selectors.selectLocalStream(st);
     previewVideo.play?.().catch(() => {});
     return true;
@@ -1072,7 +1096,7 @@ function syncPreviewVideoToLocalStream(app, localStream) {
   const modal = app.querySelector('#settings-modal');
   if (preview && modal && !modal.hasAttribute('hidden') && selectors.selectIsVideoEnabled(getState()) && localStream?.getVideoTracks?.().length) {
     preview.srcObject = null;
-    preview.srcObject = localStream;
+    preview.srcObject = selectors.selectLocalStream(getState());
     preview.play?.().catch(() => {});
   }
 }
@@ -1096,12 +1120,12 @@ function syncPeersAndSpeakingAfterInputChange(app, localStream, inputDeviceId, v
 }
 
 async function applyPreviousEffectAfterDeviceChange(app, previousEffect, navigate) {
-  if (previousEffect && previousEffect !== 'none') {
-    await applyEffectToCallStream(previousEffect, app, attachRemoteAudio, updateVoipParticipants, updateEffectTilesSelection, getStreamForPeerId, getStreamForScreenShare, navigate);
-  } else {
+  const eff = previousEffect && previousEffect !== 'none' ? previousEffect : 'none';
+  if (eff === 'none') {
     patchState({ backgroundEffect: 'none' });
     updateEffectTilesSelection(app, 'none');
   }
+  await applyEffectToCallStream(eff, app, attachRemoteAudio, updateVoipParticipants, updateEffectTilesSelection, getStreamForPeerId, getStreamForScreenShare, navigate);
 }
 
 function swapInputDeviceAndSync(app, s, deviceId, newStream, setupAudioTrackEndedHandler) {
@@ -1160,7 +1184,9 @@ function syncPeersAndPreviewAfterVideoChange(app, localStream, deviceId) {
   if (myPeerId) attachRemoteAudio(myPeerId, localStream, app);
   const preview = app.querySelector('#effect-preview-video');
   const modal = app.querySelector('#settings-modal');
-  if (preview && modal && !modal.hasAttribute('hidden') && localStream) preview.srcObject = localStream;
+  if (preview && modal && !modal.hasAttribute('hidden') && localStream) {
+    preview.srcObject = localStream;
+  }
   if (selectors.selectScreen(getState()) === 'room-view') updateVideoButton(app, selectors.selectIsVideoEnabled(getState()));
 }
 
@@ -1208,19 +1234,47 @@ async function applyEffectToPreviewOnly(app, s, effect, applyEffectToPreview) {
 
 async function handleBackgroundEffectChange(app, effect, applyEffectToCallStream, applyEffectToPreview, navigate) {
   const s = getState();
-  const videoTrack = selectors.selectLocalStream(s)?.getVideoTracks?.()?.[0];
-  const cameraActiveForCall =
-    selectors.selectIsVideoEnabled(s) && videoTrack && videoTrack.readyState !== 'ended' && videoTrack.enabled;
-  patchState({ backgroundEffect: effect || 'none' });
-  if (!cameraActiveForCall && s._previewStream) {
-    await applyEffectToPreviewOnly(app, s, effect, applyEffectToPreview);
+  const next = effect || 'none';
+  const current = selectors.selectBackgroundEffect(s) || 'none';
+  mediaDebugLog('ui:bg-effect:handler', {
+    next,
+    current,
+    videoEnabled: selectors.selectIsVideoEnabled(s),
+    local: mediaDebugStreamInfo(selectors.selectLocalStream(s)),
+    previewStream: Boolean(s._previewStream),
+  });
+  /* Gleicher Effekt erneut: würde applyEffectToCallStream stop()+Neuaufbau auslösen → beide Kameras schwarz. */
+  if (next === current) {
+    mediaDebugLog('ui:bg-effect:skip-same', { effect: next });
+    return;
+  }
+
+  let videoTrack = selectors.selectLocalStream(s)?.getVideoTracks?.()?.[0];
+  /* Nur readyState/live prüfen — nicht videoTrack.enabled: Generator-/Canvas-Spuren können kurz oder
+   * fälschlich disabled sein, obwohl die Kamera „an“ ist; dann würde nur die Settings-Vorschau aktualisiert. */
+  const hasLiveCallVideo =
+    selectors.selectIsVideoEnabled(s) && videoTrack && videoTrack.readyState !== 'ended';
+  patchState({ backgroundEffect: next });
+  if (!hasLiveCallVideo && s._previewStream) {
+    mediaDebugLog('ui:bg-effect:path', { branch: 'preview-only', hasLiveCallVideo, firstVideo: mediaDebugTrackInfo(videoTrack) });
+    await applyEffectToPreviewOnly(app, s, next, applyEffectToPreview);
     return;
   }
   if (!videoTrack) {
-    updateEffectTilesSelection(app, effect || 'none');
-    return;
+    if (selectors.selectIsVideoEnabled(getState())) {
+      mediaDebugLog('ui:bg-effect:try-recover-camera', {});
+      await recoverCameraAfterEffectLoss(app, attachRemoteAudio);
+      videoTrack = selectors.selectLocalStream(getState())?.getVideoTracks?.()?.[0];
+    }
+    if (!videoTrack) {
+      mediaDebugLog('ui:bg-effect:path', { branch: 'no-video-track-tiles-only' });
+      updateEffectTilesSelection(app, next);
+      return;
+    }
   }
-  await applyEffectToCallStream(effect || 'none', app, attachRemoteAudio, updateVoipParticipants, updateEffectTilesSelection, getStreamForPeerId, getStreamForScreenShare, navigate);
+  mediaDebugLog('ui:bg-effect:path', { branch: 'apply-to-call-stream' });
+  await applyEffectToCallStream(next, app, attachRemoteAudio, updateVoipParticipants, updateEffectTilesSelection, getStreamForPeerId, getStreamForScreenShare, navigate);
+  mediaDebugLog('ui:bg-effect:apply-done', { next });
 }
 
 function handleOutputDeviceChange(deviceId) {
