@@ -124,13 +124,13 @@ app.get('/api/rooms', (req, res) => {
   });
 });
 
-/** Muss vor /api/rooms/:roomId stehen, sonst wird „active“ als Raum-ID interpretiert. */
+/** Must be registered before /api/rooms/:roomId or "active" is parsed as a room id. */
 app.get('/api/rooms/active', (req, res) => {
   res.setHeader('Cache-Control', 'no-store');
   cleanupExpiredRooms();
   const fromMs = listActiveRoomsPublic();
   const byId = new Map(fromMs.map((r) => [r.roomId, r]));
-  /* Fallback: alle HTTP-Räume prüfen (nach Normalisierung doppelt zu fromMs, sonst ergänzend) */
+  /* Fallback: scan all HTTP rooms (may overlap normalized fromMs, else supplement) */
   for (const httpId of rooms.keys()) {
     const ms = getMediasoupRoom(httpId);
     const n = ms?.peers?.size ?? 0;
@@ -153,7 +153,7 @@ app.get('/api/rooms/active', (req, res) => {
   res.json({ rooms: payload });
 });
 
-/** Feste Räume (JSON-Pfad EASYMEET_PERSISTENT_ROOMS – ohne VoIP, immer sichtbar für Join). */
+/** Pinned rooms (JSON path EASYMEET_PERSISTENT_ROOMS — no VoIP required, always listed for join). */
 app.get('/api/rooms/pinned', (req, res) => {
   res.setHeader('Cache-Control', 'no-store');
   const list = [];

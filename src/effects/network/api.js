@@ -1,5 +1,5 @@
 /**
- * I/O: API-Aufrufe mit Result-Typ.
+ * I/O: API calls using Result type.
  */
 
 import { ok, err } from '../../shared/result.js';
@@ -11,7 +11,7 @@ import { API_BASE } from '../../shared/constants.js';
  */
 export function validateCreateRoomPayload(payload) {
   if (!payload || typeof payload !== 'object') {
-    return err('VALIDATION', 'Payload fehlt');
+    return err('VALIDATION', 'Payload missing');
   }
   const p = /** @type {Record<string, unknown>} */ (payload);
   const password = String(p.password ?? '').trim();
@@ -25,14 +25,14 @@ export function validateCreateRoomPayload(payload) {
  */
 export function validateJoinPayload(payload) {
   if (!payload || typeof payload !== 'object') {
-    return err('VALIDATION', 'Payload fehlt');
+    return err('VALIDATION', 'Payload missing');
   }
   const p = /** @type {Record<string, unknown>} */ (payload);
   const identifier = String(p.identifier ?? p.roomId ?? '').trim();
   const password = String(p.password ?? '').trim();
   const peerId = String(p.peerId ?? '');
   if (!identifier || !peerId) {
-    return err('VALIDATION', 'identifier und peerId erforderlich');
+    return err('VALIDATION', 'identifier and peerId required');
   }
   return ok({ identifier, password, peerId });
 }
@@ -51,13 +51,13 @@ export async function fetchCreateRoom(password, roomCode) {
     });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) {
-      return err('API', data.error || 'Raum konnte nicht erstellt werden');
+      return err('API', data.error || 'Could not create room');
     }
     return ok({
       roomId: data.roomId ?? '',
     });
   } catch (e) {
-    return err('NETWORK', 'Verbindung fehlgeschlagen', e);
+    return err('NETWORK', 'Connection failed', e);
   }
 }
 
@@ -81,14 +81,14 @@ export async function fetchJoinRoom(identifier, password, peerId) {
     });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) {
-      return err('API', data.error || 'Beitritt fehlgeschlagen');
+      return err('API', data.error || 'Join failed');
     }
     return ok({
       hostPeerId: data.hostPeerId ?? '',
       roomId: data.roomId ?? identifier,
     });
   } catch (e) {
-    return err('NETWORK', 'Verbindung fehlgeschlagen', e);
+    return err('NETWORK', 'Connection failed', e);
   }
 }
 
@@ -100,12 +100,12 @@ export async function fetchActiveRooms() {
     const res = await fetch(`${API_BASE}/rooms/active`);
     const data = await res.json().catch(() => ({}));
     if (!res.ok) {
-      return err('API', data.error || 'Aktive Räume konnten nicht geladen werden');
+      return err('API', data.error || 'Could not load active rooms');
     }
     const rooms = Array.isArray(data.rooms) ? data.rooms : [];
     return ok({ rooms });
   } catch (e) {
-    return err('NETWORK', 'Verbindung fehlgeschlagen', e);
+    return err('NETWORK', 'Connection failed', e);
   }
 }
 
@@ -117,12 +117,12 @@ export async function fetchPinnedRooms() {
     const res = await fetch(`${API_BASE}/rooms/pinned`);
     const data = await res.json().catch(() => ({}));
     if (!res.ok) {
-      return err('API', data.error || 'Feste Räume konnten nicht geladen werden');
+      return err('API', data.error || 'Could not load pinned rooms');
     }
     const rooms = Array.isArray(data.rooms) ? data.rooms : [];
     return ok({ rooms });
   } catch (e) {
-    return err('NETWORK', 'Verbindung fehlgeschlagen', e);
+    return err('NETWORK', 'Connection failed', e);
   }
 }
 
@@ -139,6 +139,6 @@ export async function fetchRoomStatus(identifier) {
       hasPassword: !!data.hasPassword,
     });
   } catch (e) {
-    return err('NETWORK', 'Status-Abfrage fehlgeschlagen', e);
+    return err('NETWORK', 'Status request failed', e);
   }
 }

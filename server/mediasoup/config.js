@@ -46,7 +46,7 @@ export const mediaCodecs = [
   },
 ];
 
-/** Lokal (zwei Tabs, npm run server): ohne announcedIp liefern manche Setups ungünstige ICE-Kandidaten */
+/** Local (two tabs, npm run server): without announcedIp some setups yield poor ICE candidates */
 const defaultAnnouncedIp =
   process.env.MEDIASOUP_ANNOUNCED_IP ||
   (process.env.NODE_ENV !== 'production' ? '127.0.0.1' : undefined);

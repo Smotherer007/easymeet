@@ -39,12 +39,12 @@ import * as peer from '../network/mediasoupClient.js';
 import { startSpeakingIndicator, stopSpeakingIndicator } from '../../speaking-indicator.js';
 import { mediaDebugLog, mediaDebugStreamInfo, mediaDebugTrackInfo } from '../../utils/mediaDebug.js';
 
-/** Serielle Ausführung: schnelles mehrfaches Umschalten darf nicht parallel laufen (sonst bricht die Insertable-Streams-Pipe). */
+/** Serialized execution: fast repeated toggles must not run in parallel (insertable-streams pipe breaks). */
 let _applyEffectTail = Promise.resolve();
 
 /**
- * Wendet Hintergrund-Effekte an und aktualisiert den lokalen Stream.
- * (I/O & Side-Effect Schwer - Layer 4)
+ * Apply background effects and update the local stream.
+ * (I/O & side effects — layer 4)
  * @param {string} effect
  * @param {HTMLElement} app
  * @param {Function} attachRemoteAudio
@@ -77,7 +77,7 @@ export function applyEffectToCallStream(
     )
   );
   _applyEffectTail = p.catch((err) => {
-    console.error('[easymeet] applyEffectToCallStream fehlgeschlagen:', err);
+    console.error('[easymeet] applyEffectToCallStream failed:', err);
     mediaDebugLog('effect:call:promise-reject', {
       message: err?.message,
       name: err?.name,
@@ -87,7 +87,7 @@ export function applyEffectToCallStream(
   return p;
 }
 
-/** Bevorzugt echte Kamera-Spur (deviceId), sonst jede live-Video-Spur (ohne deviceId in manchen Browsern). */
+/** Prefer real camera track (deviceId), else any live video track (some browsers omit deviceId). */
 function firstLiveCameraLikeVideoTrack(stream) {
   const live = [...(stream?.getVideoTracks?.() ?? [])].filter((t) => t && t.readyState === 'live');
   const withDevice = live.find((t) => t.getSettings?.()?.deviceId);
@@ -95,11 +95,11 @@ function firstLiveCameraLikeVideoTrack(stream) {
 }
 
 /**
- * Keine live-Kamera in State, UI will aber Video → Kamera neu beziehen (z. B. Roh-Spur nach Effekt-Stop in Chromium beendet).
+ * No live camera in state but UI wants video → re-acquire camera (e.g. raw track ended after effect stop in Chromium).
  */
 /**
- * Nach kaputtem Effekt-Wechsel: Kamera neu verdrahten und lokale Kachel aktualisieren.
- * (Export für `handleBackgroundEffectChange`, wenn kein Video-Track mehr im State ist.)
+ * After a broken effect switch: re-wire camera and refresh local tile.
+ * (Export for `handleBackgroundEffectChange` when no video track remains in state.)
  */
 export async function recoverCameraAfterEffectLoss(app, attachRemoteAudioFn) {
   await ensureCameraTrackWhenVideoEnabled();
@@ -139,16 +139,16 @@ async function ensureCameraTrackWhenVideoEnabled() {
     try {
       await participant?.updateLocalStream?.(repaired);
     } catch (e) {
-      console.warn('[easymeet] updateLocalStream nach Kamera-Neubezug:', e?.message || e);
+      console.warn('[easymeet] updateLocalStream after camera re-acquire:', e?.message || e);
     }
     mediaDebugLog('effect:camera-reacquired', { track: mediaDebugTrackInfo(vt) });
   } catch (e) {
-    console.warn('[easymeet] Kamera neu beziehen (Effekt) fehlgeschlagen:', e?.message || e);
+    console.warn('[easymeet] camera re-acquire (effect) failed:', e?.message || e);
     mediaDebugLog('effect:camera-reacquire-failed', { error: e?.message || String(e) });
   }
 }
 
-/** Effekt aus: Audio von local + Roh aus base (Vertrag bei aktivem Effekt), sonst live-Video (Kamera vor Generator). */
+/** Effect off: audio from local + raw from base (contract while effect on), else live video (camera before generator). */
 function buildMergedStreamAfterEffectOff() {
   const st = getState();
   const local = selectLocalStream(st);
@@ -185,7 +185,7 @@ async function applyEffectToCallStreamInternal(
     base: mediaDebugStreamInfo(selectBaseLocalStream(s)),
     videoEnabled: selectIsVideoEnabled(s),
   });
-  /* „Kein Hintergrund“ muss auch laufen, wenn die Generator-Spur nach stop() ended ist — sonst kein Merge, Stream kaputt. */
+  /* "No background" must still run when generator track is ended after stop() — else no merge, broken stream. */
   if (!turningEffectOff && (!camTrack || camTrack.readyState === 'ended')) {
     if (selectIsVideoEnabled(s)) {
       await ensureCameraTrackWhenVideoEnabled();
@@ -205,8 +205,8 @@ async function applyEffectToCallStreamInternal(
     patchState({ backgroundEffectStop: null });
     await new Promise((r) => setTimeout(r, 100));
 
-    /* Generator ist ended, localStream kann noch tote Video-Spur tragen; Roh-Kamera aus base/local suchen
-     * und State + Producer kurz auf Roh setzen — sonst selectCameraVideoTrackForEffects / UI hängen. */
+    /* Generator ended, localStream may still carry dead video; find raw camera in base/local
+     * and briefly set state + producer to raw — else selectCameraVideoTrackForEffects / UI stall. */
     const stRep = getState();
     const device = selectFirstLiveDeviceVideoTrackFromStreams(
       selectBaseLocalStream(stRep),
@@ -223,7 +223,7 @@ async function applyEffectToCallStreamInternal(
       try {
         await participant?.updateLocalStream?.(repaired);
       } catch (e) {
-        console.warn('[easymeet] updateLocalStream nach Effekt-Stop/Reparatur:', e?.message || e);
+        console.warn('[easymeet] updateLocalStream after effect stop/repair:', e?.message || e);
       }
     } else if (selectIsVideoEnabled(stRep)) {
       await ensureCameraTrackWhenVideoEnabled();
@@ -250,8 +250,8 @@ async function applyEffectToCallStreamInternal(
     }
   }
 
-  /* Snapshots vor await: während createBlurredStream bleibt localStream unverändert → Kachel/Producer behalten Roh-Video.
-   * Erst danach ein patchState: base = nur Roh, local = Audio + Generator (Roh wandert in base, nie „nur Audio“). */
+  /* Snapshots before await: during createBlurredStream localStream unchanged → tile/producer keep raw video.
+   * Then patchState: base = raw only, local = audio + generator (raw moves to base, never "audio only"). */
   const localPre = selectLocalStream(s);
   const audioTracksSnapshot = [...(localPre?.getAudioTracks?.() ?? [])];
   const rawTrackForBase = selectCameraVideoTrackForEffects(s);
@@ -261,7 +261,7 @@ async function applyEffectToCallStreamInternal(
   }
 
   const oldVideoTracks = [...(localPre?.getVideoTracks?.() ?? [])];
-  /** Nur Spuren beenden, die nicht mehr in den aktuellen local/base-Streams vorkommen — nie Roh per t!==protect falsch treffen. */
+  /** Stop only tracks no longer present in current local/base — never wrongly stop raw via t!==protect. */
   const stopOldTracks = () => {
     const st = getState();
     const keep = new Set();
@@ -280,8 +280,8 @@ async function applyEffectToCallStreamInternal(
   };
 
   /**
-   * baseLocalStream nur neu setzen, wenn Roh noch nicht allein in base liegt (sonst Roh endlos zwischen Streams schieben).
-   * Pipeline-Quelle ist immer `raw.clone()` (resolvePipelineSource).
+   * Set baseLocalStream only when raw is not already alone in base (else shuffle raw between streams forever).
+   * Pipeline source is always `raw.clone()` (resolvePipelineSource).
    */
   const patchEffectResult = (processedStream, stop, rawCanonical) => {
     const genTracks = processedStream.getVideoTracks();
@@ -309,9 +309,9 @@ async function applyEffectToCallStreamInternal(
   };
 
   /**
-   * Immer dedizierter Klon als Pipeline-Quelle (Cleanup stoppt nur den Klon + innere Kette).
-   * Base-Stream direkt zu füttern ließ nach blur→anderer-Hintergrund die Roh-Spur in Chromium oft „weg“ /
-   * Selector lieferte null (Logs: video-track:ended auf Kachel, no-cam-after-stop).
+   * Always a dedicated clone as pipeline source (cleanup stops clone + inner chain only).
+   * Feeding base directly often lost raw track in Chromium after blur→other background /
+   * selector returned null (logs: video-track:ended on tile, no-cam-after-stop).
    */
   const resolvePipelineSource = () => {
     const st = getState();
@@ -320,7 +320,7 @@ async function applyEffectToCallStreamInternal(
     try {
       return { stream: new MediaStream([rawLive.clone()]), stopSourceCleanup: true, rawCanonical: rawLive };
     } catch (e) {
-      console.warn('[easymeet] Kamera-Spur clone für Effekt fehlgeschlagen:', e?.message || e);
+      console.warn('[easymeet] camera track clone for effect failed:', e?.message || e);
       return null;
     }
   };
@@ -380,7 +380,7 @@ async function applyEffectToCallStreamInternal(
       base: mediaDebugStreamInfo(selectBaseLocalStream(getState())),
     });
   } catch (err) {
-    console.error('Hintergrund-Effekt fehlgeschlagen:', err);
+    console.error('background effect failed:', err);
     mediaDebugLog('effect:call:error', { message: err?.message, name: err?.name });
     let merged = buildMergedStreamAfterEffectOff();
     const stErr = getState();
@@ -415,7 +415,7 @@ async function applyEffectToCallStreamInternal(
     t.enabled = selectIsVideoEnabled(s) ?? true;
   });
 
-  /* Ein Frame Abstand: alte Insertable-Pipe freigeben, bevor Producer/Webcam neu verdrahtet wird (Chromium). */
+  /* One frame gap: release old insertable pipe before producer/webcam re-wire (Chromium). */
   await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
 
   const sMedia = getState();
@@ -435,7 +435,7 @@ async function applyEffectToCallStreamInternal(
     await participant?.updateLocalStream?.(localStream);
     mediaDebugLog('effect:after-update-local-stream', { ok: true });
   } catch (e) {
-    console.warn('[easymeet] updateLocalStream nach Effektwechsel:', e?.message || e);
+    console.warn('[easymeet] updateLocalStream after effect change:', e?.message || e);
     mediaDebugLog('effect:after-update-local-stream', { ok: false, error: e?.message || String(e) });
   }
 
@@ -457,7 +457,7 @@ async function applyEffectToCallStreamInternal(
 
   const sUi = getState();
   if (selectScreen(sUi) === 'room-view') {
-    /* Kein navigate('room-view'): Full-Re-Render bricht Settings-Vorschau + Effekt-Pipeline; VoIP-Update reicht. */
+    /* No navigate('room-view'): full re-render breaks settings preview + effect pipeline; VoIP update is enough. */
     updateVoipParticipants(
       app,
       selectVoipMembers(sUi),

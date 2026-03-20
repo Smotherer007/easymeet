@@ -391,7 +391,6 @@ Details: **[electron/README.md](electron/README.md)**.
 - **Wiki (Entwicklung):** EasyMeet – Entwickler- & Architektur-Dokumentation; Kurzverweis: [docs/WIKI.md](docs/WIKI.md)
 - Covers: Project structure, architecture, API reference, configuration, development, deployment
 - **[CONTRIBUTING.md](CONTRIBUTING.md)** – How to contribute
-- **[CHANGELOG.md](CHANGELOG.md)** – Version history
 
 ---
 

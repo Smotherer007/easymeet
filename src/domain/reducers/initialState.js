@@ -55,7 +55,7 @@ export function createInitialState() {
     joinRoomHasPassword: true,
     videoLayoutMode: 'grid',
     videoTilePositions: {},
-    /** Free-Layout: Schwebefenster Chat / Teilnehmer / Videos (persistiert über room-view-Re-Renders) */
+    /** Free layout: floating chat / participants / videos (persists across room-view re-renders) */
     freeLayoutChatOpen: false,
     freeLayoutParticipantsOpen: false,
     freeLayoutVideosOpen: true,

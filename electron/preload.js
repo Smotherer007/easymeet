@@ -1,5 +1,5 @@
 /**
- * Preload (contextIsolation): aktuell ohne IPC – Platzhalter für spätere Native-APIs.
+ * Preload (contextIsolation): no IPC yet — placeholder for future native APIs.
  */
 const { contextBridge } = require('electron');
 

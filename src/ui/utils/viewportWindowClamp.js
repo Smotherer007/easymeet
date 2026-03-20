@@ -1,9 +1,9 @@
 /**
- * Hält Fenster-Rechtecke im sichtbaren Bereich (Layout-Viewport / visualViewport).
+ * Keep window rectangles inside the visible area (layout viewport / visualViewport).
  */
 import { WINDOW_POSITION_DEFAULTS } from '../../shared/windowPositionsDefaults.js';
 
-/** Mindestgrößen (abgestimmt mit room-view.js Modals / FLOATING_WINDOW_MIN). */
+/** Minimum sizes (aligned with room-view.js modals / FLOATING_WINDOW_MIN). */
 export const WINDOW_RECT_MINS = {
   videos: { w: 320, h: 280 },
   chat: { w: 280, h: 300 },
@@ -35,7 +35,7 @@ function clampNum(n, lo, hi) {
 }
 
 /**
- * Passt x, y, w, h so an, dass das Rechteck vollständig im Viewport liegt.
+ * Adjust x, y, w, h so the rectangle fits fully inside the viewport.
  */
 export function clampWindowRect(rect, minW, minH, margin = 4) {
   const v = getViewportRect();
@@ -61,7 +61,7 @@ export function clampWindowRectById(id, rect) {
   return clampWindowRect(rect, m.w, m.h);
 }
 
-/** Nur Position; Größe unverändert (Drag). */
+/** Position only; size unchanged (drag). */
 export function clampDraggablePosition(left, top, width, height, margin = 4) {
   const c = clampWindowRect({ x: left, y: top, w: width, h: height }, 1, 1, margin);
   return { left: c.x, top: c.y };
@@ -75,7 +75,7 @@ export function mergeAndClampWindowRect(id, defaultsForId, storedPartial) {
   return clampWindowRectById(id, raw);
 }
 
-/** localStorage / State: mit Defaults mergen und alle bekannten IDs clippen. */
+/** localStorage / state: merge with defaults and clamp all known ids. */
 export function mergeAndClampAllWindowPositions(stored) {
   const base = { ...WINDOW_POSITION_DEFAULTS };
   if (stored && typeof stored === 'object') {

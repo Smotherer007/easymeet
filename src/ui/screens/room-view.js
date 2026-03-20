@@ -862,7 +862,7 @@ function attachRoomViewShareModalCopyListeners(container) {
   });
 }
 
-/** Modals mit hidden nicht anfassen; schwebende Fenster auch clippen wenn zugeklappt (beim Öffnen sichtbar im Viewport). */
+/** Skip modals with hidden; still clamp floating windows when collapsed (visible in viewport when opened). */
 function shouldClampDraggable(el) {
   const modal = el.closest('#stream-modal, #settings-modal, #share-modal');
   if (modal?.hasAttribute('hidden')) return false;
@@ -1120,7 +1120,7 @@ export function attachRoomViewListeners(container, callbacks) {
   const chatFloatingWindow = container.querySelector('.floating-window[data-window="chat"]');
   const participantsFloatingWindow = container.querySelector('.floating-window[data-window="participants"]');
 
-  /** Abdunkelung nur auf schmalen Viewports (wie @media max-width: 768px) – im Grid-Desktop kein Vollbild-Filter. */
+  /** Dim overlay only on narrow viewports (like @media max-width: 768px) — no fullscreen filter on grid desktop. */
   const syncMobileMeetingOverlay = () => {
     if (!overlay) return;
     const narrow = typeof window !== 'undefined' && window.matchMedia('(max-width: 768px)').matches;

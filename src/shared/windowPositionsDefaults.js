@@ -1,4 +1,4 @@
-/** Standard-Positionen/Größen für schwebende Fenster & Modals (eine Quelle für State + Clamp). */
+/** Default positions/sizes for floating windows & modals (single source for state + clamp). */
 export const WINDOW_POSITION_DEFAULTS = {
   videos: { x: 20, y: 80, w: 560, h: 420 },
   chat: { x: 520, y: 80, w: 380, h: 450 },

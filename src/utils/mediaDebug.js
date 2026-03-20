@@ -1,13 +1,13 @@
 /**
- * Diagnose für Kamera / Hintergrund-Effekte / mediasoup.
+ * Diagnostics for camera / background effects / mediasoup.
  *
- * Aktivieren (eines genügt, dann Seite neu laden):
- * - URL: `?easymeetMediaDebug=1` anhängen
- * - Konsole: `localStorage.setItem('easymeetMediaDebug', '1')`
- * - Vite-Dev (`npm run dev`): Debug ist **automatisch an**
+ * Enable (one is enough, then reload):
+ * - URL: append `?easymeetMediaDebug=1`
+ * - Console: `localStorage.setItem('easymeetMediaDebug', '1')`
+ * - Vite dev (`npm run dev`): debug is **on automatically**
  *
- * Logs: **`[easymeet/media-debug]`** als **warn** (sichtbar auch wenn „Info“ gefiltert ist).
- * Deaktivieren: `localStorage.removeItem('easymeetMediaDebug')` und ohne URL-Parameter laden.
+ * Logs: **`[easymeet/media-debug]`** as **warn** (visible even when "Info" is filtered).
+ * Disable: `localStorage.removeItem('easymeetMediaDebug')` and load without the URL param.
  */
 
 function urlDebugOn() {
@@ -38,7 +38,7 @@ export function mediaDebugEnabled() {
 }
 
 /**
- * @param {string} phase Kurzer Name (z. B. effect:apply:start)
+ * @param {string} phase Short label (e.g. effect:apply:start)
  * @param {Record<string, unknown>} [data]
  */
 export function mediaDebugLog(phase, data) {
@@ -47,7 +47,7 @@ export function mediaDebugLog(phase, data) {
   console.warn('[easymeet/media-debug]', phase, payload);
 }
 
-/** Kurzinfos zu einer MediaStreamTrack (ohne große Objekte). */
+/** Short summary of a MediaStreamTrack (no large objects). */
 export function mediaDebugTrackInfo(t) {
   if (!t) return null;
   return {
@@ -63,7 +63,7 @@ export function mediaDebugTrackInfo(t) {
 
 const _wiredVideoDebug = new WeakSet();
 
-/** Einmalig `ended` / `mute` auf Video-Spuren (lokal), um schwarzes Bild ohne Effekt-Log zu erklären. */
+/** Once: wire `ended` / `mute` on local video tracks to explain black picture without effect logs. */
 export function mediaDebugWireStreamVideoTracks(stream, label) {
   if (!mediaDebugEnabled() || !stream?.getVideoTracks) return;
   for (const t of stream.getVideoTracks()) {

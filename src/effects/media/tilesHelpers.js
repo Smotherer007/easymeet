@@ -17,18 +17,18 @@ export function getTileState(state, peerId, stream) {
   const isLocal = peerId === selectMyPeerId(state);
   const videoTracks = stream?.getVideoTracks?.() ?? [];
   const streamHasVideo = videoTracks.length > 0 && videoTracks.some((tr) => tr.enabled);
-  /** Remote: Track existiert (z. B. Consumer), auch wenn enabled kurz false ist – sonst strippt applyStreamToMedia die Spur. */
+  /** Remote: track exists (e.g. consumer) even if enabled is briefly false — else applyStreamToMedia strips it. */
   const streamHasVideoTrack = videoTracks.length > 0;
   const peerVideoState = selectPeerVideoState(state);
 
   let hasVideo = false;
   if (isLocal) {
-    /* Wie Remote: Kamera laut UI an → Stream mit Video-Spur anzeigen, auch wenn enabled kurz falsch (Generator/Wechsel). */
+    /* Like remote: camera on in UI → show stream with video track even if enabled briefly false (generator/switch). */
     const camOn = selectIsVideoEnabled(state);
     hasVideo = camOn ? streamHasVideoTrack || streamHasVideo : streamHasVideo;
   } else {
     const signaledVideo = peerVideoState.has(peerId) ? peerVideoState.get(peerId) : false;
-    /* Tracks haben Vorrang vor Signalisierung — „Kamera aus“-Overlay nicht über laufendes Consumer-Video */
+    /* Tracks win over signaling — do not show "camera off" overlay on live consumer video */
     hasVideo = streamHasVideoTrack || streamHasVideo || Boolean(signaledVideo);
   }
   
@@ -43,7 +43,7 @@ export function createMediaElement(isLocal) {
   mediaEl.autoplay = true;
   mediaEl.playsInline = true;
   if (isLocal) mediaEl.muted = true;
-  /* Kein natives PiP-Overlay auf Kacheln (Teilnehmerleiste nutzt eigenes Markup). */
+  /* No native PiP on tiles (meeting bar uses its own markup). */
   mediaEl.disablePictureInPicture = true;
   return mediaEl;
 }
@@ -212,8 +212,8 @@ export function updateExistingTile(tile, peerId, tileState) {
 }
 
 /**
- * Remote mit Kamera: Chromium blockt oft autoplay auf &lt;video&gt; mit Audio+Video (schwarze Kachel).
- * Lösung: Video stumm nur Videospuren, Ton über verstecktes &lt;audio&gt;.
+ * Remote with camera: Chromium often blocks autoplay on &lt;video&gt; with audio+video (black tile).
+ * Fix: mute video element to video tracks only; audio via hidden &lt;audio&gt;.
  */
 function ensureRemoteAudioElement(tile) {
   let audioEl = tile.querySelector('audio.video-tile__remote-audio');
@@ -236,9 +236,9 @@ export function applyStreamToMedia(mediaEl, stream, hasVideo, vol, outputDeviceI
     const vTracks = stream.getVideoTracks?.() ?? [];
     const aTracks = stream.getAudioTracks?.() ?? [];
     /**
-     * Split nur von den Tracks abhängig — nicht von hasVideo (UI/Signalisierung).
-     * hasVideo kann kurz false sein, obwohl Consumer-Video schon existiert → sonst Audio-only-Zweig
-     * und schwarze Kachel (Video-Spur wird verworfen).
+     * Split depends on tracks only — not hasVideo (UI/signaling).
+     * hasVideo can be briefly false while consumer video already exists → else audio-only branch
+     * and black tile (video track dropped).
      */
     const wantSplit = vTracks.length > 0 && aTracks.length > 0;
 

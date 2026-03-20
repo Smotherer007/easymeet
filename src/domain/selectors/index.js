@@ -176,8 +176,8 @@ export function selectBaseLocalStream(state) {
 }
 
 /**
- * Erste livee Video-Spur in base+local für Reparatur nach Effekt-Stop.
- * Zuerst mit deviceId (echte Kamera); sonst **base** (dort nur Roh erwartet), dann local — viele Browser liefern kein deviceId.
+ * First live video track in base+local for repair after effect stop.
+ * Prefer deviceId (real camera); else **base** (raw expected there), then local — many browsers omit deviceId.
  */
 export function selectFirstLiveDeviceVideoTrackFromStreams(base, local) {
   const withDeviceId = (stream) => {
@@ -204,9 +204,9 @@ export function selectFirstLiveDeviceVideoTrackFromStreams(base, local) {
 }
 
 /**
- * Echte Kamera-Spur für Hintergrund-Effekte (Insertable Streams).
- * Bei aktivem Effekt ist `localStream` die Generator-Ausgabe, `baseLocalStream` die Roh-Kamera (andere Track-Instanz).
- * Wenn fälschlich dieselbe Spur in beiden steckt, gibt es nur diese eine Referenz.
+ * Real camera track for background effects (insertable streams).
+ * With an active effect, `localStream` is generator output, `baseLocalStream` is raw camera (different track instance).
+ * If the same track is wrongly in both, only that one reference exists.
  */
 export function selectCameraVideoTrackForEffects(state) {
   const base = state.baseLocalStream;
@@ -214,9 +214,9 @@ export function selectCameraVideoTrackForEffects(state) {
   const bv = base?.getVideoTracks?.()?.[0] ?? null;
   const lv = local?.getVideoTracks?.()?.[0] ?? null;
   if (bv && bv.readyState !== 'ended') {
-    /* Ohne Effekt: oft localStream === baseLocalStream → dieselbe Spur ist OK (Roh-Kamera).
-     * Mit Effekt: getrennte Streams, gleiche Video-Spur = oft absichtlich dieselbe Roh-Kamera in base+local
-     * (Reparatur nach Stop) — dann anhand deviceId unterscheiden von „Generator doppelt“. */
+    /* No effect: often localStream === baseLocalStream → same track is OK (raw camera).
+     * With effect: separate streams, same video track = often intentional same raw in base+local
+     * (repair after stop) — then use deviceId to tell apart from "generator duplicated". */
     if (lv && bv === lv && base !== local) {
       const deviceId = bv.getSettings?.()?.deviceId;
       if (deviceId) return bv;

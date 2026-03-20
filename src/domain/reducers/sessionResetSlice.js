@@ -1,6 +1,6 @@
 /**
- * Reiner Zustandsausschnitt: nach Verlassen des Calls / Aufräumen der Medien-Session.
- * Kein I/O — nur Plain Data für Reducer oder gezieltes patchState (Rollback).
+ * Pure state slice: after leaving the call / tearing down the media session.
+ * No I/O — plain data only for reducer or targeted patchState (rollback).
  */
 
 /**

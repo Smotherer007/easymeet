@@ -119,7 +119,7 @@ export function getWindowPositions(defaults, windowPositions) {
   return pos;
 }
 
-/** Screen-Share-Button in der Leiste — per Slot hot-swappable ohne Full-Re-render. */
+/** Screen-share control in bar — slot hot-swappable without full re-render. */
 export function renderMeetingScreenShareSlotInner({ hasScreenShareSupport, hostStream }) {
   if (!hasScreenShareSupport) return '';
   if (hostStream) {
@@ -128,7 +128,7 @@ export function renderMeetingScreenShareSlotInner({ hasScreenShareSupport, hostS
   return `<button type="button" class="meeting-control-btn" id="start-screen-btn" title="${escapeHtml(t('startSharing'))}">${iconMonitor()}</button>`;
 }
 
-/** Ton (Raum-Host) + „Teilen beenden“ (immer wenn man selbst teilt, hostStream). */
+/** Audio (room host) + stop share (when self is sharing, hostStream). */
 export function renderStreamModalHostActionsInner({ isHost, hostStream, audioEnabled }) {
   if (!hostStream) return '';
   let html = '';

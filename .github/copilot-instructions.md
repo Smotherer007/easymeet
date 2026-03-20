@@ -3,6 +3,7 @@
 ## Sprache und Umgebung
 
 - **Hauptsprache**: JavaScript (TypeScript-ready)
+- **Code-Dokumentation**: Alle Kommentare, JSDoc und Blockkommentare im Quellcode **auf Englisch** (keine deutschsprachigen Erklärungen in `//`, `/* */`, `/** */`).
 - **Frontend**: Vite + Browser APIs + modulare Screens
 - **Backend**: Node.js + Express
 - **Realtime**: mediasoup (SFU) + Protoo-WebSocket + WebRTC (Browser ↔ Server)
@@ -238,6 +239,14 @@ Vor Commit muss alles erfuellt sein:
 - [ ] Funktionen sind klein und fokussiert (<=20 Zeilen als Zielwert).
 
 Falls ein Punkt offen ist: Refactoring vor Merge.
+
+### Compliance-Iststand (Repo, grob)
+
+- **Reducer / Domain:** `appReducer` und Slices sind weitgehend pure `(state, event) -> nextState`; `patchState` bleibt als Legacy-Kompositionspfad.
+- **Result&lt;T&gt;:** in `src/effects/network/api.js` und `shared/result.js` genutzt; nicht jeder ältere Pfad ist umgestellt.
+- **Schichten:** Netzwerk/mediasoup in `effects/network`, UI-Orchestrierung in `effects/ui` / `ui/screens` — gelegentlich große Handler-Funktionen (Zeilenlimit bewusst nicht global erzwungen).
+- **Eine Rolle pro Funktion:** Ziel bei neuem Code; bestehende Module (z. B. `roomView.js`, `mediasoupClient.js`) sind orchestration-lastig.
+- **UI-Texte:** `src/i18n.js` kann lokalisierte Strings enthalten — das ist **kein** Ersatz für englische Code-Kommentare; Kommentare/JSDoc bleiben Englisch.
 
 ---
 

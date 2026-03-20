@@ -161,7 +161,7 @@ function renderLandingScreen(appEl) {
 function renderCreateRoomScreen(appEl) {
   render(appEl, renderCreateRoomForm());
   attachCreateRoomListeners(appEl, {
-    /* Session/Peer-State zurücksetzen — sonst bleibt z. B. ein offenes Protoo nach abgebrochenem Flow */
+    /* Reset session/peer state — otherwise e.g. open Protoo can remain after aborted flow */
     onBack: () => cleanupAndNavigate(appEl, 'landing'),
     onCreate: (nick, pwd, code) => handleCreateRoom(appEl, nick, pwd, code),
     getJoinUrl,
@@ -463,7 +463,7 @@ function setPeerVolume(peerId, percent) {
   const container = document.getElementById('video-gallery') || document.getElementById('remote-audio-container');
   const tile = container?.querySelector(`.video-tile[data-peer-id="${peerId}"]`);
   const v = Math.min(1, vol);
-  /* Remote mit Video+Audio: Ton läuft über separates audio.video-tile__remote-audio — alle Medien-Elemente setzen */
+  /* Remote video+audio: sound uses separate audio.video-tile__remote-audio — set volume on all media elements */
   tile?.querySelectorAll('video, audio').forEach((el) => {
     el.volume = v;
   });
@@ -487,8 +487,8 @@ function handleStopScreen(appEl) {
 }
 
 /**
- * mediasoup: hostPeer und viewerConn zeigen auf dasselbe Participant-Objekt — nur einmal schließen.
- * Synchron ausführen (kein setTimeout), damit kein zweiter Join mit „hängender“ Session kollidiert.
+ * mediasoup: hostPeer and viewerConn reference the same participant object — close only once.
+ * Run synchronously (no setTimeout) so a second join does not race with a dangling session.
  */
 function closeActiveMediasoupParticipant() {
   const s = getState();
@@ -497,7 +497,7 @@ function closeActiveMediasoupParticipant() {
   try {
     participant.close?.();
   } catch (e) {
-    console.warn('[easymeet] Participant schließen:', e?.message || e);
+    console.warn('[easymeet] close participant:', e?.message || e);
   }
   patchState({ hostPeer: null, viewerConn: null });
 }
@@ -620,7 +620,7 @@ function handleVoipMembersUpdated(p) {
 
 function handleVoipRemoteStreamAdded(appEl, state, p) {
   attachRemoteAudio(p.peerId, p.stream, appEl);
-  /* Consumers können kommen bevor #video-gallery existiert — alle Streams erneut an die Galerie hängen */
+  /* Consumers may arrive before #video-gallery exists — re-attach all streams to the gallery */
   if (selectors.selectScreen(state) === 'room-view') {
     const myPeerId = selectors.selectMyPeerId(state);
     const localStream = selectors.selectLocalStream(state);

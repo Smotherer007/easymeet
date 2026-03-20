@@ -2,7 +2,7 @@
  * Helper functions for backgroundEffects.js (rule: ≤20 lines per function)
  */
 
-/** Anteil neuer Segmentierung (0–1); höher = schneller reagierend, niedriger = ruhigere Kanten */
+/** Weight of new segmentation (0–1); higher = faster response, lower = calmer edges */
 const MASK_TEMPORAL_MIX = 0.52;
 
 /**
@@ -43,7 +43,7 @@ function buildSmoothedPersonMask(maskArray, mw, mh, state) {
   return imgData;
 }
 
-/** @param {object} result – MediaPipe segmentForVideo-Ergebnis mit categoryMask */
+/** @param {object} result – MediaPipe segmentForVideo result with categoryMask */
 export function categoryMaskToImageData(result, temporalState) {
   if (!result?.categoryMask || !temporalState) return null;
   const mask = result.categoryMask;
@@ -51,7 +51,7 @@ export function categoryMaskToImageData(result, temporalState) {
 }
 
 /**
- * Person mit weicher Maske auf volle Auflösung; Kanten-Glättung skaliert mit Breite.
+ * Draw person with soft mask at full resolution; edge feather scales with width.
  */
 export function drawPersonWithMask(personCtx, maskCtx, maskCanvas, videoFrame, lastMaskImageData, w, h) {
   personCtx.imageSmoothingEnabled = true;
@@ -75,7 +75,7 @@ export function drawBlurBackground(blurCtx, videoFrame, w, h, blurAmount) {
   blurCtx.filter = 'none';
 }
 
-/** Virtuelles Hintergrundmotiv horizontal spiegeln (Person bleibt unverändert). */
+/** Mirror virtual background image horizontally (person unchanged). */
 export function drawImageHorizontallyFlipped(ctx, image, w, h) {
   ctx.save();
   ctx.translate(w, 0);

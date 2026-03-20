@@ -12,7 +12,7 @@ function httpToWsTarget(httpUrl) {
 
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '');
-  /** Wenn nur `npm run dev` läuft ohne Backend → ECONNREFUSED auf /api/join */
+  /** If only `npm run dev` runs without backend → ECONNREFUSED on /api/join */
   const apiTarget = env.VITE_PROXY_API_TARGET || 'http://localhost:3001';
 
   return {
@@ -20,7 +20,7 @@ export default defineConfig(({ mode }) => {
     port: 5173,
     proxy: {
       '/api': { target: apiTarget, changeOrigin: true },
-      /* Protoo: in Dev nutzt der Client direkt :3001/ws (s. mediasoupClient getProtooUrl). Proxy als Fallback. */
+      /* Protoo: in dev the client uses :3001/ws directly (see mediasoupClient getProtooUrl). Proxy as fallback. */
       '/ws': { target: httpToWsTarget(apiTarget), ws: true, changeOrigin: true },
     },
   },

@@ -94,7 +94,7 @@ function formatActiveRoomParticipantLine(participants) {
 }
 
 /**
- * @param {{ showJumpIcon?: boolean }} [options] – feste Räume: Pfeil (kein Online-Status)
+ * @param {{ showJumpIcon?: boolean }} [options] – pinned rooms: jump arrow (no online status)
  */
 function appendRoomListItem(listEl, r, metaMainText, onPickRoom, options = {}) {
   const { showJumpIcon = false } = options;

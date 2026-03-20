@@ -1,8 +1,8 @@
 /**
- * Protoo-Signaling wie mediasoup-demo (Server-getriebene Consumer + newConsumer-Request).
- * Easymeet-Erweiterungen: Notification "easymeet" mit { type, ... } (Chat, Dateien, …).
+ * Protoo signaling like mediasoup-demo (server-driven consumers + newConsumer request).
+ * Easymeet extensions: "easymeet" notification with { type, ... } (chat, files, …).
  *
- * Übernommene Abläufe angelehnt an versatica/mediasoup-demo (ISC).
+ * Flows follow versatica/mediasoup-demo (ISC).
  */
 
 import { createRequire } from 'module';
@@ -334,7 +334,7 @@ async function handleProtooRequest(roomId, room, msPeer, request, accept, reject
       }
 
       const incomingSource = appData?.source || 'mic';
-      /* Race: produceLocalTracks + updateLocalStream können kurz zwei Webcam-Producer erzeugen → doppelte Video-Consumer / schwarze Kachel */
+      /* Race: produceLocalTracks + updateLocalStream can briefly create two webcam producers → duplicate video consumers / black tile */
       if (kind === 'video' && (incomingSource === 'video' || incomingSource === 'cam')) {
         for (const [existingId, existingProducer] of [...msPeer.producers.entries()]) {
           const src = existingProducer.appData?.source;

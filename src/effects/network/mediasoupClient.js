@@ -1,8 +1,8 @@
 /**
- * mediasoup Client – Protoo wie mediasoup-demo (`_reference/mediasoup-demo/app/src/RoomClient.js`).
- * Öffentliche API unverändert für bootstrap / roomView.
+ * mediasoup client – Protoo like mediasoup-demo (`_reference/mediasoup-demo/app/src/RoomClient.js`).
+ * Public API unchanged for bootstrap / roomView.
  *
- * Abläufe angelehnt an versatica/mediasoup-demo (ISC).
+ * Flows follow versatica/mediasoup-demo (ISC).
  */
 
 import * as mediasoupClient from 'mediasoup-client';
@@ -18,7 +18,7 @@ const WebSocketTransport = protooPkg.WebSocketTransport;
 const CHUNK_SIZE = 16384;
 const CHUNK_DELAY_MS = 30;
 
-/** Wie mediasoup-demo RoomClient.js – leeres Objekt, Platzhalter für ggf. proprietaryConstraints */
+/** Like mediasoup-demo RoomClient.js – empty object, placeholder for optional proprietaryConstraints */
 const PC_PROPRIETARY_CONSTRAINTS = {};
 
 function isWebcamVideoSource(src) {
@@ -33,7 +33,7 @@ function sleep(ms) {
   return new Promise((r) => setTimeout(r, ms));
 }
 
-/** Diagnose: immer sichtbar — bei Bedarf in Konsole filtern: easymeet/ms */
+/** Diagnostics: always visible — filter console with: easymeet/ms */
 function msLog(...args) {
   console.info('[easymeet/ms]', ...args);
 }
@@ -43,12 +43,12 @@ function msWarn(...args) {
 }
 
 /**
- * Protoo-WebSocket-URL.
+ * Protoo WebSocket URL.
  *
- * - **Hinter NPM/443:** immer `wss://<gleiche Origin>/ws` — kein `:3001` auf der öffentlichen Domain.
- * - **Nur Vite-Dev (Port 5173):** direkt `hostname:3001/ws`, weil der Vite-WS-Proxy `/ws` oft das
- *   Subprotokoll „protoo“ nicht zuverlässig durchreicht.
- * - **vite preview / Sonderfälle:** `VITE_MEDIASOUP_PROTOO_DIRECT=true` erzwingt wieder direkten Backend-Port.
+ * - **Behind NPM/443:** always `wss://<same Origin>/ws` — no `:3001` on the public domain.
+ * - **Vite dev only (port 5173):** use `hostname:3001/ws` directly because the Vite WS proxy for `/ws` often
+ *   does not reliably forward the "protoo" subprotocol.
+ * - **vite preview / edge cases:** `VITE_MEDIASOUP_PROTOO_DIRECT=true` forces the backend port again.
  */
 function canonicalRoomIdForProtoo(roomId) {
   const s = String(roomId ?? '').trim().replace(/[^A-Z0-9]/gi, '').toUpperCase();
@@ -68,7 +68,7 @@ function getProtooUrl(roomId, peerId) {
   if (isViteDevServer || forceDirectBackend) {
     const port = import.meta.env.VITE_MEDIASOUP_PROTOO_PORT || '3001';
     const url = `${proto}//${location.hostname}:${port}/ws?${q}`;
-    msLog('Protoo direkt (Vite-Dev oder VITE_MEDIASOUP_PROTOO_DIRECT):', url);
+    msLog('Protoo direct (Vite dev or VITE_MEDIASOUP_PROTOO_DIRECT):', url);
     return url;
   }
 
@@ -77,7 +77,7 @@ function getProtooUrl(roomId, peerId) {
   const wsUrl = new URL('/ws', base);
   wsUrl.search = q.toString();
   const out = wsUrl.toString();
-  msLog('Protoo über Seiten-Origin (z. B. 443 hinter Proxy):', out);
+  msLog('Protoo via page origin (e.g. 443 behind proxy):', out);
   return out;
 }
 
@@ -91,8 +91,8 @@ async function notifyEasymeet(protoo, payload) {
 export async function getUserMedia(inputDeviceId = null, requestVideo = true, videoDeviceId = null) {
   const videoOnly = requestVideo === 'videoOnly';
   /**
-   * explizites Gerät (Einstellungen / gespeicherte ID): `exact` — sonst ignoriert Chromium
-   * `ideal` oft und es bleibt das erste Mikro/Kamera aktiv.
+   * Explicit device (settings / stored ID): use `exact` — otherwise Chromium often ignores
+   * `ideal` and keeps the first mic/camera.
    */
   const audioProc = videoOnly ? null : getAudioProcessingConstraints();
   const constraints = {
@@ -105,7 +105,7 @@ export async function getUserMedia(inputDeviceId = null, requestVideo = true, vi
     video:
       requestVideo && requestVideo !== false
         ? {
-            /* 16:9 – virtuelle Hintergründe/Blur werden im Kamera-Frame gerendert; 4:3 wirkte gestaucht */
+            /* 16:9 – virtual backgrounds/blur render in the camera frame; 4:3 looked stretched */
             aspectRatio: { ideal: 16 / 9 },
             width: { ideal: 1280 },
             height: { ideal: 720 },
@@ -169,10 +169,10 @@ export async function getScreenStream() {
 }
 
 /**
- * RTT aus WebRTC-Stats: bevorzugt ausgewähltes/nominiertes candidate-pair,
- * sonst jedes Paar mit currentRoundTripTime, sonst inbound-rtp roundTripTime (Sekunden).
+ * RTT from WebRTC stats: prefer selected/nominated candidate-pair,
+ * else any pair with currentRoundTripTime, else inbound-rtp roundTripTime (seconds).
  * @param {RTCStatsReport | Map<string, object>} stats
- * @returns {number|null} Millisekunden
+ * @returns {number|null} milliseconds
  */
 function extractRttMsFromRtcStats(stats) {
   if (!stats || typeof stats.forEach !== 'function') return null;
@@ -200,7 +200,7 @@ function extractRttMsFromRtcStats(stats) {
       if (subset.length) return Math.min(...subset);
     }
   }
-  /* Browser liefern manchmal RTT ohne selected/nominated — kleinster Wert = aktives Paar i. d. R. plausibel */
+  /* Browsers sometimes omit selected/nominated — smallest RTT is usually the active pair */
   if (anyPairMs.length) return Math.min(...anyPairMs);
 
   const rtpMs = [];
@@ -303,11 +303,11 @@ async function createRecvTransport(protoo, device) {
   return transport;
 }
 
-/* ---------- produce (aligniert mit mediasoup-demo RoomClient enableMic / enableWebcam) ---------- */
+/* ---------- produce (aligned with mediasoup-demo RoomClient enableMic / enableWebcam) ---------- */
 
 async function produceDemoMic(sendTransport, track) {
   if (!track || !sendTransport) return null;
-  /* Kein absCaptureTime: Easymeet-Router nutzt nur Standard-Codecs (vgl. server/mediasoup/config.js). */
+  /* No absCaptureTime: Easymeet router uses standard codecs only (see server/mediasoup/config.js). */
   return sendTransport.produce({
     track,
     codecOptions: {
@@ -329,7 +329,7 @@ async function produceDemoWebcam(sendTransport, track) {
   });
 }
 
-/** Bildschirmfreigabe: Demo nutzt source „screensharing“ für streamId-Zuordnung */
+/** Screen share: demo uses source "screensharing" for streamId mapping */
 async function produceDemoScreenTrack(sendTransport, track) {
   if (!track || !sendTransport) return null;
   const base = {
@@ -506,9 +506,9 @@ export async function setupRoomParticipant(peerObj, nick, localStream, callbacks
 
   const peerId = peerObj.id;
   const url = getProtooUrl(roomId, peerId);
-  msLog('setupRoomParticipant', { roomId: roomId || '(leer!)', peerId, nick });
+  msLog('setupRoomParticipant', { roomId: roomId || '(empty!)', peerId, nick });
   if (!roomId || String(roomId).trim() === '') {
-    msWarn('roomId fehlt — Protoo/Join schlägt am Server fehl. Prüfe State nach create/join API.');
+    msWarn('roomId missing — Protoo/join will fail on server. Check state after create/join API.');
   }
   const transport = new WebSocketTransport(url);
   const protoo = new ProtooPeer(transport);
@@ -516,7 +516,7 @@ export async function setupRoomParticipant(peerObj, nick, localStream, callbacks
   const producers = new Map();
   const consumers = new Map();
   const peerStreams = new Map();
-  /** Ein MediaStream pro Peer für Screen-Share (Video+Audio), vgl. Demo streamId „…-screensharing“ */
+  /** One MediaStream per peer for screen share (video+audio); demo streamId "…-screensharing" */
   const peerScreenStreams = new Map();
   let screenProducers = [];
   const fileHandler = dispatch ? createFileDataHandler(dispatch, roomId, password) : null;
@@ -532,11 +532,11 @@ export async function setupRoomParticipant(peerObj, nick, localStream, callbacks
   let sendTransport = null;
   let recvTransport = null;
 
-  /** Seriell mit produceLocalTracks (Retry-Timer): sonst kurz !cam + live-Video → zweiter produce/replace-Race ab Effekt 2 */
+  /** Serialized with produceLocalTracks (retry timer): avoids !cam + live video → second produce/replace race after effect 2 */
   let _updateLock = false;
   let _pendingStream = null;
 
-  /** Wie mediasoup-demo RoomClient: AwaitQueue für newConsumer */
+  /** Like mediasoup-demo RoomClient: AwaitQueue for newConsumer */
   const consumingAwaitQueue = new AwaitQueue();
 
   function handleEasymeetPayload(msg) {
@@ -654,7 +654,7 @@ export async function setupRoomParticipant(peerObj, nick, localStream, callbacks
         } = data;
 
         if (!consumerId || !producerId || !kind || !rtpParameters) {
-          throw new Error(`newConsumer: ungültige Daten ${JSON.stringify(Object.keys(data))}`);
+          throw new Error(`newConsumer: invalid data ${JSON.stringify(Object.keys(data))}`);
         }
 
         const src = appData?.source || 'audio';
@@ -723,10 +723,10 @@ export async function setupRoomParticipant(peerObj, nick, localStream, callbacks
           if (consumer.paused) consumer.resume();
           if (consumer.track) consumer.track.enabled = true;
         } catch (e) {
-          console.warn('consumer local resume nach newConsumer', e);
+          console.warn('consumer local resume after newConsumer', e);
         }
-        /* Kein resumeConsumer an den Server: Consumer wird serverseitig mit paused:false erzeugt —
-         * notify + consumer.resume() dort löste „Channel request handler … consumer.resume“ im Worker. */
+        /* No resumeConsumer to server: consumer is created server-side with paused:false —
+         * notify + consumer.resume() there triggered "Channel request handler … consumer.resume" in the worker. */
       });
     } catch (err) {
       console.error('[easymeet/ms] newConsumer failed', err);
@@ -814,18 +814,18 @@ export async function setupRoomParticipant(peerObj, nick, localStream, callbacks
     };
     protoo.on('open', () => {
       done(() => {
-        msLog('Protoo-Socket offen (Subprotokoll protoo)');
+        msLog('Protoo socket open (protoo subprotocol)');
         resolve();
       });
     });
     protoo.on('failed', (attempt) => {
       done(() => {
         msWarn(
-          'Protoo WebSocket fehlgeschlagen nach Retries. Versuch:',
+          'Protoo WebSocket failed after retries. Attempt:',
           attempt,
           '| URL:',
           url,
-          '| Server erreichbar? NPM muss /ws (WebSocket) zu Node durchreichen. Lokal: npm run dev:all'
+          '| Server reachable? NPM must proxy /ws (WebSocket) to Node. Local: npm run dev:all'
         );
         reject(new Error(`protoo WebSocket failed (attempt ${attempt})`));
       });
@@ -855,11 +855,11 @@ export async function setupRoomParticipant(peerObj, nick, localStream, callbacks
       routerRtpCapabilities,
       preferLocalCodecsOrder: true,
     });
-    msLog('mediasoup Device geladen', { handler: device.handlerName });
+    msLog('mediasoup Device loaded', { handler: device.handlerName });
 
     /**
-     * Wie mediasoup-demo RoomClient._joinRoom(): kurzer Mic-Zugriff (Track stumm) entsperrt
-     * Autoplay für Remote-Audio/Video in Chromium/Safari — sonst oft schwarze Kachel / kein Ton.
+     * Like mediasoup-demo RoomClient._joinRoom(): brief mic access (track muted) unlocks
+     * autoplay for remote audio/video in Chromium/Safari — otherwise often black tile / no sound.
      */
     try {
       const unlockStream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -873,18 +873,18 @@ export async function setupRoomParticipant(peerObj, nick, localStream, callbacks
         }, 120000);
       }
     } catch (e) {
-      console.warn('[easymeet] Autoplay-Unlock (optional):', e?.message || e);
+      console.warn('[easymeet] Autoplay unlock (optional):', e?.message || e);
     }
 
     sendTransport = await createSendTransport(protoo, device);
     recvTransport = await createRecvTransport(protoo, device);
-    msLog('WebRtcTransports erstellt', { send: sendTransport?.id, recv: recvTransport?.id });
+    msLog('WebRtcTransports created', { send: sendTransport?.id, recv: recvTransport?.id });
 
     recvTransport.on('connectionstatechange', (cs) => {
       msLog('recvTransport connectionState:', cs);
       if (cs === 'failed' || cs === 'disconnected') {
         msWarn(
-          'Empfangs-Transport getrennt/fehlgeschlagen — oft ICE/announcedIp. Lokal testen: MEDIASOUP_ANNOUNCED_IP=127.0.0.1'
+          'Recv transport disconnected/failed — often ICE/announcedIp. Local test: MEDIASOUP_ANNOUNCED_IP=127.0.0.1'
         );
       }
     });
@@ -898,7 +898,7 @@ export async function setupRoomParticipant(peerObj, nick, localStream, callbacks
 
     const videoEnabled = getStream()?.getVideoTracks?.().some((t) => t.enabled) ?? false;
     const backgroundEffect = getLocalBackgroundEffect?.() ?? 'none';
-    /** Wie initialState.isMuted (false): ohne Callback nicht fälschlich „stumm“ signalisieren */
+    /** Like initialState.isMuted (false): without callback do not falsely signal muted */
     const muted = getMuted?.() ?? false;
 
     const { peers } = await protoo.request('join', {
@@ -933,7 +933,7 @@ export async function setupRoomParticipant(peerObj, nick, localStream, callbacks
           const p = await produceDemoMic(sendTransport, audioTrack);
           if (p) producers.set('mic', p);
         } catch (e) {
-          console.error('[easymeet/mediasoup] Audio-Produce fehlgeschlagen:', e?.message || e);
+          console.error('[easymeet/mediasoup] Audio produce failed:', e?.message || e);
         }
       }
       if (trackUsable(videoTrack) && !producers.has('cam') && !_updateLock) {
@@ -941,7 +941,7 @@ export async function setupRoomParticipant(peerObj, nick, localStream, callbacks
           const p = await produceDemoWebcam(sendTransport, videoTrack);
           if (p) producers.set('cam', p);
         } catch (e) {
-          console.error('[easymeet/mediasoup] Video-Produce fehlgeschlagen:', e?.message || e);
+          console.error('[easymeet/mediasoup] Video produce failed:', e?.message || e);
         }
       }
       const logSig = [
@@ -1103,7 +1103,7 @@ export async function setupRoomParticipant(peerObj, nick, localStream, callbacks
         try {
           await micProducer.replaceTrack({ track: newAudioTrack });
         } catch (re) {
-          console.warn('[easymeet/mediasoup] replaceTrack(Mic) fehlgeschlagen, Producer neu:', re?.message || re);
+          console.warn('[easymeet/mediasoup] replaceTrack(mic) failed, new producer:', re?.message || re);
           await closeProducerById(micProducer.id);
           micProducer.close();
           producers.delete('mic');
@@ -1118,10 +1118,10 @@ export async function setupRoomParticipant(peerObj, nick, localStream, callbacks
         micProducer.close();
         producers.delete('mic');
       }
-      /* replaceTrack reicht bei MediaStreamTrackGenerator / Effekt-Pipeline oft nicht — Encoder bleibt auf alter Spur.
-       * Neuen Producer erzeugen (Server schließt doppelte Webcam-Producer in produce ohnehin). */
+      /* replaceTrack often insufficient for MediaStreamTrackGenerator / effect pipeline — encoder stays on old track.
+       * Create new producer (server closes duplicate webcam producers in produce anyway). */
       if (camProducer && newVideoTrack) {
-        /* Auch neu erzeugen, wenn Producer noch auf ended-Spur hängt (Effektwechsel / Pipeline-Stop). */
+        /* Also recreate if producer still references an ended track (effect switch / pipeline stop). */
         const needNewCamProducer =
           camProducer.track !== newVideoTrack || camProducer.track.readyState === 'ended';
         if (needNewCamProducer) {
@@ -1139,7 +1139,7 @@ export async function setupRoomParticipant(peerObj, nick, localStream, callbacks
               newProducerTrack: mediaDebugTrackInfo(p?.track),
             });
           } catch (re) {
-            console.warn('[easymeet/mediasoup] Cam-Producer neu erzeugen fehlgeschlagen:', re?.message || re);
+            console.warn('[easymeet/mediasoup] Cam producer recreate failed:', re?.message || re);
             mediaDebugLog('ms:cam-producer:recreate:done', { ok: false, error: re?.message || String(re) });
           }
         } else {
@@ -1199,7 +1199,7 @@ export async function setupRoomParticipant(peerObj, nick, localStream, callbacks
     notifyEasymeet(protoo, { type: 'file_share', nick, filename, ts, fileId });
   }
 
-  /** Mittlere RTT Send/Empfang zum SFU (WebRTC candidate-pair), für UI. */
+  /** Mean RTT send/recv to SFU (WebRTC candidate-pair), for UI. */
   async function getWebRtcRttMs() {
     const rtts = [];
     for (const tr of [sendTransport, recvTransport]) {

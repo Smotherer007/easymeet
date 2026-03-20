@@ -1,10 +1,9 @@
 /**
- * Spielt kurze Sounds – Web Audio API, keine externen Dateien.
- * Keine Markenrechts-Probleme (ICQ etc.).
+ * Short tones via Web Audio API, no external files.
+ * Avoids trademark issues (ICQ etc.).
  *
- * Unter HTTPS (Produktion) startet der AudioContext oft „suspended“, bis der Nutzer
- * interagiert. Ein Context pro App + resume() vor dem Abspielen; zusätzlich früh
- * unlock bei erster Geste (pointerdown/keydown).
+ * Under HTTPS (production) AudioContext often starts "suspended" until the user interacts.
+ * One context per app + resume() before playback; early unlock on first gesture (pointerdown/keydown).
  */
 let sharedAudioContext = null;
 
@@ -16,7 +15,7 @@ export function getSharedAudioContext() {
   return sharedAudioContext;
 }
 
-/** Einmalig: nach erster Nutzerinteraktion Context freischalten (Autoplay-Policy). */
+/** Once: unlock context after first user interaction (autoplay policy). */
 export function installAudioUnlockOnUserGesture() {
   if (typeof document === 'undefined') return;
   const unlock = () => {

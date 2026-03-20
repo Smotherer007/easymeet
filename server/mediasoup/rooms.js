@@ -1,7 +1,7 @@
 /**
- * mediasoup Room-Management.
- * Verwaltet Worker, Router und Peers pro Raum.
- * Protoo-Room (signaling) pro mediasoup-Raum — angelehnt an mediasoup-demo.
+ * mediasoup room management.
+ * Manages workers, routers, and peers per room.
+ * One Protoo room (signaling) per mediasoup room — follows mediasoup-demo pattern.
  */
 
 import * as mediasoup from 'mediasoup';
@@ -52,10 +52,10 @@ export async function createWorkers() {
     });
     workers.push(worker);
   }
-  console.log(`mediasoup: ${workers.length} worker(s) gestartet`);
+  console.log(`mediasoup: ${workers.length} worker(s) started`);
   if (!process.env.MEDIASOUP_ANNOUNCED_IP) {
     console.warn(
-      'mediasoup: MEDIASOUP_ANNOUNCED_IP ist nicht gesetzt — Remote-Clients (anderes Gerät, Docker) bekommen oft keinen RTP-Stream. Siehe docker-compose / Server-Doku.'
+      'mediasoup: MEDIASOUP_ANNOUNCED_IP is not set — remote clients (other device, Docker) often get no RTP. See docker-compose / server docs.'
     );
   }
 }
@@ -107,7 +107,7 @@ export function deleteRoom(roomId) {
 }
 
 /**
- * Nur mediasoup-Transports/Producer/Consumer — ohne Protoo zu schließen.
+ * mediasoup transports/producers/consumers only — does not close Protoo.
  */
 export function cleanupMediasoupPeerResources(room, peerId) {
   const peer = room.peers.get(peerId);
@@ -189,7 +189,7 @@ export async function createWebRtcTransport(roomId, peerId, options = {}) {
 }
 
 /**
- * Schließt mediasoup-Peer; optional Protoo-Peer (Reconnect: oft schon zu).
+ * Close mediasoup peer; optionally Protoo peer (on reconnect Protoo may already be closed).
  * @param {object} [opts]
  * @param {boolean} [opts.closeProtooPeer]
  */
@@ -240,7 +240,7 @@ export function getRoomPeers(roomId) {
 }
 
 /**
- * Anzeige-Namen der VoIP-Peers eines Raums (sortiert, ohne leere Nicks).
+ * Display names of VoIP peers in a room (sorted, empty nicks omitted).
  * @param {RoomState|null} room
  * @returns {string[]}
  */
@@ -253,7 +253,7 @@ export function listRoomParticipantNicks(room) {
   return nicks;
 }
 
-/** Räume mit mindestens einem verbundenen Peer (für öffentliche Startseiten-Liste). */
+/** Rooms with at least one connected peer (for public landing list). */
 export function listActiveRoomsPublic() {
   const out = [];
   for (const [roomId, room] of msRooms.entries()) {

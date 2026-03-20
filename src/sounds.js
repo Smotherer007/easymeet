@@ -1,6 +1,6 @@
 /**
- * Benachrichtigungstöne aus `public/sounds/` (Vite: Root-URL `/sounds/...`).
- * ICQ-„Uh-oh“ bei Nachrichten, Klopfen bei Beitritt, „file done“ bei fremder Bildschirmfreigabe.
+ * Notification sounds from `public/sounds/` (Vite: root URL `/sounds/...`).
+ * ICQ-style uh-oh on messages, knock on join, file-done on remote screen share.
  */
 
 const MESSAGE_MP3 = '/sounds/single-sound-message-icq-ooh.mp3';
@@ -21,17 +21,17 @@ function playOnce(src, volume = 0.85) {
   }
 }
 
-/** Fremde Chat- oder Datei-Nachricht */
+/** Remote chat or file message */
 export function playMessageSound() {
   playOnce(MESSAGE_MP3, 0.8);
 }
 
-/** Jemand tritt bei (Chat „join“ oder VoIP-Mitgliederliste wächst) */
+/** Someone joins (chat "join" or VoIP member list grows) */
 export function playJoinSound() {
   playOnce(JOIN_MP3, 0.75);
 }
 
-/** Anderer Teilnehmer startet Bildschirmfreigabe */
+/** Remote participant starts screen share */
 export function playScreenShareSound() {
   playOnce(SCREEN_SHARE_MP3, 0.75);
 }

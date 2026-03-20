@@ -2,8 +2,8 @@
  * App reducer – pure: (state, event) -> nextState.
  * No I/O, deterministic.
  *
- * Hinweis: `new MediaStream()` in room/joined|created ist bewusst — leerer Platzhalter
- * bis Effects gUM ausführen (Host-API-Objekt, keine Netzwerk-I/O).
+ * Note: `new MediaStream()` on room/joined|created is intentional — empty placeholder
+ * until effects run getUserMedia (host API object, no network I/O).
  */
 
 import { createInitialState } from './initialState.js';
@@ -26,7 +26,7 @@ function reduceRoomEntered(state, payload, isHost) {
     messages: [],
     members: [nick].filter(Boolean),
     voipMembers: voip,
-    /** Nicht stumm starten — sonst holt ensureInitialCallMedia kein Mikro (mediasoup: kein Audio-Producer). Nutzer kann stumm schalten. */
+    /** Start unmuted — otherwise ensureInitialCallMedia skips mic (mediasoup: no audio producer). User can mute. */
     isMuted: false,
     peerMuteState: new Map([[p.peerId, false]]),
     localStream: new MediaStream(),

@@ -1,11 +1,11 @@
 /**
- * Persistente Audio-/Mikro-Einstellungen (localStorage).
+ * Persistent audio / microphone settings (localStorage).
  */
 
 import { AUDIO_SETTINGS_STORAGE } from '../../shared/constants.js';
 
 export const DEFAULT_AUDIO_SETTINGS = {
-  /** Sprech-Indikator: Mittelwert Frequenzpegel (ca. 5–50, höher = weniger empfindlich) */
+  /** Speaking indicator: mean frequency level (~5–50, higher = less sensitive) */
   speakingThreshold: 15,
   noiseSuppression: true,
   echoCancellation: true,
@@ -41,13 +41,13 @@ function loadFromDisk() {
   }
 }
 
-/** Liest aus Cache oder von der Platte (erster Aufruf). */
+/** Read from cache or disk (first call). */
 export function readAudioSettings() {
   if (!cached) loadFromDisk();
   return { ...cached };
 }
 
-/** Für Bootstrap: Cache füllen und Objekt zurückgeben. */
+/** For bootstrap: populate cache and return settings object. */
 export function hydrateAudioSettingsFromStorage() {
   loadFromDisk();
   return readAudioSettings();
@@ -80,7 +80,7 @@ export function getSpeakingThreshold() {
   return readAudioSettings().speakingThreshold;
 }
 
-/** Für getUserMedia-Audio-Constraints (ohne deviceId). */
+/** For getUserMedia audio constraints (without deviceId). */
 export function getAudioProcessingConstraints() {
   const s = readAudioSettings();
   return {

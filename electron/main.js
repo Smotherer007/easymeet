@@ -1,11 +1,11 @@
 /**
- * EasyMeet Desktop – Web-App laden, Server-URL merken, App-Menü.
+ * EasyMeet desktop — load web app, remember server URL, app menu.
  *
- * Start-URL (Priorität):
+ * Start URL (priority):
  * 1. CLI: --easymeet-url=https://…
- * 2. Umgebung: EASYMEET_URL
- * 3. Gespeichert: userData/easymeet-electron-config.json
- * 4. Standard-Demo
+ * 2. Env: EASYMEET_URL
+ * 3. Saved: userData/easymeet-electron-config.json
+ * 4. Default demo URL
  */
 const { app, BrowserWindow, shell, Menu, ipcMain, nativeImage } = require('electron');
 const path = require('path');
@@ -45,7 +45,7 @@ function resolveStartUrl() {
   return DEFAULT_URL;
 }
 
-/** Nach Speichern der Config (CLI/Env haben Vorrang). */
+/** After saving config (CLI/env still take precedence). */
 function resolveUrlAfterConfigSave() {
   const fromArg = process.argv.find((a) => a.startsWith('--easymeet-url='));
   if (fromArg) {
@@ -187,10 +187,10 @@ function registerIpc() {
     } catch (e) {
       const code = e?.message;
       const map = {
-        INVALID_URL: 'Ungültige URL.',
-        INVALID_SCHEME: 'Nur http:// und https:// sind erlaubt.',
+        INVALID_URL: 'Invalid URL.',
+        INVALID_SCHEME: 'Only http:// and https:// are allowed.',
       };
-      return { ok: false, error: map[code] || 'Speichern fehlgeschlagen.' };
+      return { ok: false, error: map[code] || 'Save failed.' };
     }
   });
 

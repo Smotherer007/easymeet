@@ -42,7 +42,7 @@ import { refreshDeviceSelects } from './devices.js';
 import { startSpeakingIndicator, stopSpeakingIndicator } from '../../speaking-indicator.js';
 import { mediaDebugLog, mediaDebugStreamInfo, mediaDebugTrackInfo } from '../../utils/mediaDebug.js';
 
-/** DOMException.name → passender Hinweis (nicht jeder Fehler ist „Berechtigung verweigert“). */
+/** DOMException.name → appropriate i18n key (not every error is permission denied). */
 function alertMediaAccessError(err, kind) {
   const name = err?.name;
   const mapMic = {
@@ -207,7 +207,7 @@ function handleRemoveCustomBackground(app, id, navigate) {
   }
   const result = removeCustomBackground(id);
   if (!result.success) {
-    console.warn('Custom background entfernen fehlgeschlagen:', result.error?.message);
+    console.warn('remove custom background failed:', result.error?.message);
   }
   navigate('room-view');
 }
@@ -251,9 +251,9 @@ function handleOpenStreamModal(app, peerId) {
 }
 
 /**
- * Toolbar „Bildschirm teilen beenden“: mit laufendem eigenen Stream erst Stream-Fenster öffnen,
- * erst beim erneuten Klick (wenn Modal schon den eigenen Stream zeigt) wirklich beenden.
- * Ohne hostStream nutzt der Button weiterhin nur {@link handleStartScreen}.
+ * Toolbar "stop screen share": with an active own stream, open stream modal first;
+ * only on second click (when modal already shows own share) actually stop.
+ * Without hostStream the button still only uses {@link handleStartScreen}.
  */
 function handleStopScreenToolbar(app, handleStopScreen) {
   const s = getState();
@@ -297,9 +297,9 @@ function sendChatMessage(handlers) {
 }
 
 /**
- * mediasoup: Verbindung (join/create) läuft oft bevor localStream existiert — dann erzeugt
- * produceLocalTracks() keine Producer. Beim ersten Öffnen der Raumansicht Medien holen und
- * updateLocalStream auslösen (wie nach manuellem Mute/Kamera-Toggle).
+ * mediasoup: join/create often runs before localStream exists — then produceLocalTracks()
+ * creates no producers. On first room view open, acquire media and trigger updateLocalStream
+ * (same as after manual mute/camera toggle).
  */
 async function ensureInitialCallMedia(app, deps) {
   const { setupAudioTrackEndedHandler } = deps;
@@ -350,7 +350,7 @@ async function ensureInitialCallMedia(app, deps) {
           micStream.getTracks().forEach((t) => t.stop());
         }
       } catch (e) {
-        console.warn('ensureInitialCallMedia: Mikro nachladen fehlgeschlagen:', e?.message || e);
+        console.warn('ensureInitialCallMedia: mic reload failed:', e?.message || e);
       }
     }
     syncMuteToPeers(app);
@@ -383,7 +383,7 @@ async function ensureInitialCallMedia(app, deps) {
       );
     }
   } catch (err) {
-    console.warn('Erstes Medien-Setup (mediasoup):', err?.message || err);
+    console.warn('first media setup (mediasoup):', err?.message || err);
     return;
   }
 
@@ -420,7 +420,7 @@ function clearRoomMediaLatencyTimer(app) {
 
 function startRoomMediaLatencyDisplay(app) {
   clearRoomMediaLatencyTimer(app);
-  /** Letzter gültiger Wert — getStats liefert RTT oft erst verzögert oder mal kurz null */
+  /** Last valid value — getStats often delays RTT or briefly returns null */
   let lastGoodMs = null;
   const tick = async () => {
     const el = app.querySelector('#room-view-media-latency');
@@ -516,7 +516,7 @@ function toolbarScreenBtn(app) {
     || app.querySelector('.meeting-control-bar #start-screen-btn');
 }
 
-/** Schwebefenster per Klasse – ohne navigate('room-view'), sonst flackert das ganze UI. */
+/** Floating windows via class — avoid navigate('room-view') or the whole UI flickers. */
 function setFreeFloatingWindowHidden(app, windowId, hidden) {
   const el = app.querySelector(`.floating-window[data-window="${windowId}"]`);
   if (el) el.classList.toggle('floating-window--hidden', hidden);
@@ -641,7 +641,7 @@ function openFreeLayoutVideosPanel(app) {
 
 function handleToggleVideoLayout(app, navigate) {
   const mode = selectors.selectVideoLayoutMode(getState());
-  /* Minimiertes Video-Fenster: Layout-Button wechselt ins Grid (Wiederherstellung nur über Kamera-Icon). */
+  /* Minimized video panel: layout button switches to grid (restore only via camera icon). */
   if (mode === 'free' && !getState().freeLayoutVideosOpen) {
     patchState({ videoLayoutMode: 'grid' });
     try { localStorage.setItem(VIDEO_LAYOUT_STORAGE, 'grid'); } catch (_) {}
@@ -904,7 +904,7 @@ async function doUnmuteLocalStream(s, setupAudioTrackEndedHandler) {
     if (await acquireNewAudioStream(s, setupAudioTrackEndedHandler)) return true;
     return false;
   } catch (err) {
-    console.error('Mikrofon-Zugriff fehlgeschlagen:', err);
+    console.error('microphone access failed:', err);
     alertMediaAccessError(err, 'audio');
     patchState({ isMuted: true });
     return false;
@@ -959,7 +959,7 @@ async function setupPreviewWhenVideoOff(app, s, applyEffectToPreview) {
     patchState({ _previewStream: previewStream });
     await applyEffectToPreview(previewStream, selectors.selectBackgroundEffect(s) || 'none', previewVideo);
   } catch (err) {
-    console.warn('Preview-Stream fehlgeschlagen:', err);
+    console.warn('preview stream failed:', err);
     previewVideo.srcObject = null;
   }
 }
@@ -1018,7 +1018,7 @@ async function turnOnVideoStream(s, setupAudioTrackEndedHandler) {
   try {
     return await acquireNewVideoStream(s, setupAudioTrackEndedHandler);
   } catch (err) {
-    console.error('Kamera-Zugriff fehlgeschlagen:', err);
+    console.error('camera access failed:', err);
     alertMediaAccessError(err, 'video');
     return false;
   }
@@ -1133,7 +1133,7 @@ async function setupPreviewVideoWhenOpen(app, applyEffectToPreview) {
   if (!previewVideo) return;
   if (!showLocalStreamInPreview(previewVideo, st)) {
     try { await showEffectPreviewInSettings(app, applyEffectToPreview, previewVideo); }
-    catch (err) { console.warn('Preview-Stream fehlgeschlagen:', err); previewVideo.srcObject = null; }
+    catch (err) { console.warn('preview stream failed:', err); previewVideo.srcObject = null; }
   }
 }
 
@@ -1234,7 +1234,7 @@ async function handleInputDeviceChange(app, deviceId, setupAudioTrackEndedHandle
     /* Nach Effekt-Pipeline: Mute-Status + mediasoup nochmal sauber anbinden (Producer/Peers) */
     syncMuteToPeers(app);
   } catch (err) {
-    console.error('Mikrofon-Wechsel fehlgeschlagen:', err);
+    console.error('microphone switch failed:', err);
   }
 }
 
@@ -1297,7 +1297,7 @@ async function handleVideoDeviceChange(app, deviceId, refreshDeviceSelects, navi
     await applyPreviousEffectAfterDeviceChange(app, previousEffect, navigate);
     syncMuteToPeers(app);
   } catch (err) {
-    console.error('Kamera-Wechsel fehlgeschlagen:', err);
+    console.error('camera switch failed:', err);
   }
 }
 
@@ -1321,15 +1321,15 @@ async function handleBackgroundEffectChange(app, effect, applyEffectToCallStream
     local: mediaDebugStreamInfo(selectors.selectLocalStream(s)),
     previewStream: Boolean(s._previewStream),
   });
-  /* Gleicher Effekt erneut: würde applyEffectToCallStream stop()+Neuaufbau auslösen → beide Kameras schwarz. */
+  /* Same effect again: would run applyEffectToCallStream stop()+rebuild → both cameras black. */
   if (next === current) {
     mediaDebugLog('ui:bg-effect:skip-same', { effect: next });
     return;
   }
 
   let videoTrack = selectors.selectLocalStream(s)?.getVideoTracks?.()?.[0];
-  /* Nur readyState/live prüfen — nicht videoTrack.enabled: Generator-/Canvas-Spuren können kurz oder
-   * fälschlich disabled sein, obwohl die Kamera „an“ ist; dann würde nur die Settings-Vorschau aktualisiert. */
+  /* Only readyState/live — not videoTrack.enabled: generator/canvas tracks can be briefly or
+   * wrongly disabled while camera is "on"; then only settings preview would update. */
   const hasLiveCallVideo =
     selectors.selectIsVideoEnabled(s) && videoTrack && videoTrack.readyState !== 'ended';
   patchState({ backgroundEffect: next });

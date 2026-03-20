@@ -8,8 +8,8 @@ function streamHasLiveAudio(stream) {
 }
 
 /**
- * Pegel-Anzeige für einen Peer. Vorherige Session für dieselbe peerId wird beendet,
- * damit ein späterer Aufruf mit echtem Mikro (nach leerem initialem Stream) greift.
+ * Level meter for one peer. Ends any previous session for the same peerId so a later call
+ * with a real mic (after an empty initial stream) takes effect.
  */
 export function startSpeakingIndicator(peerId, stream, container) {
   stopSpeakingIndicator(peerId);

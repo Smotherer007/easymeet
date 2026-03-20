@@ -98,7 +98,7 @@ export const iconGithub = () => createElement(Github, smAttrs).outerHTML;
 export const iconGlobe = () => createElement(Globe, smAttrs).outerHTML;
 export const iconRefreshCw = () => createElement(RefreshCw, smAttrs).outerHTML;
 export const iconLockInline = () => createElement(Lock, lockInlineAttrs).outerHTML;
-/** Feste Räume: Hinweis „Antippen zum Beitreten“ (kein Live-Status). */
+/** Pinned rooms: tap-to-join hint (no live presence). */
 export const iconPinnedRoomJump = () => createElement(ArrowRight, jumpInlineAttrs).outerHTML;
 
 export const iconLogo = () => `
