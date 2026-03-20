@@ -187,7 +187,11 @@ export async function createBlurredStream(sourceStream, options = {}) {
     },
   });
 
-  trackProcessor.readable.pipeThrough(transformer).pipeTo(trackGenerator.writable);
+  const pipeAbort = new AbortController();
+  void trackProcessor.readable
+    .pipeThrough(transformer)
+    .pipeTo(trackGenerator.writable, { signal: pipeAbort.signal })
+    .catch(() => { /* aborted or track ended */ });
 
   const processedStream = new MediaStream();
   processedStream.addTrack(trackGenerator);
@@ -197,12 +201,7 @@ export async function createBlurredStream(sourceStream, options = {}) {
     stop: () => {
       stopped = true;
       clonedTrack.stop();
-      try {
-        trackProcessor.readable.cancel?.();
-      } catch (_) { /* locked when piped */ }
-      try {
-        trackGenerator.writable.abort?.();
-      } catch (_) { /* locked when piped */ }
+      pipeAbort.abort();
     },
   };
 }
@@ -324,7 +323,11 @@ export async function createVirtualBackgroundStream(sourceStream, imageUrl) {
     },
   });
 
-  trackProcessor.readable.pipeThrough(transformer).pipeTo(trackGenerator.writable);
+  const pipeAbort = new AbortController();
+  void trackProcessor.readable
+    .pipeThrough(transformer)
+    .pipeTo(trackGenerator.writable, { signal: pipeAbort.signal })
+    .catch(() => { /* aborted or track ended */ });
 
   const processedStream = new MediaStream();
   processedStream.addTrack(trackGenerator);
@@ -334,12 +337,7 @@ export async function createVirtualBackgroundStream(sourceStream, imageUrl) {
     stop: () => {
       stopped = true;
       clonedTrack.stop();
-      try {
-        trackProcessor.readable.cancel?.();
-      } catch (_) { /* locked when piped */ }
-      try {
-        trackGenerator.writable.abort?.();
-      } catch (_) { /* locked when piped */ }
+      pipeAbort.abort();
     },
   };
 }

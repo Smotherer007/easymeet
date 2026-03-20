@@ -12,7 +12,7 @@ import {
 } from '../effects/network/api.js';
 import * as peer from '../effects/network/mediasoupClient.js';
 import { playMessageSound, playJoinSound } from '../sounds.js';
-import { playJoinTone, playLeaveTone, playStreamStartTone } from '../audio.js';
+import { playJoinTone, playLeaveTone, playStreamStartTone, installAudioUnlockOnUserGesture } from '../audio.js';
 import { stopSpeakingIndicator, cleanupAllSpeakingIndicators } from '../speaking-indicator.js';
 import {
   renderLanding,
@@ -62,9 +62,13 @@ import {
   getStreamForScreenShare,
   getStreamForPeerId,
 } from '../effects/media/tiles.js';
-import { attachRoomViewAndHandlers as attachRoomViewFromModule } from '../effects/ui/roomView.js';
+import {
+  attachRoomViewAndHandlers as attachRoomViewFromModule,
+  patchMeetingScreenSharePresentation,
+} from '../effects/ui/roomView.js';
 
 export function bootstrap(appEl) {
+  installAudioUnlockOnUserGesture();
   initFromStorage();
   setupBeforeUnload();
   setupSubscribe(appEl);
@@ -200,7 +204,6 @@ function getRoomViewDeps(appEl) {
     getJoinUrl,
     setupAudioTrackEndedHandler: (track) => setupAudioTrackEndedHandler(appEl, track),
     getStreamForViewers,
-    createFrozenStream,
     applyEffectToPreview: (stream, eff, vid) => applyEffectToPreview(appEl, stream, eff, vid),
     navigate: (scr, d) => navigate(appEl, scr, d),
     setPeerVolume,
@@ -276,23 +279,6 @@ function getStreamForViewers() {
   const audioTracks = s.hostStream.getAudioTracks();
   const hasAudio = audioTracks.length > 0 && s.audioEnabled;
   return new MediaStream([videoTrack, ...(hasAudio ? audioTracks : [])]);
-}
-
-function createFrozenStream(video) {
-  const w = video.videoWidth || 640;
-  const h = video.videoHeight || 480;
-  const buffer = document.createElement('canvas');
-  buffer.width = w;
-  buffer.height = h;
-  const bufCtx = buffer.getContext('2d');
-  bufCtx.drawImage(video, 0, 0, w, h);
-  const canvas = document.createElement('canvas');
-  canvas.width = w;
-  canvas.height = h;
-  const ctx = canvas.getContext('2d');
-  const stream = canvas.captureStream(1);
-  const interval = setInterval(() => ctx.drawImage(buffer, 0, 0, w, h), 500);
-  return { stream, stop: () => clearInterval(interval) };
 }
 
 async function applyBlurEffect(sourceStream, previewVideo, showLoading, hideLoading) {
@@ -479,12 +465,11 @@ function setPeerVolume(peerId, percent) {
 
 function handleStopScreen(appEl) {
   const s = getState();
-  s.frozenStreamStop?.();
   selectors.selectHostStream(s)?.getTracks().forEach((t) => t.stop());
   const screenStreams = new Map(selectors.selectScreenStreams(s));
   const myPeerId = selectors.selectMyPeerId(s);
   screenStreams.delete(myPeerId);
-  patchState({ frozenStream: null, frozenStreamStop: null, hostStream: null, paused: false, audioEnabled: true, hasAudio: false, screenStreams });
+  patchState({ hostStream: null, audioEnabled: true, hasAudio: false, screenStreams });
   selectors.selectHostPeer(s)?.clearScreenStream?.();
   selectors.selectHostPeer(s)?.broadcastScreenSharingStopped?.(myPeerId);
   const viewerScreenCall = s.viewerScreenCall;
@@ -492,7 +477,7 @@ function handleStopScreen(appEl) {
     viewerScreenCall.close?.();
     patchState({ viewerScreenCall: null });
   }
-  navigate(appEl, 'room-view');
+  patchMeetingScreenSharePresentation(appEl);
 }
 
 /**
@@ -520,7 +505,6 @@ function stopAllStreamsAndConnections(s) {
   selectors.selectLocalStream(s)?.getTracks?.().forEach((t) => t.stop());
   selectors.selectHostStream(s)?.getTracks?.().forEach((t) => t.stop());
   s.viewerScreenCall?.close?.();
-  s.frozenStreamStop?.();
   try { s.backgroundEffectStop?.(); } catch (_) {}
   selectors.selectPeer(s)?.destroy();
 }
@@ -591,7 +575,8 @@ function handleChatMessageMembers(p) {
 function handleChatMessageNotification(appEl, state, p) {
   if ((p.type === 'chat' || p.type === 'file_share') && p.nick !== selectors.selectNickname(state)) {
     playMessageSound();
-    const chatPanelOpen = appEl.querySelector('#chat-panel')?.classList.contains('chat-panel--open');
+    const chatPanelEl = appEl.querySelector('#chat-panel');
+    const chatPanelOpen = chatPanelEl?.classList?.contains('chat-panel--open') ?? false;
     const chatFloating = appEl.querySelector('.floating-window[data-window="chat"]');
     const chatVisible = chatPanelOpen || (chatFloating && !chatFloating.classList.contains('floating-window--hidden'));
     if (selectors.selectScreen(state) === 'room-view' && !chatVisible) {
@@ -693,9 +678,11 @@ function dispatchVoipEvent(appEl, state, evt, p) {
   }
   if (evt === 'voip/screenStreamStarted') {
     if (p.peerId !== selectors.selectMyPeerId(state)) playStreamStartTone();
-    if (selectors.selectScreen(state) === 'room-view') navigate(appEl, 'room-view');
+    if (selectors.selectScreen(state) === 'room-view') patchMeetingScreenSharePresentation(appEl, { skipVoip: true });
   }
-  if (evt === 'voip/screenStreamStopped' && selectors.selectScreen(state) === 'room-view') navigate(appEl, 'room-view');
+  if (evt === 'voip/screenStreamStopped' && selectors.selectScreen(state) === 'room-view') {
+    patchMeetingScreenSharePresentation(appEl, { skipVoip: true });
+  }
 }
 
 function dispatchFileEvent(appEl, state, evt, p) {

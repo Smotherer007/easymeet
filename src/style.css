@@ -904,6 +904,18 @@ body {
   min-height: 280px;
 }
 
+/* Free-Layout: Tiles absolut – sonst erzwingt Flex/content oft eine minimale Breite → horizontaler Scrollbalken unten */
+.floating-window[data-window="videos"] .floating-window__body:has(.video-gallery--free) {
+  overflow: hidden;
+  min-width: 0;
+}
+
+.floating-window[data-window="videos"] .video-gallery.video-gallery--free {
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
 .floating-window--chat {
   min-width: 280px;
   min-height: 300px;
@@ -982,9 +994,84 @@ body {
   display: none !important;
 }
 
+/* Minimieren/Einblenden Richtung Meeting-Leiste (gleicher Button wie Öffnen) */
+.floating-window.floating-window--minimize-out,
+.stream-modal:not([hidden]) .stream-modal__content.floating-window--minimize-out,
+.settings-modal:not([hidden]) .settings-modal__content.floating-window--minimize-out,
+.share-modal:not([hidden]) .share-modal__content.floating-window--minimize-out {
+  transition: transform 0s linear, opacity 0s linear;
+  transform: translate(0, 0) scale(1);
+  opacity: 1;
+  z-index: 1300;
+  pointer-events: none;
+}
+
+.floating-window.floating-window--minimize-out.floating-window--minimize-out--run,
+.stream-modal:not([hidden]) .stream-modal__content.floating-window--minimize-out.floating-window--minimize-out--run,
+.settings-modal:not([hidden]) .settings-modal__content.floating-window--minimize-out.floating-window--minimize-out--run,
+.share-modal:not([hidden]) .share-modal__content.floating-window--minimize-out.floating-window--minimize-out--run {
+  transition:
+    transform 0.38s cubic-bezier(0.4, 0, 0.2, 1),
+    opacity 0.32s ease;
+  transform: translate(var(--min-dx, 0), var(--min-dy, 0)) scale(0.14) !important;
+  opacity: 0;
+}
+
+.floating-window.floating-window--minimize-in.floating-window--minimize-in--from,
+.stream-modal:not([hidden]) .stream-modal__content.floating-window--minimize-in.floating-window--minimize-in--from,
+.settings-modal:not([hidden]) .settings-modal__content.floating-window--minimize-in.floating-window--minimize-in--from,
+.share-modal:not([hidden]) .share-modal__content.floating-window--minimize-in.floating-window--minimize-in--from {
+  transition: none !important;
+  transform: translate(var(--min-dx, 0), var(--min-dy, 0)) scale(0.14) !important;
+  opacity: 0;
+  z-index: 1300;
+}
+
+.floating-window.floating-window--minimize-in.floating-window--minimize-in--run,
+.stream-modal:not([hidden]) .stream-modal__content.floating-window--minimize-in.floating-window--minimize-in--run,
+.settings-modal:not([hidden]) .settings-modal__content.floating-window--minimize-in.floating-window--minimize-in--run,
+.share-modal:not([hidden]) .share-modal__content.floating-window--minimize-in.floating-window--minimize-in--run {
+  transition:
+    transform 0.38s cubic-bezier(0.22, 1, 0.36, 1),
+    opacity 0.32s ease !important;
+  transform: translate(0, 0) scale(1) !important;
+  opacity: 1;
+}
+
 .chat-view__body--meeting {
   flex-direction: column;
   position: relative;
+}
+
+/* Raster-Layout: kein Frosted-Glass hinter Chat/Teilnehmer (volle Flächen) */
+.chat-view__body--meeting:not(.chat-view__body--floating) .chat__sidebar,
+.chat-view__body--meeting:not(.chat-view__body--floating) #chat-sidebar.chat__sidebar--overlay,
+.chat-view__body--meeting:not(.chat-view__body--floating) .chat__sidebar--voip.chat__sidebar--overlay {
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  background: var(--bg-card);
+}
+
+.chat-view__body--meeting:not(.chat-view__body--floating) .chat-panel--overlay {
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+.chat-view__body--meeting:not(.chat-view__body--floating) .chat-panel--overlay .chat__input-wrap {
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  background: var(--bg-input);
+}
+
+.chat-view__body--meeting:not(.chat-view__body--floating) .chat-panel--overlay .chat__msg:not(.chat__msg--self) {
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  background: var(--bg-input);
+}
+
+.chat-view__body--meeting:not(.chat-view__body--floating) .chat-panel--overlay .chat__msg--self {
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
 }
 
 .meeting-main {
@@ -1221,14 +1308,15 @@ body {
 
 /* Video an Kachel-Radius clippen (overflow:visible auf .video-tile für Volume-Tooltip).
  * transform auf <video> (Spiegeln) bricht in WebKit/Chromium oft border-radius-Clipping → clip-path. */
+/* Etwas nach innen: 2px-Border der Kachel + abgerundete Maske, damit unten keine Video-Ecken aus dem Radius ragen */
 .video-tile__media-wrap {
   position: absolute;
-  inset: 0;
-  border-radius: var(--radius-lg);
+  inset: 2px;
+  border-radius: calc(var(--radius-lg) - 2px);
   overflow: hidden;
   z-index: 0;
-  -webkit-clip-path: inset(0 round var(--radius-lg));
-  clip-path: inset(0 round var(--radius-lg));
+  -webkit-clip-path: inset(0 round calc(var(--radius-lg) - 2px));
+  clip-path: inset(0 round calc(var(--radius-lg) - 2px));
 }
 
 .video-tile video {
@@ -1241,13 +1329,8 @@ body {
   border-radius: 0;
 }
 
-/* Eigenes Video spiegeln (wie beim Blick in den Spiegel) */
+/* Eigenes Video spiegeln (wie beim Blick in den Spiegel); Remote normale Orientierung */
 .video-tile--local video {
-  transform: scaleX(-1);
-}
-
-/* Remote-Teilnehmer: übertragener Stream ebenfalls horizontal spiegeln */
-.video-tile:not(.video-tile--local) video {
   transform: scaleX(-1);
 }
 
@@ -3108,8 +3191,9 @@ body {
 
 .voip-view__participant-stream {
   flex-shrink: 0;
-  width: 56px;
-  height: 42px;
+  width: 64px;
+  aspect-ratio: 16 / 9;
+  height: auto;
   border-radius: 6px;
   overflow: hidden;
   background: #000;
@@ -3149,13 +3233,8 @@ body {
   display: block;
 }
 
-/* Mirror own video in participant list (like looking in a mirror) */
+/* Nur eigenes Bild in der Teilnehmerliste spiegeln */
 .voip-view__participant[data-self="true"] .voip-view__stream-thumb {
-  transform: scaleX(-1);
-}
-
-/* Mirror remote participants in participant list as well */
-.voip-view__participant:not([data-self="true"]) .voip-view__stream-thumb {
   transform: scaleX(-1);
 }
 
@@ -3293,7 +3372,9 @@ body {
 
 .stream-modal__actions {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
+  justify-content: flex-end;
   gap: 0.35rem;
 }
 
@@ -3338,6 +3419,13 @@ body {
   display: block;
 }
 
+/* Browser-PiP-Overlay (Chromium) ausblenden — eigener PiP-Button bleibt (kein disablePictureInPicture). */
+.stream-modal__video-wrap video::-webkit-media-controls-overlay-enclosure,
+.stream-modal__video-wrap video::-webkit-media-controls-panel,
+.stream-modal__video-wrap video::-webkit-media-controls {
+  display: none !important;
+}
+
 .stream-modal__video-wrap:fullscreen {
   max-height: none;
   aspect-ratio: auto;
@@ -3346,6 +3434,29 @@ body {
 .stream-modal__video-wrap:fullscreen video {
   width: 100%;
   height: 100%;
+}
+
+.stream-modal__video-wrap:fullscreen video::-webkit-media-controls-overlay-enclosure,
+.stream-modal__video-wrap:fullscreen video::-webkit-media-controls-panel,
+.stream-modal__video-wrap:fullscreen video::-webkit-media-controls {
+  display: none !important;
+}
+
+/* „Teilen beenden“: dezentes Rot statt voller Danger-Fill */
+.stream-modal__stop-share-btn {
+  color: color-mix(in srgb, var(--danger) 72%, var(--text-muted));
+  border: 1px solid color-mix(in srgb, var(--danger) 28%, transparent);
+  background: color-mix(in srgb, var(--danger) 8%, transparent);
+}
+
+.stream-modal__stop-share-btn:hover:not(:disabled) {
+  color: color-mix(in srgb, var(--danger) 88%, white);
+  border-color: color-mix(in srgb, var(--danger) 42%, transparent);
+  background: color-mix(in srgb, var(--danger) 16%, transparent);
+}
+
+.stream-modal__stop-share-btn svg {
+  opacity: 0.9;
 }
 
 .chat__mute-btn--muted {
@@ -3547,7 +3658,7 @@ body {
   color: var(--text);
 }
 
-/* Effekt-Vorschau und Kacheln */
+/* Effekt-Vorschau und Kacheln (16:9 wie Kamera-Pipeline) */
 .effect-preview-wrap {
   position: relative;
   margin-bottom: 0.75rem;
@@ -3557,8 +3668,8 @@ body {
   border-radius: var(--radius);
   overflow: hidden;
   background: #000;
-  aspect-ratio: 4 / 3;
-  max-height: 12rem;
+  aspect-ratio: 16 / 9;
+  max-height: 14rem;
 }
 .effect-preview-loading {
   position: absolute;

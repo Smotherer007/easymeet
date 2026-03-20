@@ -28,7 +28,8 @@ services:
       - RTC_MAX_PORT=${RTC_MAX_PORT:-40200}
     networks:
       - frontend
-    # Nach: cp config/persistent-rooms.example.json config/persistent-rooms.json
+    # Eigene feste Räume (überschreibt die im Image eingebaute Standard-JSON):
+    # cp config/persistent-rooms.example.json config/persistent-rooms.json
     # volumes:
     #   - ./config/persistent-rooms.json:/app/config/persistent-rooms.json:ro
 

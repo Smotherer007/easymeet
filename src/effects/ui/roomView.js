@@ -21,6 +21,9 @@ import {
   updateEffectTilesSelection,
   updateChatBadge,
   updateFileShareMessage,
+  updateMeetingScreenShareSlots,
+  updateStreamModalHostActionSlots,
+  updateScreenShareBannersSection,
 } from '../../ui/screens/index.js';
 import {
   attachRemoteAudio,
@@ -96,6 +99,7 @@ function syncStreamThumbs(app) {
   app.querySelectorAll('.voip-view__stream-thumb').forEach((thumb) => {
     const participant = thumb.closest('.voip-view__participant');
     const peerId = participant?.dataset?.peerId;
+    thumb.disablePictureInPicture = true;
     thumb.srcObject = peerId ? getStreamForScreenShare(peerId) : null;
   });
 }
@@ -107,6 +111,48 @@ function syncModalVideo(app) {
     const peerId = modal.dataset?.streamPeerId;
     modalVideo.srcObject = peerId ? getStreamForScreenShare(peerId) : null;
   }
+}
+
+/**
+ * Screen-Share-UI ohne Full-Re-render (kein navigate('room-view')).
+ * @param {{ skipVoip?: boolean }} [options] — nach voip/*-Events ist die Teilnehmerliste schon via handleVoipOrRoomUpdate aktuell.
+ */
+export function patchMeetingScreenSharePresentation(app, options = {}) {
+  const { skipVoip = false } = options;
+  const state = getState();
+  const myPeerId = selectors.selectMyPeerId(state);
+  if (!skipVoip) {
+    updateVoipParticipants(
+      app,
+      selectors.selectVoipMembers(state),
+      myPeerId,
+      selectors.selectIsMuted(state),
+      selectors.selectScreenStreams(state),
+      getStreamForPeerId,
+      getStreamForScreenShare,
+      selectors.selectPeerMuteState(state),
+      selectors.selectPeerVolume(state),
+      selectors.selectBackgroundEffect(state),
+      selectors.selectPeerVideoState(state),
+      selectors.selectIsVideoEnabled(state),
+      selectors.selectPeerBackgroundEffect(state),
+    );
+  }
+  syncStreamThumbs(app);
+  syncModalVideo(app);
+  updateScreenShareBannersSection(app, selectors.selectScreenStreams(state), myPeerId);
+  const hasScreenShareSupport = typeof navigator.mediaDevices?.getDisplayMedia === 'function';
+  updateMeetingScreenShareSlots(app, {
+    hasScreenShareSupport,
+    hostStream: selectors.selectHostStream(state),
+  });
+  updateStreamModalHostActionSlots(app, {
+    isHost: selectors.selectIsHost(state),
+    hostStream: selectors.selectHostStream(state),
+    audioEnabled: selectors.selectAudioEnabled(state),
+  });
+  setupFullscreenButton(app);
+  setupPipButton(app);
 }
 
 async function handleCustomBackgroundUpload(app, file, navigate) {
@@ -156,17 +202,6 @@ function handleWindowResize(windowId, positions) {
   try { localStorage.setItem(WINDOW_POSITIONS_STORAGE, JSON.stringify(positions)); } catch (_) {}
 }
 
-function handleToggleVideoLayout(app, navigate) {
-  const next = selectors.selectVideoLayoutMode(getState()) === 'grid' ? 'free' : 'grid';
-  patchState({ videoLayoutMode: next });
-  try { localStorage.setItem(VIDEO_LAYOUT_STORAGE, next); } catch (_) {}
-  navigate('room-view');
-  selectors.selectVoipMembers(getState()).forEach((m) => {
-    const stream = getStreamForVideoTile(m.peerId);
-    if (stream) attachRemoteAudio(m.peerId, stream, app);
-  });
-}
-
 function handleOpenStreamModal(app, peerId) {
   const stream = getStreamForScreenShare(peerId);
   const modal = app.querySelector('#stream-modal');
@@ -179,6 +214,27 @@ function handleOpenStreamModal(app, peerId) {
     if (titleEl) titleEl.textContent = `${selectors.selectNickForPeerId(getState(), peerId)} – ${t('screenStream')}`;
     modal.removeAttribute('hidden');
   }
+}
+
+/**
+ * Toolbar „Bildschirm teilen beenden“: mit laufendem eigenen Stream erst Stream-Fenster öffnen,
+ * erst beim erneuten Klick (wenn Modal schon den eigenen Stream zeigt) wirklich beenden.
+ * Ohne hostStream nutzt der Button weiterhin nur {@link handleStartScreen}.
+ */
+function handleStopScreenToolbar(app, handleStopScreen) {
+  const s = getState();
+  if (!selectors.selectHostStream(s)) return;
+  const myPeerId = selectors.selectMyPeerId(s);
+  if (myPeerId == null || myPeerId === '') return;
+  const modal = app.querySelector('#stream-modal');
+  const modalOpen = modal && !modal.hasAttribute('hidden');
+  const ds = modal?.dataset?.streamPeerId ?? '';
+  const showingMyShare = modalOpen && ds !== '' && ds === String(myPeerId);
+  if (showingMyShare) {
+    handleStopScreen();
+    return;
+  }
+  handleOpenStreamModal(app, myPeerId);
 }
 
 async function handleShareOpen(app, getJoinUrl) {
@@ -240,13 +296,20 @@ async function ensureInitialCallMedia(app, deps) {
         micStream.getVideoTracks?.().forEach((t) => t.stop());
         if (mic && mic.readyState !== 'ended') {
           const liveVideo = localStream.getVideoTracks?.().filter((t) => t.readyState === 'live') ?? [];
-          const merged = new MediaStream([mic, ...liveVideo]);
-          merged.getAudioTracks().forEach((t) => { t.enabled = !isMuted; });
-          merged.getVideoTracks().forEach((t) => { t.enabled = isVideoEnabled; });
+          const lv = liveVideo[0];
+          const bv = selectors.selectBaseLocalStream(state)?.getVideoTracks?.()?.[0];
+          const videoForLocal = lv;
+          const videoForBase = bv && lv && bv !== lv ? bv : lv;
+          const mergedLocal = new MediaStream([mic, ...(videoForLocal ? [videoForLocal] : [])]);
+          const mergedBase = new MediaStream([mic, ...(videoForBase ? [videoForBase] : [])]);
+          mergedLocal.getAudioTracks().forEach((t) => { t.enabled = !isMuted; });
+          mergedLocal.getVideoTracks().forEach((t) => { t.enabled = isVideoEnabled; });
+          mergedBase.getAudioTracks().forEach((t) => { t.enabled = !isMuted; });
+          mergedBase.getVideoTracks().forEach((t) => { t.enabled = isVideoEnabled; });
           patchState({
-            localStream: merged,
-            baseLocalStream: merged,
-            hasVideoSupport: isVideoEnabled || merged.getVideoTracks().length > 0,
+            localStream: mergedLocal,
+            baseLocalStream: mergedBase,
+            hasVideoSupport: isVideoEnabled || mergedLocal.getVideoTracks().length > 0,
           });
           setupAudioTrackEndedHandler(mic);
         } else {
@@ -327,11 +390,276 @@ function runInitialRoomSetup(app, deps) {
   void ensureInitialCallMedia(app, deps).catch((e) => console.warn('ensureInitialCallMedia', e));
 }
 
+const TOOLBAR_MINIMIZE_MS = 400;
+
+function toolbarChatBtn(app) {
+  return app.querySelector('.meeting-control-bar [data-action="toggle-chat-panel"]');
+}
+
+function toolbarParticipantsBtn(app) {
+  return app.querySelector('.meeting-control-bar [data-action="toggle-sidebar"]');
+}
+
+function toolbarLayoutBtn(app) {
+  return app.querySelector('.meeting-control-bar [data-action="toggle-video-layout"]');
+}
+
+function toolbarVideoBtn(app) {
+  return app.querySelector('.meeting-control-bar [data-action="toggle-video"]');
+}
+
+function toolbarSettingsBtn(app) {
+  return app.querySelector('.meeting-control-bar [data-action="toggle-settings"]');
+}
+
+function toolbarShareBtn(app) {
+  return app.querySelector('.meeting-control-bar [data-action="share"]');
+}
+
+function toolbarScreenBtn(app) {
+  return app.querySelector('.meeting-control-bar #stop-screen-btn')
+    || app.querySelector('.meeting-control-bar #start-screen-btn');
+}
+
+/** Schwebefenster per Klasse – ohne navigate('room-view'), sonst flackert das ganze UI. */
+function setFreeFloatingWindowHidden(app, windowId, hidden) {
+  const el = app.querySelector(`.floating-window[data-window="${windowId}"]`);
+  if (el) el.classList.toggle('floating-window--hidden', hidden);
+}
+
+function clearToolbarMinimizeMotion(el) {
+  if (!el) return;
+  el.classList.remove(
+    'floating-window--minimize-out',
+    'floating-window--minimize-out--run',
+    'floating-window--minimize-in',
+    'floating-window--minimize-in--from',
+    'floating-window--minimize-in--run',
+  );
+  el.style.removeProperty('--min-dx');
+  el.style.removeProperty('--min-dy');
+}
+
+/**
+ * @param {HTMLElement} app
+ * @param {HTMLElement | null} movingEl
+ * @param {(a: HTMLElement) => Element | null | undefined} getChip
+ * @param {() => void} [after]
+ */
+function runMinimizeToToolbar(app, movingEl, getChip, after) {
+  const chip = getChip?.(app);
+  if (!movingEl || movingEl.classList.contains('floating-window--hidden') || !chip) {
+    after?.();
+    return;
+  }
+  if (movingEl.classList.contains('floating-window--minimize-out')) {
+    after?.();
+    return;
+  }
+  const wr = movingEl.getBoundingClientRect();
+  const cr = chip.getBoundingClientRect();
+  const wcx = wr.left + wr.width / 2;
+  const wcy = wr.top + wr.height / 2;
+  const ccx = cr.left + cr.width / 2;
+  const ccy = cr.top + cr.height / 2;
+  movingEl.style.setProperty('--min-dx', `${ccx - wcx}px`);
+  movingEl.style.setProperty('--min-dy', `${ccy - wcy}px`);
+  movingEl.classList.add('floating-window--minimize-out');
+  let finished = false;
+  const cleanup = () => {
+    if (finished) return;
+    finished = true;
+    movingEl.removeEventListener('transitionend', onEnd);
+    clearTimeout(tid);
+    clearToolbarMinimizeMotion(movingEl);
+    after?.();
+  };
+  const onEnd = (e) => {
+    if (e.target !== movingEl) return;
+    if (e.propertyName !== 'transform' && e.propertyName !== 'opacity') return;
+    cleanup();
+  };
+  movingEl.addEventListener('transitionend', onEnd);
+  const tid = setTimeout(cleanup, TOOLBAR_MINIMIZE_MS + 120);
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => movingEl.classList.add('floating-window--minimize-out--run'));
+  });
+}
+
+/**
+ * @param {HTMLElement} app
+ * @param {HTMLElement | null} movingEl
+ * @param {(a: HTMLElement) => Element | null | undefined} getChip
+ */
+function runExpandFromToolbar(app, movingEl, getChip) {
+  const chip = getChip?.(app);
+  clearToolbarMinimizeMotion(movingEl);
+  if (!movingEl || !chip) return;
+  const wr = movingEl.getBoundingClientRect();
+  const cr = chip.getBoundingClientRect();
+  const wcx = wr.left + wr.width / 2;
+  const wcy = wr.top + wr.height / 2;
+  const ccx = cr.left + cr.width / 2;
+  const ccy = cr.top + cr.height / 2;
+  movingEl.style.setProperty('--min-dx', `${ccx - wcx}px`);
+  movingEl.style.setProperty('--min-dy', `${ccy - wcy}px`);
+  movingEl.classList.add('floating-window--minimize-in', 'floating-window--minimize-in--from');
+  let finished = false;
+  const cleanup = () => {
+    if (finished) return;
+    finished = true;
+    movingEl.removeEventListener('transitionend', onEnd);
+    clearTimeout(tid);
+    clearToolbarMinimizeMotion(movingEl);
+  };
+  const onEnd = (e) => {
+    if (e.target !== movingEl) return;
+    if (e.propertyName !== 'transform' && e.propertyName !== 'opacity') return;
+    cleanup();
+  };
+  movingEl.addEventListener('transitionend', onEnd);
+  const tid = setTimeout(cleanup, TOOLBAR_MINIMIZE_MS + 120);
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      movingEl.classList.remove('floating-window--minimize-in--from');
+      movingEl.classList.add('floating-window--minimize-in--run');
+    });
+  });
+}
+
+function minimizeShareModalToToolbar(app) {
+  const content = app.querySelector('#share-modal:not([hidden]) .share-modal__content');
+  runMinimizeToToolbar(app, content, toolbarShareBtn, () => {
+    app.querySelector('#share-modal')?.setAttribute('hidden', '');
+  });
+}
+
+function openFreeLayoutVideosPanel(app) {
+  if (selectors.selectVideoLayoutMode(getState()) !== 'free') return;
+  if (getState().freeLayoutVideosOpen) return;
+  patchState({ freeLayoutVideosOpen: true });
+  const win = app.querySelector('.floating-window[data-window="videos"]');
+  clearToolbarMinimizeMotion(win);
+  setFreeFloatingWindowHidden(app, 'videos', false);
+  runExpandFromToolbar(app, win, toolbarVideoBtn);
+}
+
+function handleToggleVideoLayout(app, navigate) {
+  const mode = selectors.selectVideoLayoutMode(getState());
+  /* Minimiertes Video-Fenster: Layout-Button wechselt ins Grid (Wiederherstellung nur über Kamera-Icon). */
+  if (mode === 'free' && !getState().freeLayoutVideosOpen) {
+    patchState({ videoLayoutMode: 'grid' });
+    try { localStorage.setItem(VIDEO_LAYOUT_STORAGE, 'grid'); } catch (_) {}
+    navigate('room-view');
+    selectors.selectVoipMembers(getState()).forEach((m) => {
+      const stream = getStreamForVideoTile(m.peerId);
+      if (stream) attachRemoteAudio(m.peerId, stream, app);
+    });
+    return;
+  }
+  const next = mode === 'grid' ? 'free' : 'grid';
+  patchState({
+    videoLayoutMode: next,
+    /* Beim Wechsel in Free-Layout: Chat/Teilnehmer nicht automatisch aufklappen; Videos sichtbar */
+    ...(next === 'free'
+      ? { freeLayoutChatOpen: false, freeLayoutParticipantsOpen: false, freeLayoutVideosOpen: true }
+      : {}),
+  });
+  try { localStorage.setItem(VIDEO_LAYOUT_STORAGE, next); } catch (_) {}
+  navigate('room-view');
+  selectors.selectVoipMembers(getState()).forEach((m) => {
+    const stream = getStreamForVideoTile(m.peerId);
+    if (stream) attachRemoteAudio(m.peerId, stream, app);
+  });
+}
+
 function buildRoomViewConfigNav(app, deps) {
   const { cleanupAndNavigate, getJoinUrl, navigate } = deps;
+
+  const minimizeFloatingVideos = () => {
+    if (!getState().freeLayoutVideosOpen) return;
+    patchState({ freeLayoutVideosOpen: false });
+    const win = app.querySelector('.floating-window[data-window="videos"]');
+    runMinimizeToToolbar(app, win, toolbarVideoBtn, () => {
+      setFreeFloatingWindowHidden(app, 'videos', true);
+    });
+  };
+
+  const minimizeFloatingChat = () => {
+    if (!getState().freeLayoutChatOpen) return;
+    patchState({ freeLayoutChatOpen: false });
+    const win = app.querySelector('.floating-window[data-window="chat"]');
+    runMinimizeToToolbar(app, win, toolbarChatBtn, () => {
+      setFreeFloatingWindowHidden(app, 'chat', true);
+    });
+  };
+
+  const openFloatingChat = () => {
+    if (getState().freeLayoutChatOpen) return;
+    patchState({ freeLayoutChatOpen: true, unreadChatCount: 0 });
+    updateChatBadge(app, 0);
+    const win = app.querySelector('.floating-window[data-window="chat"]');
+    clearToolbarMinimizeMotion(win);
+    setFreeFloatingWindowHidden(app, 'chat', false);
+    runExpandFromToolbar(app, win, toolbarChatBtn);
+  };
+
+  const toggleFloatingChat = () => {
+    if (getState().freeLayoutChatOpen) minimizeFloatingChat();
+    else openFloatingChat();
+  };
+
+  const minimizeFloatingParticipants = () => {
+    if (!getState().freeLayoutParticipantsOpen) return;
+    patchState({ freeLayoutParticipantsOpen: false });
+    const win = app.querySelector('.floating-window[data-window="participants"]');
+    runMinimizeToToolbar(app, win, toolbarParticipantsBtn, () => {
+      setFreeFloatingWindowHidden(app, 'participants', true);
+    });
+  };
+
+  const openFloatingParticipants = () => {
+    if (getState().freeLayoutParticipantsOpen) return;
+    patchState({ freeLayoutParticipantsOpen: true });
+    const win = app.querySelector('.floating-window[data-window="participants"]');
+    clearToolbarMinimizeMotion(win);
+    setFreeFloatingWindowHidden(app, 'participants', false);
+    runExpandFromToolbar(app, win, toolbarParticipantsBtn);
+  };
+
+  const toggleFloatingParticipants = () => {
+    if (getState().freeLayoutParticipantsOpen) minimizeFloatingParticipants();
+    else openFloatingParticipants();
+  };
+
   return {
     onLeave: () => cleanupAndNavigate('landing'),
     onChatPanelOpen: () => { patchState({ unreadChatCount: 0 }); updateChatBadge(app, 0); },
+    onFloatingChatToggle: toggleFloatingChat,
+    onMinimizeFloatingChat: minimizeFloatingChat,
+    onFloatingParticipantsToggle: toggleFloatingParticipants,
+    onMinimizeFloatingParticipants: minimizeFloatingParticipants,
+    onMinimizeFloatingVideos: minimizeFloatingVideos,
+    onFloatingChatClose: () => {
+      patchState({ freeLayoutChatOpen: false });
+      setFreeFloatingWindowHidden(app, 'chat', true);
+    },
+    onFloatingParticipantsClose: () => {
+      patchState({ freeLayoutParticipantsOpen: false });
+      setFreeFloatingWindowHidden(app, 'participants', true);
+    },
+    onDismissFloatingMobileOverlays: () => {
+      patchState({ freeLayoutChatOpen: false, freeLayoutParticipantsOpen: false, freeLayoutVideosOpen: false });
+      app.querySelectorAll('.floating-window[data-window]').forEach((w) => clearToolbarMinimizeMotion(w));
+      setFreeFloatingWindowHidden(app, 'chat', true);
+      setFreeFloatingWindowHidden(app, 'participants', true);
+      setFreeFloatingWindowHidden(app, 'videos', true);
+    },
+    onFloatingChatMouseDown: () => {
+      if (!getState().freeLayoutChatOpen) return;
+      patchState({ unreadChatCount: 0 });
+      updateChatBadge(app, 0);
+    },
     onCustomBackgroundUpload: async (file) => handleCustomBackgroundUpload(app, file, navigate),
     onRemoveCustomBackground: (id) => handleRemoveCustomBackground(app, id, navigate),
     onDownloadFile: handleDownloadFile,
@@ -340,7 +668,19 @@ function buildRoomViewConfigNav(app, deps) {
     getWindowPositions: () => selectors.selectWindowPositions(getState()),
     onToggleVideoLayout: () => handleToggleVideoLayout(app, navigate),
     onOpenStreamModal: (peerId) => handleOpenStreamModal(app, peerId),
-    onShareOpen: () => handleShareOpen(app, getJoinUrl),
+    onShareOpen: () => {
+      const modal = app.querySelector('#share-modal');
+      const content = modal?.querySelector('.share-modal__content');
+      if (!modal || !content) return;
+      if (!modal.hasAttribute('hidden')) {
+        minimizeShareModalToToolbar(app);
+        return;
+      }
+      modal.removeAttribute('hidden');
+      void handleShareOpen(app, getJoinUrl);
+      clearToolbarMinimizeMotion(content);
+      runExpandFromToolbar(app, content, toolbarShareBtn);
+    },
   };
 }
 
@@ -356,11 +696,39 @@ function buildRoomViewConfigChat(getHandlers) {
 }
 
 function buildRoomViewConfigPart2(app, deps) {
-  const { handleStopScreen, setupAudioTrackEndedHandler, getStreamForViewers, createFrozenStream, applyEffectToPreview, navigate, setPeerVolume } = deps;
+  const { handleStopScreen, setupAudioTrackEndedHandler, getStreamForViewers, applyEffectToPreview, navigate, setPeerVolume } = deps;
+
+  const minimizeSettingsModalToToolbar = () => {
+    const content = app.querySelector('#settings-modal:not([hidden]) .settings-modal__content');
+    runMinimizeToToolbar(app, content, toolbarSettingsBtn, () => {
+      app.querySelector('#settings-modal')?.setAttribute('hidden', '');
+      void handleSettingsOpen(app, false, applyEffectToPreview, refreshDeviceSelects, navigate);
+    });
+  };
+
+  const openSettingsModalFromToolbar = () => {
+    const modal = app.querySelector('#settings-modal');
+    const content = modal?.querySelector('.settings-modal__content');
+    if (!modal || !content) return;
+    modal.removeAttribute('hidden');
+    void handleSettingsOpen(app, true, applyEffectToPreview, refreshDeviceSelects, navigate);
+    clearToolbarMinimizeMotion(content);
+    runExpandFromToolbar(app, content, toolbarSettingsBtn);
+  };
+
   return {
     onToggleMute: () => handleToggleMute(app, setupAudioTrackEndedHandler, navigate),
     onToggleVideo: () => handleToggleVideo(app, applyEffectToPreview, applyEffectToCallStream, navigate, setupAudioTrackEndedHandler),
     onSettingsOpen: (isOpen) => handleSettingsOpen(app, isOpen, applyEffectToPreview, refreshDeviceSelects, navigate),
+    onOpenSettingsModal: openSettingsModalFromToolbar,
+    onMinimizeStreamModal: () => {
+      const content = app.querySelector('#stream-modal:not([hidden]) .stream-modal__content');
+      runMinimizeToToolbar(app, content, toolbarScreenBtn, () => {
+        app.querySelector('#stream-modal')?.setAttribute('hidden', '');
+      });
+    },
+    onMinimizeShareModal: () => minimizeShareModalToToolbar(app),
+    onMinimizeSettingsModal: () => minimizeSettingsModalToToolbar(),
     onInputDeviceChange: (deviceId) => handleInputDeviceChange(app, deviceId, setupAudioTrackEndedHandler, refreshDeviceSelects, navigate),
     onVideoDeviceChange: (deviceId) => handleVideoDeviceChange(app, deviceId, refreshDeviceSelects, navigate),
     onPeerVolumeChange: (peerId, percent) => setPeerVolume(peerId, percent),
@@ -368,9 +736,12 @@ function buildRoomViewConfigPart2(app, deps) {
     onOutputDeviceChange: (deviceId) => handleOutputDeviceChange(deviceId),
     onFileSelect: (files) => handleFileSelect(app, files, navigate),
     onStartScreen: () => handleStartScreen(app, getStreamForViewers, handleStopScreen, navigate),
-    onStopScreen: () => handleStopScreen(),
-    onPauseScreen: () => handlePauseScreen(app, getStreamForViewers, createFrozenStream, navigate),
-    onAudioScreenToggle: () => handleAudioScreenToggle(app, getStreamForViewers, navigate),
+    onStopScreen: () => handleStopScreenToolbar(app, handleStopScreen),
+    onStopScreenDirect: () => {
+      handleStopScreen();
+      app.querySelectorAll('.stream-modal').forEach((el) => el.setAttribute('hidden', ''));
+    },
+    onAudioScreenToggle: () => handleAudioScreenToggle(app, getStreamForViewers),
   };
 }
 
@@ -386,9 +757,12 @@ export function attachRoomViewAndHandlers(app, deps) {
 function doMuteLocalStream(s) {
   selectors.selectLocalStream(s)?.getAudioTracks?.().forEach((t) => t.stop());
   selectors.selectBaseLocalStream(s)?.getAudioTracks?.().forEach((t) => { if (t.readyState !== 'ended') t.stop(); });
-  const videoTrack = selectors.selectLocalStream(s)?.getVideoTracks?.()[0];
-  const newStream = new MediaStream(videoTrack ? [videoTrack] : []);
-  patchState({ localStream: newStream, baseLocalStream: newStream });
+  const lv = selectors.selectLocalStream(s)?.getVideoTracks?.()?.[0];
+  const bv = selectors.selectBaseLocalStream(s)?.getVideoTracks?.()?.[0];
+  const baseVideo = bv && lv && bv !== lv ? bv : lv;
+  const localStream = new MediaStream(lv ? [lv] : []);
+  const baseStream = new MediaStream(baseVideo ? [baseVideo] : []);
+  patchState({ localStream, baseLocalStream: baseStream });
 }
 
 function reenableExistingAudio(s) {
@@ -410,11 +784,15 @@ async function acquireNewAudioStream(s, setupAudioTrackEndedHandler) {
   const newAudioTrack = newStream.getAudioTracks?.()[0];
   if (!newAudioTrack) return false;
   newStream.getVideoTracks?.().forEach((t) => t.stop());
-  const videoTrack = selectors.selectLocalStream(s)?.getVideoTracks?.()[0];
-  const tracks = videoTrack ? [newAudioTrack, videoTrack] : [newAudioTrack];
-  const localStream = new MediaStream(tracks);
+  const local = selectors.selectLocalStream(s);
+  const base = selectors.selectBaseLocalStream(s);
+  const lv = local?.getVideoTracks?.()?.[0];
+  const bv = base?.getVideoTracks?.()?.[0];
+  const baseVideo = bv && lv && bv !== lv ? bv : lv;
+  const localStream = new MediaStream(lv ? [newAudioTrack, lv] : [newAudioTrack]);
+  const baseStream = new MediaStream(baseVideo ? [newAudioTrack, baseVideo] : [newAudioTrack]);
   const inputDeviceId = newAudioTrack.getSettings?.()?.deviceId || selectors.selectInputDeviceId(s);
-  patchState({ localStream, baseLocalStream: localStream, inputDeviceId });
+  patchState({ localStream, baseLocalStream: baseStream, inputDeviceId });
   if (inputDeviceId) writeDeviceId(DEVICE_STORAGE.input, inputDeviceId);
   setupAudioTrackEndedHandler(newAudioTrack);
   return true;
@@ -590,6 +968,10 @@ function syncPreviewVideoIfSettingsOpen(app) {
 }
 
 async function handleToggleVideo(app, applyEffectToPreview, applyEffectToCallStream, navigate, setupAudioTrackEndedHandler) {
+  if (selectors.selectVideoLayoutMode(getState()) === 'free' && !getState().freeLayoutVideosOpen) {
+    openFreeLayoutVideosPanel(app);
+    return;
+  }
   const s = getState();
   if (selectors.selectIsVideoEnabled(s)) {
     patchState({ isVideoEnabled: false });
@@ -826,8 +1208,9 @@ async function applyEffectToPreviewOnly(app, s, effect, applyEffectToPreview) {
 
 async function handleBackgroundEffectChange(app, effect, applyEffectToCallStream, applyEffectToPreview, navigate) {
   const s = getState();
-  const videoTrack = selectors.selectBaseLocalStream(s)?.getVideoTracks?.()[0];
-  const cameraActiveForCall = selectors.selectIsVideoEnabled(s) && videoTrack?.enabled;
+  const videoTrack = selectors.selectLocalStream(s)?.getVideoTracks?.()?.[0];
+  const cameraActiveForCall =
+    selectors.selectIsVideoEnabled(s) && videoTrack && videoTrack.readyState !== 'ended' && videoTrack.enabled;
   patchState({ backgroundEffect: effect || 'none' });
   if (!cameraActiveForCall && s._previewStream) {
     await applyEffectToPreviewOnly(app, s, effect, applyEffectToPreview);
@@ -941,34 +1324,17 @@ async function handleStartScreen(app, getStreamForViewers, handleStopScreen, nav
     else setupViewerScreenShare(s, stream, handleStopScreen, myPeerId, nick);
     const preview = app.querySelector('#host-preview');
     if (preview) preview.srcObject = stream;
-    navigate('room-view');
+    patchMeetingScreenSharePresentation(app);
   } catch (err) {
     alert(err.message || t('screenShareFailed'));
   }
 }
 
-function handlePauseScreen(app, getStreamForViewers, createFrozenStream, navigate) {
-  const preview = app.querySelector('#host-preview');
+function handleAudioScreenToggle(app, getStreamForViewers) {
   const s = getState();
-  if (!selectors.selectHostStream(s) || !preview || preview.readyState < 2) return;
-  if (selectors.selectPaused(s)) {
-    s.frozenStreamStop?.();
-    patchState({ frozenStream: null, frozenStreamStop: null, paused: false });
-    selectors.selectHostPeer(s).setScreenStream(getStreamForViewers());
-    preview.srcObject = selectors.selectHostStream(s);
-  } else {
-    const { stream, stop } = createFrozenStream(preview);
-    patchState({ frozenStream: stream, frozenStreamStop: stop, paused: true });
-    selectors.selectHostPeer(s).setScreenStream(stream);
-    preview.srcObject = stream;
-  }
-  navigate('room-view');
-}
-
-function handleAudioScreenToggle(app, getStreamForViewers, navigate) {
-  const s = getState();
-  if (!selectors.selectHasAudio(s) || selectors.selectPaused(s)) return;
+  if (!selectors.selectHasAudio(s)) return;
   patchState({ audioEnabled: !selectors.selectAudioEnabled(s) });
-  selectors.selectHostPeer(s).setScreenStream(getStreamForViewers());
-  navigate('room-view');
+  const participant = selectors.selectHostPeer(s) || selectors.selectViewerConn(s);
+  participant?.setScreenStream?.(getStreamForViewers());
+  patchMeetingScreenSharePresentation(app);
 }

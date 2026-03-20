@@ -37,9 +37,6 @@ export function createInitialState() {
     screenStreams: new Map(),
     remoteStreams: new Map(),
     viewerScreenCall: null,
-    frozenStream: null,
-    frozenStreamStop: null,
-    paused: false,
     audioEnabled: true,
     hasAudio: false,
     isMuted: false,
@@ -56,6 +53,10 @@ export function createInitialState() {
     joinRoomHasPassword: true,
     videoLayoutMode: 'grid',
     videoTilePositions: {},
+    /** Free-Layout: Schwebefenster Chat / Teilnehmer / Videos (persistiert über room-view-Re-Renders) */
+    freeLayoutChatOpen: false,
+    freeLayoutParticipantsOpen: false,
+    freeLayoutVideosOpen: true,
     windowPositions: { ...WINDOW_POSITION_DEFAULTS },
   };
 }

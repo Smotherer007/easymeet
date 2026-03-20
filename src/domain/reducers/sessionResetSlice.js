@@ -13,8 +13,6 @@ export function getSessionResetSlice() {
     screenStreams: new Map(),
     remoteStreams: new Map(),
     viewerScreenCall: null,
-    frozenStream: null,
-    frozenStreamStop: null,
     backgroundEffectStop: null,
     backgroundEffect: 'none',
     baseLocalStream: null,
@@ -39,6 +37,9 @@ export function getSessionResetSlice() {
     isMuted: false,
     isVideoEnabled: false,
     hasVideoSupport: false,
+    freeLayoutChatOpen: false,
+    freeLayoutParticipantsOpen: false,
+    freeLayoutVideosOpen: false,
   };
 }
 

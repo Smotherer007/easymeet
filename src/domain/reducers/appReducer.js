@@ -35,6 +35,9 @@ function reduceRoomEntered(state, payload, isHost) {
     isVideoEnabled: false,
     hasVideoSupport: false,
     unreadChatCount: 0,
+    freeLayoutChatOpen: false,
+    freeLayoutParticipantsOpen: false,
+    freeLayoutVideosOpen: false,
   };
 }
 
@@ -243,15 +246,8 @@ function reduceMediaScreenSharingStopped(state) {
     hostStream: null,
     hasAudio: false,
     audioEnabled: true,
-    paused: false,
-    frozenStream: null,
     screenStreams,
   };
-}
-
-function reduceMediaScreenPauseToggled(state, payload) {
-  const { paused, frozenStream } = payload ?? {};
-  return { ...state, paused: paused ?? !state.paused, frozenStream: frozenStream ?? null };
 }
 
 function reduceUiUnreadCountCleared(state) {
@@ -312,7 +308,6 @@ const HANDLERS = {
   'media/backgroundEffectSet': reduceMediaBackgroundEffectSet,
   'media/screenSharingStarted': reduceMediaScreenSharingStarted,
   'media/screenSharingStopped': reduceMediaScreenSharingStopped,
-  'media/screenPauseToggled': reduceMediaScreenPauseToggled,
   'ui/unreadCountCleared': reduceUiUnreadCountCleared,
   'ui/settingsPanelToggled': reduceUiSettingsPanelToggled,
   'peer/connectionEstablished': reducePeerConnectionEstablished,

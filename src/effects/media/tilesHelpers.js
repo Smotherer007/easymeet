@@ -40,6 +40,8 @@ export function createMediaElement(isLocal) {
   mediaEl.autoplay = true;
   mediaEl.playsInline = true;
   if (isLocal) mediaEl.muted = true;
+  /* Kein natives PiP-Overlay auf Kacheln (Teilnehmerleiste nutzt eigenes Markup). */
+  mediaEl.disablePictureInPicture = true;
   return mediaEl;
 }
 
@@ -179,6 +181,7 @@ function ensureVideoTileMediaWrap(tile) {
   if (tile.querySelector(':scope > .video-tile__media-wrap')) return;
   const directVideo = tile.querySelector(':scope > video');
   if (!directVideo) return;
+  directVideo.disablePictureInPicture = true;
   const mediaWrap = document.createElement('div');
   mediaWrap.className = 'video-tile__media-wrap';
   tile.insertBefore(mediaWrap, directVideo);

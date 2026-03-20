@@ -307,7 +307,7 @@ Die Pipeline kann auch manuell unter **Actions → Build and Push Docker Image �
 | `RTC_MIN_PORT` / `RTC_MAX_PORT` | `40000`–`40200` | UDP-Portbereich für RTP (muss intern bis zum Container durchgereicht werden, z. B. Proxy) |
 | `EASYMEET_PERSISTENT_ROOMS` | `config/persistent-rooms.json` in `.env.example` | Path to JSON with `{"rooms":[...]}` (relative to cwd or absolute). Omit to disable pinned rooms. |
 
-**Docker:** `.env.example` → `.env` für allgemeine Vorlage; für **Produktion** siehe **`.env.production.example`** (Platzhalter inkl. `MEDIASOUP_ANNOUNCED_IP`). **`config/persistent-rooms.json`** auf dem Host anlegen und in den Container mounten (Pfad wie `EASYMEET_PERSISTENT_ROOMS`, z. B. `/app/config/persistent-rooms.json`). Im Image liegt **`config/persistent-rooms.example.json`** als Vorlage.
+**Docker:** Das Image setzt **`EASYMEET_PERSISTENT_ROOMS=/app/config/persistent-rooms.json`** und enthält eine **Standard-JSON** (Raum **`LOBBY`**, Quelle **`config/persistent-rooms.default.json`**), damit „Feste Räume“ ohne extra Setup funktionieren. **Eigene Räume:** `persistent-rooms.json` auf dem Host erstellen und per Compose-Volume mounten (siehe `docker-compose.yml`). Vorlage: **`config/persistent-rooms.example.json`**. Produktion: **`.env.production.example`** inkl. `MEDIASOUP_ANNOUNCED_IP`.
 
 **Container startet nicht / Port 40000 belegt:** Das Repo hat **keine** `ports:` in `docker-compose.yml`. Häufig stammt das Mapping von **`docker-compose.override.yml`** (wird automatisch gemerged). Prüfen mit `docker compose config` – Details: [docs/docker-compose-troubleshooting.md](docs/docker-compose-troubleshooting.md).
 
@@ -366,7 +366,7 @@ networks:
 | Production | `node:22-bookworm-slim` | mediasoup-Prebuild (glibc); Fallback-Build: `python3`, `pip`, `build-essential` |
 
 The production image:
-- Enthält **`config/persistent-rooms.example.json`**; echte Räume per Volume + `EASYMEET_PERSISTENT_ROOMS` (siehe `.env.example`)
+- Enthält **`persistent-rooms.default.json`** (→ eingebaute **`persistent-rooms.json`**) und **`persistent-rooms.example.json`**; eigene Liste per Volume (siehe `docker-compose.yml`)
 - Serves static files from `dist/`
 - Handles API routes under `/api`
 - Falls back to `index.html` for SPA routing

@@ -9,11 +9,11 @@ import {
   iconMicOff,
   iconMonitor,
   iconMonitorOff,
-  iconPause,
-  iconPlay,
+  iconMaximize2,
   iconVolume2,
   iconVolumeX,
   iconX,
+  iconMinus,
   iconChevronDown,
   iconChevronUp,
   iconSmile,
@@ -101,7 +101,7 @@ export function renderVoipParticipantHtmlFloating(m, state) {
   const volumeControl = !isSelf && !memberMuted
     ? `<div class="voip-view__volume-wrap" data-peer-id="${escapeHtml(peerId)}" title="${t('volume')}"><button type="button" class="voip-view__participant-status voip-view__volume-trigger" data-action="volume-toggle" aria-label="${t('volume')}" title="${t('volume')}">${iconMic()}</button><div class="voip-view__volume-tooltip"><input type="range" class="voip-view__volume-slider" min="0" max="200" value="${vol}" data-peer-id="${escapeHtml(peerId)}" /></div></div>`
     : `<div class="voip-view__participant-status" title="${memberMuted ? t('muted') : t('unmuted')}">${memberMuted ? iconMicOff() : iconMic()}</div>`;
-  const streamHtml = streaming ? `<div class="voip-view__participant-stream" data-action="open-stream-modal" data-peer-id="${escapeHtml(peerId)}" title="${t('clickToExpand')}"><video class="voip-view__stream-thumb" autoplay playsinline muted></video></div>` : '';
+  const streamHtml = streaming ? `<div class="voip-view__participant-stream" data-action="open-stream-modal" data-peer-id="${escapeHtml(peerId)}" title="${t('clickToExpand')}"><video class="voip-view__stream-thumb" autoplay playsinline muted disablepictureinpicture></video></div>` : '';
   return `<div class="voip-view__participant" data-peer-id="${escapeHtml(peerId)}" data-self="${isSelf}"><div class="voip-view__participant-info"><div class="voip-view__participant-name">${escapeHtml(nick)}</div><div class="voip-view__participant-status-row">${volumeControl}</div></div>${streamHtml}</div>`;
 }
 
@@ -118,14 +118,36 @@ export function getWindowPositions(defaults, windowPositions) {
   return pos;
 }
 
+/** Screen-Share-Button in der Leiste — per Slot hot-swappable ohne Full-Re-render. */
+export function renderMeetingScreenShareSlotInner({ hasScreenShareSupport, hostStream }) {
+  if (!hasScreenShareSupport) return '';
+  if (hostStream) {
+    return `<button type="button" class="meeting-control-btn meeting-control-btn--danger" id="stop-screen-btn" title="${escapeHtml(t('stopSharingToolbar'))}">${iconMonitorOff()}</button>`;
+  }
+  return `<button type="button" class="meeting-control-btn" id="start-screen-btn" title="${escapeHtml(t('startSharing'))}">${iconMonitor()}</button>`;
+}
+
+/** Ton (Raum-Host) + „Teilen beenden“ (immer wenn man selbst teilt, hostStream). */
+export function renderStreamModalHostActionsInner({ isHost, hostStream, audioEnabled }) {
+  if (!hostStream) return '';
+  let html = '';
+  if (isHost && hostStream?.getAudioTracks?.().length) {
+    const audioPart = `${audioEnabled ? iconVolume2() : iconVolumeX()} ${escapeHtml(audioEnabled ? t('audioOn') : t('audioOff'))}`;
+    html += `<button type="button" class="btn btn--ghost btn--sm" id="audio-screen-btn">${audioPart}</button>`;
+  }
+  const stopTitle = escapeHtml(t('stopSharing'));
+  html += `<button type="button" class="btn btn--ghost btn--sm stream-modal__stop-share-btn" data-action="stop-screen-share" title="${stopTitle}" aria-label="${stopTitle}">${iconMonitorOff()} ${stopTitle}</button>`;
+  return html;
+}
+
 export function renderMeetingControlBarFloating(state) {
   const { isMuted, isVideoEnabled, hostStream, hasScreenShareSupport, unreadChatCount, roomId } = state;
   return `
     <button class="meeting-control-btn chat__mute-btn--${isMuted ? 'muted' : 'unmuted'}" data-action="toggle-mute" title="${isMuted ? t('unmute') : t('mute')}">${isMuted ? iconMicOff() : iconMic()}</button>
     <button class="meeting-control-btn video-btn--${isVideoEnabled ? 'on' : 'off'}" data-action="toggle-video" title="${isVideoEnabled ? t('cameraOn') : t('cameraOff')}">${isVideoEnabled ? iconVideo() : iconVideoOff()}</button>
-    ${hasScreenShareSupport ? (hostStream ? `<button class="meeting-control-btn meeting-control-btn--danger" id="stop-screen-btn" title="${t('stopSharing')}">${iconMonitorOff()}</button>` : `<button class="meeting-control-btn" id="start-screen-btn" title="${t('startSharing')}">${iconMonitor()}</button>`) : ''}
-    <button class="meeting-control-btn meeting-control-btn--chat" data-action="toggle-chat-panel" title="${t('tabChat')}"><span class="meeting-control-btn__icon-wrap">${iconMessageSquare()}<span class="chat-badge" id="chat-badge" ${unreadChatCount > 0 ? '' : 'hidden'}>${unreadChatCount > 99 ? '99+' : unreadChatCount}</span></span></button>
-    <button class="meeting-control-btn" data-action="toggle-video-layout" title="${t('layoutGrid')}">${iconLayoutGrid()}</button>
+${hasScreenShareSupport ? `<span class="meeting-control-bar__screen-slot">${renderMeetingScreenShareSlotInner({ hasScreenShareSupport, hostStream })}</span>` : ''}
+      <button class="meeting-control-btn meeting-control-btn--chat" data-action="toggle-chat-panel" title="${t('tabChat')}"><span class="meeting-control-btn__icon-wrap">${iconMessageSquare()}<span class="chat-badge" id="chat-badge" ${unreadChatCount > 0 ? '' : 'hidden'}>${unreadChatCount > 99 ? '99+' : unreadChatCount}</span></span></button>
+      <button class="meeting-control-btn" data-action="toggle-video-layout" title="${t('layoutGrid')}">${iconLayoutGrid()}</button>
     <button class="meeting-control-btn" data-action="toggle-sidebar" title="${t('participants')}">${iconUsers()}</button>
     ${roomId ? `<button class="meeting-control-btn" data-action="share" title="${t('shareRoom')}">${iconShare2()}</button>` : ''}
     <button class="meeting-control-btn" data-action="toggle-settings" title="${t('settings')}">${iconMoreHorizontal()}</button>
@@ -133,11 +155,13 @@ export function renderMeetingControlBarFloating(state) {
   `;
 }
 
-export function renderFloatingWindowVideos(pos) {
+export function renderFloatingWindowVideos(pos, isOpen = true) {
+  const hiddenCls = isOpen ? '' : ' floating-window--hidden';
   return `
-    <div class="floating-window floating-window--videos" data-window="videos" data-draggable style="left:${pos.x}px;top:${pos.y}px;width:${pos.w}px;height:${pos.h}px;">
+    <div class="floating-window floating-window--videos${hiddenCls}" data-window="videos" data-draggable style="left:${pos.x}px;top:${pos.y}px;width:${pos.w}px;height:${pos.h}px;">
       <div class="floating-window__header" data-drag-handle>
         <span class="floating-window__title">${t('videos')}</span>
+        <button type="button" class="btn btn--ghost btn--sm floating-window__minimize" data-action="minimize-floating-videos" title="${escapeHtml(t('minimizeWindow'))}" aria-label="${escapeHtml(t('minimizeWindow'))}">${iconMinus()}</button>
       </div>
       <div class="floating-window__body">
         <div class="video-gallery video-gallery--grid" id="video-gallery" data-layout-mode="grid"></div>
@@ -147,12 +171,13 @@ export function renderFloatingWindowVideos(pos) {
   `;
 }
 
-export function renderFloatingWindowChat(pos, messagesHtml) {
+export function renderFloatingWindowChat(pos, messagesHtml, isOpen = false) {
+  const hiddenCls = isOpen ? '' : ' floating-window--hidden';
   return `
-    <div class="floating-window floating-window--chat" data-window="chat" data-draggable style="left:${pos.x}px;top:${pos.y}px;width:${pos.w}px;height:${pos.h}px;">
+    <div class="floating-window floating-window--chat${hiddenCls}" data-window="chat" data-draggable style="left:${pos.x}px;top:${pos.y}px;width:${pos.w}px;height:${pos.h}px;">
       <div class="floating-window__header" data-drag-handle>
         <span class="floating-window__title">${t('tabChat')}</span>
-        <button class="btn btn--ghost btn--sm" data-action="close-chat-panel">${iconX()}</button>
+        <button type="button" class="btn btn--ghost btn--sm floating-window__minimize" data-action="minimize-floating-chat" title="${escapeHtml(t('minimizeWindow'))}" aria-label="${escapeHtml(t('minimizeWindow'))}">${iconMinus()}</button>
       </div>
       <div class="floating-window__body">
         <div class="chat__messages-wrap chat__messages-wrap--overlay" id="chat-dropzone">
@@ -191,12 +216,13 @@ export function renderFloatingWindowChat(pos, messagesHtml) {
   `;
 }
 
-export function renderFloatingWindowParticipants(pos, voipParticipantsHtml, voipMembersLength) {
+export function renderFloatingWindowParticipants(pos, voipParticipantsHtml, voipMembersLength, isOpen = false) {
+  const hiddenCls = isOpen ? '' : ' floating-window--hidden';
   return `
-    <div class="floating-window floating-window--participants" data-window="participants" data-draggable style="left:${pos.x}px;top:${pos.y}px;width:${pos.w}px;height:${pos.h}px;">
+    <div class="floating-window floating-window--participants${hiddenCls}" data-window="participants" data-draggable style="left:${pos.x}px;top:${pos.y}px;width:${pos.w}px;height:${pos.h}px;">
       <div class="floating-window__header" data-drag-handle>
         <span class="floating-window__title">${t('participants')} (<span id="participant-count">${voipMembersLength}</span>)</span>
-        <button class="btn btn--ghost btn--sm chat__sidebar-close" data-action="close-sidebar">${iconX()}</button>
+        <button type="button" class="btn btn--ghost btn--sm floating-window__minimize chat__sidebar-close" data-action="minimize-floating-participants" title="${escapeHtml(t('minimizeWindow'))}" aria-label="${escapeHtml(t('minimizeWindow'))}">${iconMinus()}</button>
       </div>
       <div class="floating-window__body">
         <div class="voip-view__participant-list" id="participant-list">${voipParticipantsHtml || '<p class="voip-view__empty">' + t('participants') + '</p>'}</div>
@@ -207,18 +233,17 @@ export function renderFloatingWindowParticipants(pos, voipParticipantsHtml, voip
 }
 
 export function renderStreamModalFloating(pos, state) {
-  const { isHost, hostStream, paused, audioEnabled } = state;
+  const { isHost, hostStream, audioEnabled } = state;
   return `
     <div class="stream-modal" id="stream-modal" hidden>
       <div class="stream-modal__content" data-draggable data-window="stream" style="left:${pos.x}px;top:${pos.y}px;width:${pos.w}px;height:${pos.h}px;transform:none">
         <div class="stream-modal__header" data-drag-handle>
           <span class="stream-modal__title" id="stream-modal-title">${t('screenStream')}</span>
           <div class="stream-modal__actions">
-            <button class="btn btn--ghost btn--sm" id="stream-fullscreen-btn" title="${t('fullscreen')}">${iconMonitor()}</button>
+            <button class="btn btn--ghost btn--sm" id="stream-fullscreen-btn" title="${t('fullscreen')}">${iconMaximize2()}</button>
             <button class="btn btn--ghost btn--sm" id="stream-pip-btn" title="${t('pip')}">${iconVideo()}</button>
-            ${isHost && hostStream ? `<button class="btn btn--ghost btn--sm" id="pause-screen-btn">${paused ? iconPlay() : iconPause()} ${paused ? t('resume') : t('pause')}</button>
-            ${hostStream?.getAudioTracks?.().length ? `<button class="btn btn--ghost btn--sm" id="audio-screen-btn">${audioEnabled ? iconVolume2() : iconVolumeX()} ${audioEnabled ? t('audioOn') : t('audioOff')}</button>` : ''}` : ''}
-            <button class="btn btn--ghost btn--sm" data-action="close-stream-modal">${iconX()}</button>
+            <span class="stream-modal__host-actions-slot">${renderStreamModalHostActionsInner({ isHost, hostStream, audioEnabled })}</span>
+            <button type="button" class="btn btn--ghost btn--sm" data-action="minimize-stream-modal" title="${escapeHtml(t('minimizeWindow'))}" aria-label="${escapeHtml(t('minimizeWindow'))}">${iconMinus()}</button>
           </div>
         </div>
         <div class="stream-modal__video-wrap">
@@ -248,7 +273,7 @@ export function renderVoipParticipantHtmlGrid(m, ctx) {
     : `<div class="voip-view__participant-status" title="${memberMuted ? t('muted') : t('unmuted')}">${memberMuted ? iconMicOff() : iconMic()}</div>`;
   const hasBgEffect = isSelf ? (backgroundEffect || 'none') !== 'none' : (bgEffectMap.get(peerId) || 'none') !== 'none';
   const streamHtml = showThumb
-    ? `<div class="voip-view__participant-stream" data-action="open-stream-modal" data-peer-id="${escapeHtml(peerId)}" title="${t('clickToExpand')}"><video class="voip-view__stream-thumb" autoplay playsinline muted></video></div>`
+    ? `<div class="voip-view__participant-stream" data-action="open-stream-modal" data-peer-id="${escapeHtml(peerId)}" title="${t('clickToExpand')}"><video class="voip-view__stream-thumb" autoplay playsinline muted disablepictureinpicture></video></div>`
     : '';
   return `<div class="voip-view__participant" data-peer-id="${escapeHtml(peerId)}" data-self="${isSelf}" data-has-background-effect="${hasBgEffect}"><div class="voip-view__participant-info"><div class="voip-view__participant-name">${escapeHtml(nick)}</div><div class="voip-view__participant-status-row">${volumeControl}</div></div>${streamHtml}</div>`;
 }
@@ -289,7 +314,7 @@ export function renderShareModalContent(roomId, formattedRoomId, joinUrl, render
       <div class="share-modal__content" data-draggable data-window="share" style="${shareStyle}">
         <div class="share-modal__header" data-drag-handle>
           <h3 class="share-modal__title">${t('roomCreated')}</h3>
-          <button class="btn btn--ghost btn--sm" data-action="close-share" title="${t('close')}">${iconX()}</button>
+          <button type="button" class="btn btn--ghost btn--sm" data-action="minimize-share-modal" title="${escapeHtml(t('minimizeWindow'))}" aria-label="${escapeHtml(t('minimizeWindow'))}">${iconMinus()}</button>
         </div>
         <div class="share-modal__body">
           ${content}
@@ -306,7 +331,7 @@ export function renderMeetingControlBarGrid(state) {
     <div class="meeting-control-bar">
       <button class="meeting-control-btn chat__mute-btn--${isMuted ? 'muted' : 'unmuted'}" data-action="toggle-mute" title="${isMuted ? t('unmute') : t('mute')}">${isMuted ? iconMicOff() : iconMic()}</button>
       <button class="meeting-control-btn video-btn--${isVideoEnabled ? 'on' : 'off'}" data-action="toggle-video" title="${isVideoEnabled ? t('cameraOn') : t('cameraOff')}">${isVideoEnabled ? iconVideo() : iconVideoOff()}</button>
-      ${hasScreenShareSupport ? (hostStream ? `<button class="meeting-control-btn meeting-control-btn--danger" id="stop-screen-btn" title="${t('stopSharing')}">${iconMonitorOff()}</button>` : `<button class="meeting-control-btn" id="start-screen-btn" title="${t('startSharing')}">${iconMonitor()}</button>`) : ''}
+      ${hasScreenShareSupport ? `<span class="meeting-control-bar__screen-slot">${renderMeetingScreenShareSlotInner({ hasScreenShareSupport, hostStream })}</span>` : ''}
       <button class="meeting-control-btn meeting-control-btn--chat" data-action="toggle-chat-panel" title="${t('tabChat')}"><span class="meeting-control-btn__icon-wrap">${iconMessageSquare()}<span class="chat-badge" id="chat-badge" ${unreadChatCount > 0 ? '' : 'hidden'}>${unreadChatCount > 99 ? '99+' : unreadChatCount}</span></span></button>
       <button class="meeting-control-btn" data-action="toggle-video-layout" title="${t('layoutFree')}">${iconGrip()}</button>
       <button class="meeting-control-btn" data-action="toggle-sidebar" title="${t('participants')}">${iconUsers()}</button>
@@ -380,18 +405,17 @@ export function renderGridMeetingSection(state, messagesHtml, voipParticipantsHt
 }
 
 export function renderStreamModalGrid(streamStyle, state) {
-  const { isHost, hostStream, paused, audioEnabled } = state;
+  const { isHost, hostStream, audioEnabled } = state;
   return `
     <div class="stream-modal" id="stream-modal" hidden>
       <div class="stream-modal__content" data-draggable data-window="stream" style="${streamStyle}">
         <div class="stream-modal__header" data-drag-handle>
           <span class="stream-modal__title" id="stream-modal-title">${t('screenStream')}</span>
           <div class="stream-modal__actions">
-            <button class="btn btn--ghost btn--sm" id="stream-fullscreen-btn" title="${t('fullscreen')}">${iconMonitor()}</button>
+            <button class="btn btn--ghost btn--sm" id="stream-fullscreen-btn" title="${t('fullscreen')}">${iconMaximize2()}</button>
             <button class="btn btn--ghost btn--sm" id="stream-pip-btn" title="${t('pip')}">${iconVideo()}</button>
-            ${isHost && hostStream ? `<button class="btn btn--ghost btn--sm" id="pause-screen-btn">${paused ? iconPlay() : iconPause()} ${paused ? t('resume') : t('pause')}</button>
-            ${hostStream?.getAudioTracks?.().length ? `<button class="btn btn--ghost btn--sm" id="audio-screen-btn">${audioEnabled ? iconVolume2() : iconVolumeX()} ${audioEnabled ? t('audioOn') : t('audioOff')}</button>` : ''}` : ''}
-            <button class="btn btn--ghost btn--sm" data-action="close-stream-modal">${iconX()}</button>
+            <span class="stream-modal__host-actions-slot">${renderStreamModalHostActionsInner({ isHost, hostStream, audioEnabled })}</span>
+            <button type="button" class="btn btn--ghost btn--sm" data-action="minimize-stream-modal" title="${escapeHtml(t('minimizeWindow'))}" aria-label="${escapeHtml(t('minimizeWindow'))}">${iconMinus()}</button>
           </div>
         </div>
         <div class="stream-modal__video-wrap">
@@ -433,7 +457,7 @@ export function renderSettingsModalContent(state) {
       <div class="settings-modal__content" data-draggable data-window="settings" style="${settingsStyle}">
         <div class="settings-modal__header" data-drag-handle>
           <h3 class="settings-modal__title">${t('settings')}</h3>
-          <button class="btn btn--ghost btn--sm" data-action="close-settings-modal" title="${t('close')}">${iconX()}</button>
+          <button type="button" class="btn btn--ghost btn--sm" data-action="minimize-settings-modal" title="${escapeHtml(t('minimizeWindow'))}" aria-label="${escapeHtml(t('minimizeWindow'))}">${iconMinus()}</button>
         </div>
         <div class="settings-modal__body" id="settings-panel">
           <div class="settings-modal__section">

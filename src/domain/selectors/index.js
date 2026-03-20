@@ -111,14 +111,6 @@ export function selectHostStream(state) {
  * @param {AppState} state
  * @returns {boolean}
  */
-export function selectPaused(state) {
-  return state.paused ?? false;
-}
-
-/**
- * @param {AppState} state
- * @returns {boolean}
- */
 export function selectAudioEnabled(state) {
   return state.audioEnabled ?? true;
 }
@@ -138,7 +130,7 @@ export function selectHasAudio(state) {
  */
 export function selectStreamForPeerId(state, peerId) {
   if (peerId === state.peer?.id) {
-    return state.paused && state.frozenStream ? state.frozenStream : state.hostStream;
+    return state.hostStream ?? null;
   }
   return state.screenStreams?.get(peerId)?.stream ?? null;
 }
@@ -181,6 +173,20 @@ export function selectLocalStream(state) {
  */
 export function selectBaseLocalStream(state) {
   return state.baseLocalStream ?? null;
+}
+
+/**
+ * Echte Kamera-Spur für Hintergrund-Effekte (Insertable Streams).
+ * Bei aktivem Effekt ist `localStream` die Generator-Ausgabe, `baseLocalStream` die Roh-Kamera (andere Track-Instanz).
+ * Wenn fälschlich dieselbe Spur in beiden steckt, gibt es nur diese eine Referenz.
+ */
+export function selectCameraVideoTrackForEffects(state) {
+  const base = state.baseLocalStream;
+  const local = state.localStream;
+  const bv = base?.getVideoTracks?.()?.[0];
+  const lv = local?.getVideoTracks?.()?.[0];
+  if (bv && lv && bv !== lv) return bv;
+  return bv ?? lv ?? null;
 }
 
 /**

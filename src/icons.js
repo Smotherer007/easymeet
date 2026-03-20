@@ -42,6 +42,8 @@ import {
   Globe,
   RefreshCw,
   Lock,
+  Minus,
+  Maximize2,
 } from 'lucide';
 
 const defaultAttrs = { 'stroke-width': 1.75, class: 'icon' };
@@ -61,6 +63,8 @@ export const iconSmile = () => createElement(Smile, smAttrs).outerHTML;
 export const iconImage = () => createElement(Image, smAttrs).outerHTML;
 export const iconSend = () => createElement(Send, smAttrs).outerHTML;
 export const iconX = () => createElement(X, smAttrs).outerHTML;
+export const iconMinus = () => createElement(Minus, smAttrs).outerHTML;
+export const iconMaximize2 = () => createElement(Maximize2, smAttrs).outerHTML;
 export const iconPhone = () => createElement(Phone, defaultAttrs).outerHTML;
 export const iconPhoneCall = () => createElement(PhoneCall, defaultAttrs).outerHTML;
 export const iconMic = () => createElement(Mic, smAttrs).outerHTML;

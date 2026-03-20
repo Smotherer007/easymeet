@@ -30,10 +30,16 @@ COPY --from=builder /app/dist ./dist
 COPY server ./server
 COPY config ./config
 
+# persistent-rooms.json kommt nicht aus dem Build (.dockerignore) – Standarddatei,
+# damit EASYMEET_PERSISTENT_ROOMS im Container immer eine gültige Datei findet.
+# Überschreiben: Volume mounten (siehe docker-compose.yml).
+RUN cp config/persistent-rooms.default.json config/persistent-rooms.json
+
 # Defaults; echte Werte per docker compose / docker run / .env (siehe .env.example)
 ENV NODE_ENV=production
 ENV PORT=3001
 ENV MEDIASOUP_LISTEN_IP=0.0.0.0
+ENV EASYMEET_PERSISTENT_ROOMS=/app/config/persistent-rooms.json
 
 # Keine EXPOSE: Ports werden intern (Reverse-Proxy / Overlay-Netz) angebunden, nicht am Host veröffentlicht.
 

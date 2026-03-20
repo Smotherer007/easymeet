@@ -7,6 +7,7 @@ import { getState, patchState } from '../../store/index.js';
 import {
   selectLocalStream,
   selectBaseLocalStream,
+  selectCameraVideoTrackForEffects,
   selectIsMuted,
   selectIsVideoEnabled,
   selectScreen,
@@ -36,6 +37,9 @@ import { DEVICE_STORAGE } from '../../shared/constants.js';
 import * as peer from '../network/mediasoupClient.js';
 import { startSpeakingIndicator, stopSpeakingIndicator } from '../../speaking-indicator.js';
 
+/** Serielle Ausführung: schnelles mehrfaches Umschalten darf nicht parallel laufen (sonst bricht die Insertable-Streams-Pipe). */
+let _applyEffectTail = Promise.resolve();
+
 /**
  * Wendet Hintergrund-Effekte an und aktualisiert den lokalen Stream.
  * (I/O & Side-Effect Schwer - Layer 4)
@@ -48,7 +52,7 @@ import { startSpeakingIndicator, stopSpeakingIndicator } from '../../speaking-in
  * @param {Function} getStreamForScreenShare
  * @param {Function} navigate
  */
-export async function applyEffectToCallStream(
+export function applyEffectToCallStream(
   effect,
   app,
   attachRemoteAudio,
@@ -58,59 +62,115 @@ export async function applyEffectToCallStream(
   getStreamForScreenShare,
   navigate
 ) {
-  const s = getState();
-  const videoTrack = selectBaseLocalStream(s)?.getVideoTracks?.()[0];
-  if (!videoTrack) return;
+  const p = _applyEffectTail.then(() =>
+    applyEffectToCallStreamInternal(
+      effect,
+      app,
+      attachRemoteAudio,
+      updateVoipParticipants,
+      updateEffectTilesSelection,
+      getStreamForPeerId,
+      getStreamForScreenShare,
+      navigate
+    )
+  );
+  _applyEffectTail = p.catch(() => {});
+  return p;
+}
+
+async function applyEffectToCallStreamInternal(
+  effect,
+  app,
+  attachRemoteAudio,
+  updateVoipParticipants,
+  updateEffectTilesSelection,
+  getStreamForPeerId,
+  getStreamForScreenShare,
+  navigate
+) {
+  let s = getState();
+  let camTrack = selectCameraVideoTrackForEffects(s);
+  if (!camTrack || camTrack.readyState === 'ended') return;
+
   if (s.backgroundEffectStop) {
-    try { s.backgroundEffectStop(); } catch (_) { /* Stream may be locked */ }
+    try {
+      s.backgroundEffectStop();
+    } catch (_) { /* Stream may be locked */ }
     patchState({ backgroundEffectStop: null });
-    await new Promise((r) => setTimeout(r, 30));
+    await new Promise((r) => setTimeout(r, 60));
   }
-  const oldVideoTracks = selectLocalStream(s)?.getVideoTracks?.() ?? [];
-  const baseVideoTrack = selectBaseLocalStream(s)?.getVideoTracks?.()[0];
+
+  s = getState();
+  camTrack = selectCameraVideoTrackForEffects(s);
+  if (!camTrack || camTrack.readyState === 'ended') return;
+
+  const oldVideoTracks = [...(selectLocalStream(s)?.getVideoTracks?.() ?? [])];
+  const baseVideoTrack = selectCameraVideoTrackForEffects(s);
   const stopOldTracks = () => {
-    oldVideoTracks.forEach((t) => { if (t !== baseVideoTrack) t.stop(); });
+    oldVideoTracks.forEach((t) => {
+      if (t !== baseVideoTrack && t.readyState !== 'ended') t.stop();
+    });
   };
 
   try {
+    const camOnly = () => {
+      const c = selectCameraVideoTrackForEffects(getState());
+      if (!c || c.readyState === 'ended') return null;
+      return new MediaStream([c]);
+    };
+    const audioFromCall = () => selectLocalStream(getState())?.getAudioTracks?.() ?? [];
+
     if (effect === 'blur' && isBackgroundEffectsSupported()) {
-      const baseStream = selectBaseLocalStream(s);
-      const { stream, stop } = await createBlurredStream(baseStream, { blurAmount: 15 });
-      const audioTracks = baseStream.getAudioTracks();
+      const videoSource = camOnly();
+      if (!videoSource) return;
+      const { stream, stop } = await createBlurredStream(videoSource, { blurAmount: 15 });
+      const audioTracks = audioFromCall();
       const videoTracks = stream.getVideoTracks();
       patchState({ localStream: new MediaStream([...audioTracks, ...videoTracks]), backgroundEffectStop: stop });
     } else if (effect && effect !== 'none' && isBackgroundEffectsSupported()) {
-      const baseStream = selectBaseLocalStream(s);
+      const videoSource = camOnly();
+      if (!videoSource) return;
       const customResult = getCustomBackgrounds();
       const allBackgrounds = [...BACKGROUND_IMAGES, ...(customResult.success ? customResult.data : [])];
       const bg = allBackgrounds.find((b) => b.id === effect);
       if (bg?.url) {
-        const { stream, stop } = await createVirtualBackgroundStream(baseStream, bg.url);
-        const audioTracks = baseStream.getAudioTracks();
+        const { stream, stop } = await createVirtualBackgroundStream(videoSource, bg.url);
+        const audioTracks = audioFromCall();
         const videoTracks = stream.getVideoTracks();
         patchState({ localStream: new MediaStream([...audioTracks, ...videoTracks]), backgroundEffectStop: stop });
       } else {
-        patchState({ localStream: baseStream });
+        const baseRestored = selectBaseLocalStream(getState());
+        patchState({ localStream: baseRestored ?? selectLocalStream(getState()), backgroundEffectStop: null });
       }
     } else {
-      patchState({ localStream: selectBaseLocalStream(s) });
+      patchState({ localStream: selectBaseLocalStream(getState()), backgroundEffectStop: null });
     }
   } catch (err) {
     console.error('Hintergrund-Effekt fehlgeschlagen:', err);
-    patchState({ backgroundEffect: 'none', localStream: selectBaseLocalStream(s) });
+    patchState({ backgroundEffect: 'none', localStream: selectBaseLocalStream(getState()), backgroundEffectStop: null });
     updateEffectTilesSelection(app, 'none');
     stopOldTracks();
-    const peerId = selectMyPeerId(s);
+    const peerId = selectMyPeerId(getState());
     if (peerId) attachRemoteAudio(peerId, selectLocalStream(getState()));
     return;
   }
 
-  stopOldTracks();
-  const localStream = selectLocalStream(getState());
-  localStream.getAudioTracks().forEach((t) => { t.enabled = !selectIsMuted(s); });
-  localStream.getVideoTracks().forEach((t) => { t.enabled = selectIsVideoEnabled(s) ?? true; });
-  selectHostPeer(s)?.updateLocalStream?.(localStream);
-  selectViewerConn(s)?.updateLocalStream?.(localStream);
+  s = getState();
+  const localStream = selectLocalStream(s);
+  if (!localStream) return;
+
+  localStream.getAudioTracks().forEach((t) => {
+    t.enabled = !selectIsMuted(s);
+  });
+  localStream.getVideoTracks().forEach((t) => {
+    t.enabled = selectIsVideoEnabled(s) ?? true;
+  });
+
+  try {
+    await selectHostPeer(s)?.updateLocalStream?.(localStream);
+    await selectViewerConn(s)?.updateLocalStream?.(localStream);
+  } catch (_) { /* updateLocalStream kann intern warnen */ }
+
   const peerId = selectMyPeerId(s);
   if (peerId) {
     attachRemoteAudio(peerId, localStream);
@@ -118,9 +178,26 @@ export async function applyEffectToCallStream(
     if (hostPeer) hostPeer.broadcastBackgroundEffect?.(peerId, effect);
     else selectViewerConn(s)?.sendBackgroundEffect?.(effect);
   }
+
+  stopOldTracks();
+
   if (selectScreen(s) === 'room-view') {
     navigate('room-view');
-    updateVoipParticipants(app, selectVoipMembers(s), selectMyPeerId(s), selectIsMuted(s), selectScreenStreams(s), getStreamForPeerId, getStreamForScreenShare, selectPeerMuteState(s), selectPeerVolume(s), selectBackgroundEffect(s), selectPeerVideoState(s), selectIsVideoEnabled(s), selectPeerBackgroundEffect(s));
+    updateVoipParticipants(
+      app,
+      selectVoipMembers(s),
+      selectMyPeerId(s),
+      selectIsMuted(s),
+      selectScreenStreams(s),
+      getStreamForPeerId,
+      getStreamForScreenShare,
+      selectPeerMuteState(s),
+      selectPeerVolume(s),
+      selectBackgroundEffect(s),
+      selectPeerVideoState(s),
+      selectIsVideoEnabled(s),
+      selectPeerBackgroundEffect(s)
+    );
   }
   const previewVideo = app.querySelector('#effect-preview-video');
   const settingsModal = app.querySelector('#settings-modal');

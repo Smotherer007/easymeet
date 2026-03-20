@@ -104,8 +104,10 @@ export async function getUserMedia(inputDeviceId = null, requestVideo = true, vi
     video:
       requestVideo && requestVideo !== false
         ? {
-            width: { ideal: 640 },
-            height: { ideal: 480 },
+            /* 16:9 – virtuelle Hintergründe/Blur werden im Kamera-Frame gerendert; 4:3 wirkte gestaucht */
+            aspectRatio: { ideal: 16 / 9 },
+            width: { ideal: 1280 },
+            height: { ideal: 720 },
             ...(videoDeviceId && String(videoDeviceId).length ? { deviceId: { exact: videoDeviceId } } : {}),
           }
         : false,

@@ -20,6 +20,8 @@ import {
   renderStreamModalGrid,
   renderSettingsModalContent,
   renderFileModalContent,
+  renderMeetingScreenShareSlotInner,
+  renderStreamModalHostActionsInner,
 } from './room-view-renderers.js';
 import {
   iconLogOut,
@@ -36,8 +38,6 @@ import {
   iconSettings,
   iconMonitor,
   iconMonitorOff,
-  iconPause,
-  iconPlay,
   iconVolume2,
   iconVolumeX,
   iconVideoOff,
@@ -59,7 +59,21 @@ import { WINDOW_POSITION_DEFAULTS } from '../../shared/windowPositionsDefaults.j
 import { mergeAndClampWindowRect, clampWindowRectById, clampDraggablePosition } from '../utils/viewportWindowClamp.js';
 
 function renderFloatingWindows(state) {
-  const { windowPositions = {}, voipMembers = [], messages = [], isMuted = false, isVideoEnabled = false, hostStream = null, paused = false, audioEnabled = true, roomId = '', unreadChatCount = 0, isHost = false } = state;
+  const {
+    windowPositions = {},
+    voipMembers = [],
+    messages = [],
+    isMuted = false,
+    isVideoEnabled = false,
+    hostStream = null,
+    audioEnabled = true,
+    roomId = '',
+    unreadChatCount = 0,
+    isHost = false,
+    freeLayoutChatOpen = false,
+    freeLayoutParticipantsOpen = false,
+    freeLayoutVideosOpen = true,
+  } = state;
   const defaults = { ...WINDOW_POSITION_DEFAULTS };
   const pos = getWindowPositions(defaults, windowPositions);
   const muteMap = state.peerMuteState instanceof Map ? state.peerMuteState : new Map();
@@ -72,11 +86,11 @@ function renderFloatingWindows(state) {
   const pChat = pos('chat');
   const pParticipants = pos('participants');
   const pStream = pos('stream');
-  return renderFloatingWindowVideos(pVideos)
+  return renderFloatingWindowVideos(pVideos, !!freeLayoutVideosOpen)
     + `<div class="meeting-control-bar meeting-control-bar--floating">${controlBar}</div>`
-    + renderFloatingWindowChat(pChat, messagesHtml)
-    + renderFloatingWindowParticipants(pParticipants, voipParticipantsHtml, voipMembers.length)
-    + renderStreamModalFloating(pStream, { isHost, hostStream, paused, audioEnabled });
+    + renderFloatingWindowChat(pChat, messagesHtml, !!freeLayoutChatOpen)
+    + renderFloatingWindowParticipants(pParticipants, voipParticipantsHtml, voipMembers.length, !!freeLayoutParticipantsOpen)
+    + renderStreamModalFloating(pStream, { isHost, hostStream, audioEnabled });
 }
 
 export function renderRoomView(state) {
@@ -92,10 +106,8 @@ export function renderRoomView(state) {
     receivedFileBlobs = new Map(),
     hostStream = null,
     screenStreams = new Map(),
-    paused = false,
     audioEnabled = true,
     isMuted = false,
-    frozenStream = null,
     isVideoEnabled = false,
     hasVideoSupport = true,
     backgroundEffect = 'none',
@@ -338,13 +350,14 @@ export function updateVoipParticipants(container, members, myPeerId, isMuted, sc
         : `<div class="voip-view__participant-status" title="${memberMuted ? t('muted') : t('unmuted')}">${memberMuted ? iconMicOff() : iconMic()}</div>`;
       const hasBgEffect = isSelf ? (backgroundEffect || 'none') !== 'none' : (bgEffectMap.get(peerId) || 'none') !== 'none';
       const streamHtml = showThumb
-        ? `<div class="voip-view__participant-stream" data-action="open-stream-modal" data-peer-id="${escapeHtml(peerId)}" title="${t('clickToExpand')}"><video class="voip-view__stream-thumb" autoplay playsinline muted></video></div>`
+        ? `<div class="voip-view__participant-stream" data-action="open-stream-modal" data-peer-id="${escapeHtml(peerId)}" title="${t('clickToExpand')}"><video class="voip-view__stream-thumb" autoplay playsinline muted disablepictureinpicture></video></div>`
         : '';
       return `<div class="voip-view__participant" data-peer-id="${escapeHtml(peerId)}" data-self="${isSelf}" data-has-background-effect="${hasBgEffect}"><div class="voip-view__participant-info"><div class="voip-view__participant-name">${escapeHtml(nick)}</div><div class="voip-view__participant-status-row">${volumeControl}</div></div>${streamHtml}</div>`;
     })
     .join('');
   if (getStreamForScreenShare) {
     list.querySelectorAll('.voip-view__stream-thumb').forEach((thumb) => {
+      thumb.disablePictureInPicture = true;
       const participant = thumb.closest('.voip-view__participant');
       const peerId = participant?.dataset?.peerId;
       const stream = peerId ? getStreamForScreenShare(peerId) : null;
@@ -355,6 +368,35 @@ export function updateVoipParticipants(container, members, myPeerId, isMuted, sc
         thumb.srcObject = null;
       }
     });
+  }
+}
+
+export function updateMeetingScreenShareSlots(container, { hasScreenShareSupport, hostStream }) {
+  const inner = renderMeetingScreenShareSlotInner({ hasScreenShareSupport, hostStream });
+  container.querySelectorAll('.meeting-control-bar__screen-slot').forEach((el) => {
+    el.innerHTML = inner;
+  });
+}
+
+export function updateStreamModalHostActionSlots(container, { isHost, hostStream, audioEnabled }) {
+  const html = renderStreamModalHostActionsInner({ isHost, hostStream, audioEnabled });
+  container.querySelectorAll('.stream-modal__host-actions-slot').forEach((el) => {
+    el.innerHTML = html;
+  });
+}
+
+export function updateScreenShareBannersSection(container, screenStreams, myPeerId) {
+  const root = container.querySelector('.room-view.room-view--meeting-layout') || container;
+  const existing = root.querySelector('.room-view__screen-share-banners');
+  const newHtml = renderScreenShareBannersHtml(screenStreams, myPeerId);
+  if (newHtml) {
+    if (existing) existing.outerHTML = newHtml;
+    else {
+      const header = root.querySelector('.room-view__header');
+      if (header) header.insertAdjacentHTML('afterend', newHtml);
+    }
+  } else if (existing) {
+    existing.remove();
   }
 }
 
@@ -680,11 +722,11 @@ function setupDraggableModals(container, callbacks = {}) {
 
 function attachRoomViewModalListeners(container, callbacks) {
   container.querySelector('[data-action="leave"]')?.addEventListener('click', callbacks.onLeave);
-  container.querySelectorAll('[data-action="close-share"]').forEach((el) => {
-    el.addEventListener('click', () => container.querySelector('#share-modal')?.setAttribute('hidden', ''));
+  container.querySelectorAll('[data-action="minimize-share-modal"]').forEach((el) => {
+    el.addEventListener('click', () => callbacks.onMinimizeShareModal?.());
   });
-  container.querySelectorAll('[data-action="close-stream-modal"]').forEach((el) => {
-    el.addEventListener('click', () => container.querySelector('#stream-modal')?.setAttribute('hidden', ''));
+  container.querySelectorAll('[data-action="minimize-stream-modal"]').forEach((el) => {
+    el.addEventListener('click', () => callbacks.onMinimizeStreamModal?.());
   });
   container.querySelector('[data-action="open-file-modal"]')?.addEventListener('click', () => {
     container.querySelector('#file-modal')?.removeAttribute('hidden');
@@ -713,7 +755,6 @@ function attachRoomViewShareListeners(container, callbacks) {
     if (btn) callbacks.onOpenStreamModal?.(btn.dataset?.peerId);
   });
   container.querySelector('[data-action="share"]')?.addEventListener('click', () => {
-    container.querySelector('#share-modal')?.removeAttribute('hidden');
     callbacks.onShareOpen?.();
   });
 }
@@ -868,6 +909,29 @@ export function attachRoomViewListeners(container, callbacks) {
   window.visualViewport?.addEventListener('scroll', scheduleViewportClamp, { signal: vSignal });
   requestAnimationFrame(scheduleViewportClamp);
 
+  container.addEventListener(
+    'click',
+    (e) => {
+      if (e.target.closest('#start-screen-btn')) {
+        callbacks.onStartScreen?.();
+        return;
+      }
+      if (e.target.closest('#stop-screen-btn')) {
+        callbacks.onStopScreen?.();
+        return;
+      }
+      if (e.target.closest('#audio-screen-btn')) {
+        callbacks.onAudioScreenToggle?.();
+        return;
+      }
+      if (e.target.closest('[data-action="stop-screen-share"]')) {
+        callbacks.onStopScreenDirect?.();
+        return;
+      }
+    },
+    { signal: vSignal },
+  );
+
   setupDraggableModals(container, { onWindowMove: callbacks.onWindowMove });
   setupFloatingWindowResize(container, { onWindowResize: callbacks.onWindowResize, getWindowPositions: callbacks.getWindowPositions });
   setupStreamModalResize(container, { onWindowResize: callbacks.onWindowResize, getWindowPositions: callbacks.getWindowPositions });
@@ -951,16 +1015,10 @@ export function attachRoomViewListeners(container, callbacks) {
     }
   });
   const openSettingsModal = () => {
-    const modal = container.querySelector('#settings-modal');
-    if (!modal) return;
-    modal.removeAttribute('hidden');
-    callbacks.onSettingsOpen?.(true);
+    callbacks.onOpenSettingsModal?.();
   };
   const closeSettingsModal = () => {
-    const modal = container.querySelector('#settings-modal');
-    if (!modal) return;
-    modal.setAttribute('hidden', '');
-    callbacks.onSettingsOpen?.(false);
+    callbacks.onMinimizeSettingsModal?.();
   };
   container.querySelector('[data-action="toggle-video-layout"]')?.addEventListener('click', () => callbacks.onToggleVideoLayout?.());
   container.querySelector('[data-action="toggle-settings"]')?.addEventListener('click', () => {
@@ -970,7 +1028,7 @@ export function attachRoomViewListeners(container, callbacks) {
     if (isOpen) openSettingsModal();
     else closeSettingsModal();
   });
-  container.querySelectorAll('[data-action="close-settings-modal"]').forEach((el) => {
+  container.querySelectorAll('[data-action="minimize-settings-modal"]').forEach((el) => {
     el.addEventListener('click', closeSettingsModal);
   });
   container.addEventListener('keydown', (e) => {
@@ -1031,68 +1089,82 @@ export function attachRoomViewListeners(container, callbacks) {
   container.querySelector('#folder-input')?.addEventListener('change', (e) => callbacks.onFileSelect?.(e.target.files));
   container.querySelector('[data-input="file"]')?.addEventListener('click', () => container.querySelector('#file-input')?.click());
   container.querySelector('[data-input="folder"]')?.addEventListener('click', () => container.querySelector('#folder-input')?.click());
-  const startBtn = container.querySelector('#start-screen-btn');
-  if (startBtn) startBtn.addEventListener('click', () => callbacks.onStartScreen?.());
-  const stopBtn = container.querySelector('#stop-screen-btn');
-  if (stopBtn) stopBtn.addEventListener('click', () => callbacks.onStopScreen?.());
-  container.querySelector('#pause-screen-btn')?.addEventListener('click', () => callbacks.onPauseScreen?.());
-  container.querySelector('#audio-screen-btn')?.addEventListener('click', () => callbacks.onAudioScreenToggle?.());
-  
+
   const sidebar = container.querySelector('#chat-sidebar');
   const overlay = document.getElementById('mobile-overlay');
   const chatPanel = container.querySelector('#chat-panel');
   const chatFloatingWindow = container.querySelector('.floating-window[data-window="chat"]');
   const participantsFloatingWindow = container.querySelector('.floating-window[data-window="participants"]');
 
+  /** Abdunkelung nur auf schmalen Viewports (wie @media max-width: 768px) – im Grid-Desktop kein Vollbild-Filter. */
+  const syncMobileMeetingOverlay = () => {
+    if (!overlay) return;
+    const narrow = typeof window !== 'undefined' && window.matchMedia('(max-width: 768px)').matches;
+    const panelOpen =
+      sidebar?.classList.contains('chat__sidebar--open') ||
+      chatPanel?.classList.contains('chat-panel--open');
+    if (narrow && panelOpen) overlay.removeAttribute('hidden');
+    else overlay.setAttribute('hidden', '');
+  };
+  window.addEventListener('resize', syncMobileMeetingOverlay, { signal: vSignal });
+  requestAnimationFrame(syncMobileMeetingOverlay);
+
   const toggleSidebar = () => {
     if (participantsFloatingWindow) {
-      participantsFloatingWindow.classList.toggle('floating-window--hidden');
+      callbacks.onFloatingParticipantsToggle?.();
     } else {
       sidebar?.classList.toggle('chat__sidebar--open');
-      if (overlay) {
-        if (sidebar?.classList.contains('chat__sidebar--open') || chatPanel?.classList.contains('chat-panel--open')) overlay.removeAttribute('hidden');
-        else overlay.setAttribute('hidden', '');
-      }
+      syncMobileMeetingOverlay();
     }
   };
   const toggleChatPanel = () => {
     if (chatFloatingWindow) {
-      chatFloatingWindow.classList.toggle('floating-window--hidden');
-      if (!chatFloatingWindow.classList.contains('floating-window--hidden')) callbacks.onChatPanelOpen?.();
+      callbacks.onFloatingChatToggle?.();
     } else {
       const wasOpen = chatPanel?.classList.contains('chat-panel--open');
       chatPanel?.classList.toggle('chat-panel--open');
       if (!wasOpen && chatPanel?.classList.contains('chat-panel--open')) callbacks.onChatPanelOpen?.();
-      if (overlay) {
-        if (chatPanel?.classList.contains('chat-panel--open') || sidebar?.classList.contains('chat__sidebar--open')) overlay.removeAttribute('hidden');
-        else overlay.setAttribute('hidden', '');
-      }
+      syncMobileMeetingOverlay();
     }
   };
   const closeOverlays = () => {
     sidebar?.classList.remove('chat__sidebar--open');
     chatPanel?.classList.remove('chat-panel--open');
-    participantsFloatingWindow?.classList.remove('floating-window--hidden');
-    chatFloatingWindow?.classList.remove('floating-window--hidden');
+    if (chatFloatingWindow) {
+      callbacks.onDismissFloatingMobileOverlays?.();
+    }
     overlay?.setAttribute('hidden', '');
   };
 
   container.querySelector('[data-action="toggle-sidebar"]')?.addEventListener('click', toggleSidebar);
   container.querySelectorAll('[data-action="close-sidebar"]').forEach((el) => el.addEventListener('click', () => {
-    if (participantsFloatingWindow) participantsFloatingWindow.classList.add('floating-window--hidden');
-    else { sidebar?.classList.remove('chat__sidebar--open'); if (overlay && !chatPanel?.classList.contains('chat-panel--open')) overlay.setAttribute('hidden', ''); }
+    if (participantsFloatingWindow) callbacks.onFloatingParticipantsClose?.();
+    else {
+      sidebar?.classList.remove('chat__sidebar--open');
+      syncMobileMeetingOverlay();
+    }
   }));
   if (chatFloatingWindow) {
     chatFloatingWindow.addEventListener('mousedown', () => {
-      if (!chatFloatingWindow.classList.contains('floating-window--hidden')) {
-        callbacks.onChatPanelOpen?.();
-      }
+      callbacks.onFloatingChatMouseDown?.();
     });
   }
   container.querySelector('[data-action="toggle-chat-panel"]')?.addEventListener('click', toggleChatPanel);
   container.querySelector('[data-action="close-chat-panel"]')?.addEventListener('click', () => {
-    if (chatFloatingWindow) chatFloatingWindow.classList.add('floating-window--hidden');
-    else { chatPanel?.classList.remove('chat-panel--open'); if (overlay && !sidebar?.classList.contains('chat__sidebar--open')) overlay.setAttribute('hidden', ''); }
+    if (chatFloatingWindow) callbacks.onFloatingChatClose?.();
+    else {
+      chatPanel?.classList.remove('chat-panel--open');
+      syncMobileMeetingOverlay();
+    }
+  });
+  container.querySelector('[data-action="minimize-floating-chat"]')?.addEventListener('click', () => {
+    callbacks.onMinimizeFloatingChat?.();
+  });
+  container.querySelector('[data-action="minimize-floating-participants"]')?.addEventListener('click', () => {
+    callbacks.onMinimizeFloatingParticipants?.();
+  });
+  container.querySelector('[data-action="minimize-floating-videos"]')?.addEventListener('click', () => {
+    callbacks.onMinimizeFloatingVideos?.();
   });
   overlay?.addEventListener('click', closeOverlays);
 
