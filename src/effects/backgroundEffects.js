@@ -2,6 +2,7 @@ import { ImageSegmenter, FilesetResolver } from '@mediapipe/tasks-vision';
 import { getCustomBackgrounds } from './storage/customBackgroundStorage.js';
 import {
   categoryMaskToImageData,
+  createMaskTemporalState,
   drawPersonWithMask,
   drawBlurBackground,
   drawImageHorizontallyFlipped,
@@ -87,10 +88,11 @@ export async function createBlurredStream(sourceStream, options = {}) {
   const maskCanvas = new OffscreenCanvas(640, 480);
   const maskCtx = maskCanvas.getContext('2d', { willReadFrequently: true });
 
+  const maskTemporalState = createMaskTemporalState();
   let lastMaskImageData = null;
   let segmentTimestamp = 0;
   let frameCount = 0;
-  const SEGMENT_EVERY_N_FRAMES = 3; // Segment every Nth frame to reduce load
+  const SEGMENT_EVERY_N_FRAMES = 2;
 
   const trackProcessor = new MediaStreamTrackProcessor({ track: clonedTrack });
   const trackGenerator = new MediaStreamTrackGenerator({ kind: 'video' });
@@ -132,28 +134,13 @@ export async function createBlurredStream(sourceStream, options = {}) {
           
           segmenter.segmentForVideo(iData, segmentTimestamp, (result) => {
             if (stopped) return;
-            if (result.categoryMask) {
-              const maskArray = result.categoryMask.getAsUint8Array();
-              const mw = result.categoryMask.width;
-              const mh = result.categoryMask.height;
-              
-              if (maskCanvas.width !== mw || maskCanvas.height !== mh) {
-                maskCanvas.width = mw;
-                maskCanvas.height = mh;
+            const newMask = categoryMaskToImageData(result, maskTemporalState);
+            if (newMask) {
+              if (maskCanvas.width !== newMask.width || maskCanvas.height !== newMask.height) {
+                maskCanvas.width = newMask.width;
+                maskCanvas.height = newMask.height;
               }
-              
-              if (!lastMaskImageData || lastMaskImageData.width !== mw || lastMaskImageData.height !== mh) {
-                lastMaskImageData = new ImageData(mw, mh);
-              }
-              const data = lastMaskImageData.data;
-              for (let i = 0; i < maskArray.length; i++) {
-                const alpha = (maskArray[i] === 0) ? 0 : 255;
-                const c = i * 4;
-                data[c] = 255;
-                data[c + 1] = 255;
-                data[c + 2] = 255;
-                data[c + 3] = alpha;
-              }
+              lastMaskImageData = newMask;
             }
             isProcessingAI = false;
           });
@@ -250,10 +237,11 @@ export async function createVirtualBackgroundStream(sourceStream, imageUrl, opti
   const maskCanvas = new OffscreenCanvas(640, 480);
   const maskCtx = maskCanvas.getContext('2d', { willReadFrequently: true });
 
+  const maskTemporalState = createMaskTemporalState();
   let lastMaskImageData = null;
   let segmentTimestamp = 0;
   let frameCount = 0;
-  const SEGMENT_EVERY_N_FRAMES = 3;
+  const SEGMENT_EVERY_N_FRAMES = 2;
 
   const trackProcessor = new MediaStreamTrackProcessor({ track: clonedTrack });
   const trackGenerator = new MediaStreamTrackGenerator({ kind: 'video' });
@@ -294,7 +282,7 @@ export async function createVirtualBackgroundStream(sourceStream, imageUrl, opti
 
           segmenter.segmentForVideo(iData, segmentTimestamp, (result) => {
             if (stopped) return;
-            const newMask = categoryMaskToImageData(result);
+            const newMask = categoryMaskToImageData(result, maskTemporalState);
             if (newMask) {
               if (maskCanvas.width !== newMask.width || maskCanvas.height !== newMask.height) {
                 maskCanvas.width = newMask.width;

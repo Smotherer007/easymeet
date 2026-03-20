@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **Blur / virtueller Hintergrund:** Personenmaske **zeitlich geglättet** (pro Stream eigener State), **adaptives Kanten-Feather** und hochwertiges Masken-Scaling (`backgroundEffectsHelpers.js`); Segmentierung **alle 2 Frames** statt 3 für etwas stabilere Kanten.
+
 ### Added
 
 - **Einstellungen → Mikrofon & Sprache:** Regler **Sprech-Erkennung** (Schwelle für die „spricht gerade“-Hervorhebung), Checkboxen **Rauschunterdrückung**, **Echounterdrückung**, **AGC** — wirkt auf `getUserMedia` und wird bei laufendem Mikro per `applyConstraints` versucht; Persistenz `localStorage` (`easymeet_audioSettings`).
