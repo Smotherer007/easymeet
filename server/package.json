@@ -1,20 +1,20 @@
 {
-  "name": "easymeet-server",
-  "private": true,
-  "type": "module",
-  "engines": {
-    "node": ">=22"
-  },
-  "scripts": {
-    "start": "node src/index.js",
-    "dev": "node --watch src/index.js"
-  },
-  "dependencies": {
-    "dotenv": "^16.4.7",
-    "bcrypt": "^6.0.0",
-    "cors": "^2.8.5",
-    "express": "^4.21.0",
-    "mediasoup": "^3.14.16",
-    "protoo-server": "^4.0.7"
-  }
+	"name": "easymeet-server",
+	"private": true,
+	"type": "module",
+	"engines": {
+		"node": ">=22"
+	},
+	"scripts": {
+		"start": "node src/index.js",
+		"dev": "node --watch src/index.js"
+	},
+	"dependencies": {
+		"dotenv": "^16.4.7",
+		"bcrypt": "^6.0.0",
+		"cors": "^2.8.5",
+		"express": "^4.21.0",
+		"mediasoup": "^3.14.16",
+		"protoo-server": "^4.0.7"
+	}
 }

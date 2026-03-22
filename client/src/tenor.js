@@ -3,18 +3,18 @@
  * Backend uses TENOR_API_KEY env var, defaulting to Tenor demo/developer key.
  */
 export function hasTenorKey() {
-  return true;
+	return true;
 }
 
 export async function searchGifs(query, limit = 12) {
-  if (!query?.trim()) return [];
-  try {
-    const res = await fetch(`/api/gifs?q=${encodeURIComponent(query)}&limit=${limit}`);
-    const data = await res.json();
-    if (!data.results || !Array.isArray(data.results)) return [];
-    return data.results;
-  } catch (err) {
-    console.error('Tenor search failed:', err);
-    return [];
-  }
+	if (!query?.trim()) return [];
+	try {
+		const res = await fetch(`/api/gifs?q=${encodeURIComponent(query)}&limit=${limit}`);
+		const data = await res.json();
+		if (!data.results || !Array.isArray(data.results)) return [];
+		return data.results;
+	} catch (err) {
+		console.error("Tenor search failed:", err);
+		return [];
+	}
 }

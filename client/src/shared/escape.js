@@ -8,10 +8,10 @@
  * @returns {string}
  */
 export function escapeHtml(str) {
-  if (!str) return '';
-  const div = document.createElement('div');
-  div.textContent = str;
-  return div.innerHTML;
+	if (!str) return "";
+	const div = document.createElement("div");
+	div.textContent = str;
+	return div.innerHTML;
 }
 
 /**
@@ -20,9 +20,9 @@ export function escapeHtml(str) {
  * @returns {string}
  */
 export function escapeAttr(str) {
-  return String(str || '')
-    .replace(/&/g, '&amp;')
-    .replace(/"/g, '&quot;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;');
+	return String(str || "")
+		.replace(/&/g, "&amp;")
+		.replace(/"/g, "&quot;")
+		.replace(/</g, "&lt;")
+		.replace(/>/g, "&gt;");
 }

@@ -21,12 +21,12 @@ Die folgenden Punkte **2–5** und die **DOP-Umbauprinzipien** sind verbindlich 
 
 Jede Funktion soll **eine** klar erkennbare Rolle haben (Validierung, Transformation, Abfrage, I/O).
 
-| Rolle              | Rueckgabe       | Seiteneffekte | Beispiele |
-| ------------------ | --------------- | ------------- | --------- |
-| Validierung        | `Result<T>`     | Keine         | `validateJoinPayload`, `validateChatMessage` |
-| Transformation     | Neue Daten      | Keine         | `normalizeRoomIdentifier`, `getSessionResetSlice` |
-| Abfrage            | Datenausschnitt | Keine         | `selectMyPeerId`, `selectVoipMembers` |
-| I/O                | `Result<T>`     | Ja (extern)   | `fetchJoinRoom`, `setupRoomParticipant`, `attachRemoteAudio` |
+| Rolle          | Rueckgabe       | Seiteneffekte | Beispiele                                                    |
+| -------------- | --------------- | ------------- | ------------------------------------------------------------ |
+| Validierung    | `Result<T>`     | Keine         | `validateJoinPayload`, `validateChatMessage`                 |
+| Transformation | Neue Daten      | Keine         | `normalizeRoomIdentifier`, `getSessionResetSlice`            |
+| Abfrage        | Datenausschnitt | Keine         | `selectMyPeerId`, `selectVoipMembers`                        |
+| I/O            | `Result<T>`     | Ja (extern)   | `fetchJoinRoom`, `setupRoomParticipant`, `attachRemoteAudio` |
 
 Verboten: **Rollen mischen** (z. B. Validierung + DOM + `fetch` in derselben Funktion ohne Zwischenschritte).
 
@@ -87,9 +87,7 @@ I/O ist nur in klar benannten Effektfunktionen erlaubt:
 Verwende `Result<T>` fuer erwartete Fehler in Validierung, Parsing, Netzwerk und Medienoperationen.
 
 ```typescript
-type Result<T> =
-	| { success: true; data: T }
-	| { success: false; error: { code: string; message: string; details?: unknown } };
+type Result<T> = { success: true; data: T } | { success: false; error: { code: string; message: string; details?: unknown } };
 ```
 
 `throw` nur bei Programmierfehlern oder ungueltiger Initialkonfiguration.
@@ -133,12 +131,12 @@ Regeln:
 
 ### Architektur-Leitstand (Ist-Zustand, wird ausgebaut)
 
-| Bereich | Regel |
-|--------|--------|
-| `src/domain/reducers` | Keine Imports aus `effects/` oder `app/` — nur Domain + `initialState` + reine Slices (z. B. `sessionResetSlice.js`). |
-| Session-Ende | `dispatch({ type: 'session/cleared' })` — Patch kommt aus `getSessionResetSlice()` im Reducer, nicht als riesiges Objekt im Bootstrap. |
-| Fehlgeschlagener Join/Create nach `room/joined` / `room/created` | `dispatch({ type: 'room/joinAttemptAborted' })` bzw. `room/createAttemptAborted` — Rollback-Patch `getJoinAttemptRollbackSlice()`. |
-| `patchState` | Legacy-Komposition: schrittweise durch **explizite Events** ersetzen, wo sich der Aufwand lohnt. |
+| Bereich                                                          | Regel                                                                                                                                  |
+| ---------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| `src/domain/reducers`                                            | Keine Imports aus `effects/` oder `app/` — nur Domain + `initialState` + reine Slices (z. B. `sessionResetSlice.js`).                  |
+| Session-Ende                                                     | `dispatch({ type: 'session/cleared' })` — Patch kommt aus `getSessionResetSlice()` im Reducer, nicht als riesiges Objekt im Bootstrap. |
+| Fehlgeschlagener Join/Create nach `room/joined` / `room/created` | `dispatch({ type: 'room/joinAttemptAborted' })` bzw. `room/createAttemptAborted` — Rollback-Patch `getJoinAttemptRollbackSlice()`.     |
+| `patchState`                                                     | Legacy-Komposition: schrittweise durch **explizite Events** ersetzen, wo sich der Aufwand lohnt.                                       |
 
 ---
 
@@ -179,13 +177,13 @@ function handleIncomingPeerEvent(event: PeerEvent): Result<AppTransition> {
 
 ## Anti-Pattern-Erkennung
 
-| Anti-Pattern | Alternative |
-| ------------ | ----------- |
+| Anti-Pattern                | Alternative                           |
+| --------------------------- | ------------------------------------- |
 | Service-Klassen fuer Domain | Plain Functions nach Domain gruppiert |
-| Versteckter globaler State | expliziter Store + Events |
-| DOM-Mutationen querbeet | UI-Adapter mit klaren Entry-Points |
-| Netzwerklogik in Reducern | Effekt-Layer (`effects/network`) |
-| Mehrere Member-Modelle | ein kanonisches Teilnehmermodell |
+| Versteckter globaler State  | expliziter Store + Events             |
+| DOM-Mutationen querbeet     | UI-Adapter mit klaren Entry-Points    |
+| Netzwerklogik in Reducern   | Effekt-Layer (`effects/network`)      |
+| Mehrere Member-Modelle      | ein kanonisches Teilnehmermodell      |
 
 ---
 

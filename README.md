@@ -113,9 +113,9 @@ npm run dev:all
 
 - **`persistent-rooms: file missing …/config/persistent-rooms.json`:** In **`.env`** **`EASYMEET_PERSISTENT_ROOMS`** auf **`persistent-rooms.json`** setzen (nicht mehr unter **`config/`**), oder die Zeile entfernen und **`persistent-rooms.json`** im Repo-Root anlegen.
 - **`npm install` scheitert an mediasoup** (`SSL: CERTIFICATE_VERIFY_FAILED` beim Download von **libuv**, siehe `node_modules/mediasoup/worker/out/Release/build/meson-logs/meson-log.txt`): Zuerst versucht mediasoup einen **Prebuild** von GitHub (`mediasoup-worker-…-darwin-arm64.tgz`); schlägt das fehl, wird **lokal** mit **Python** gebaut — und genau dieser Python (oft **`/Library/Frameworks/Python.framework/...`** von **python.org**) hat auf dem Mac häufig **keine** Root-Zertifikate.
-  1. **Empfohlen:** Im Finder **Applications → Python 3.x** das Skript **`Install Certificates.command`** ausführen (oder in der [Python-Doku](https://www.python.org/downloads/macos/) nach „Install Certificates“ suchen).
-  2. **Alternative:** Python von **Homebrew** nutzen, das meist korrekte CAs mitbringt: `brew install python@3.12`, dann z. B. **`PYTHON=/opt/homebrew/bin/python3.12 npm install`** (Apple-Silicon; bei Intel oft **`/usr/local/bin/python3.12`**).
-  3. Danach: **`rm -rf node_modules/mediasoup`** (bei halbinstalliertem Baum) und im Repo-Root erneut **`npm install`**, ggf. **`npm run rebuild:mediasoup`**.
+    1. **Empfohlen:** Im Finder **Applications → Python 3.x** das Skript **`Install Certificates.command`** ausführen (oder in der [Python-Doku](https://www.python.org/downloads/macos/) nach „Install Certificates“ suchen).
+    2. **Alternative:** Python von **Homebrew** nutzen, das meist korrekte CAs mitbringt: `brew install python@3.12`, dann z. B. **`PYTHON=/opt/homebrew/bin/python3.12 npm install`** (Apple-Silicon; bei Intel oft **`/usr/local/bin/python3.12`**).
+    3. Danach: **`rm -rf node_modules/mediasoup`** (bei halbinstalliertem Baum) und im Repo-Root erneut **`npm install`**, ggf. **`npm run rebuild:mediasoup`**.
 - **`mediasoup-worker` ENOENT** (Server startet, aber kein Binary): gleiche Ursache — Worker wurde nie fertig gebaut; obenstehende Schritte, dann **`npm install`** bzw. **`npm run rebuild:mediasoup`**.
 
 ### Production Build
@@ -210,12 +210,12 @@ easymeet/
 
 ## API Reference
 
-| Method  | Path                 | Description          |
-| ------- | -------------------- | -------------------- |
-| `POST`  | `/api/rooms`         | Create a new room    |
-| `PATCH` | `/api/rooms/:roomId` | Register host PeerId |
+| Method  | Path                 | Description                                                          |
+| ------- | -------------------- | -------------------------------------------------------------------- |
+| `POST`  | `/api/rooms`         | Create a new room                                                    |
+| `PATCH` | `/api/rooms/:roomId` | Register host PeerId                                                 |
 | `POST`  | `/api/join`          | Join a room (returns server `peerId` + one-time `wsToken` for `/ws`) |
-| `GET`   | `/api/rooms/:roomId` | Check room status    |
+| `GET`   | `/api/rooms/:roomId` | Check room status                                                    |
 
 **Example – Create room:**
 
@@ -291,16 +291,16 @@ Die Pipeline kann auch manuell unter **Actions → Build and Push Docker Image �
 
 ### Environment Variables
 
-| Variable                        | Default                                                 | Description                                                                                                                                                                                                            |
-| ------------------------------- | ------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `PORT`                          | `3001`                                                  | Port the server listens on                                                                                                                                                                                             |
-| `NODE_ENV`                      | `production`                                            | Set automatically in Dockerfile                                                                                                                                                                                        |
-| `TENOR_API_KEY`                 | `LIVDSRZULELA` (Tenor demo key)                         | API key for GIF search; never exposed to client                                                                                                                                                                        |
-| `MEDIASOUP_ANNOUNCED_IP`        | _(leer)_                                                | **Wichtig in Docker/Cloud:** öffentliche IP oder Hostname für ICE (sonst oft kein Video/Audio). Siehe [mediasoup WebRtcTransportOptions](https://mediasoup.org/documentation/v3/mediasoup/api/#WebRtcTransportOptions) |
-| `MEDIASOUP_LISTEN_IP`           | `0.0.0.0`                                               | Bind-Adresse des WebRTC-Transports                                                                                                                                                                                     |
-| `RTC_MIN_PORT` / `RTC_MAX_PORT` | `40000`–`40200`                                         | UDP-Portbereich für RTP (muss intern bis zum Container durchgereicht werden, z. B. Proxy)                                                                                                                              |
-| `EASYMEET_PERSISTENT_ROOMS`        | `persistent-rooms.json` in `.env.example`                | Path to JSON with `{"rooms":[...]}` (**relative to repo root** or absolute). Omit to disable pinned rooms (unless JSON env is set).                                                                                        |
-| `EASYMEET_PERSISTENT_ROOMS_JSON`   | _(leer)_                                                  | Optional: entire rooms JSON in one env string (overrides file). For Docker Compose without mounting the JSON file.                                                                                                       |
+| Variable                         | Default                                   | Description                                                                                                                                                                                                            |
+| -------------------------------- | ----------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `PORT`                           | `3001`                                    | Port the server listens on                                                                                                                                                                                             |
+| `NODE_ENV`                       | `production`                              | Set automatically in Dockerfile                                                                                                                                                                                        |
+| `TENOR_API_KEY`                  | `LIVDSRZULELA` (Tenor demo key)           | API key for GIF search; never exposed to client                                                                                                                                                                        |
+| `MEDIASOUP_ANNOUNCED_IP`         | _(leer)_                                  | **Wichtig in Docker/Cloud:** öffentliche IP oder Hostname für ICE (sonst oft kein Video/Audio). Siehe [mediasoup WebRtcTransportOptions](https://mediasoup.org/documentation/v3/mediasoup/api/#WebRtcTransportOptions) |
+| `MEDIASOUP_LISTEN_IP`            | `0.0.0.0`                                 | Bind-Adresse des WebRTC-Transports                                                                                                                                                                                     |
+| `RTC_MIN_PORT` / `RTC_MAX_PORT`  | `40000`–`40200`                           | UDP-Portbereich für RTP (muss intern bis zum Container durchgereicht werden, z. B. Proxy)                                                                                                                              |
+| `EASYMEET_PERSISTENT_ROOMS`      | `persistent-rooms.json` in `.env.example` | Path to JSON with `{"rooms":[...]}` (**relative to repo root** or absolute). Omit to disable pinned rooms (unless JSON env is set).                                                                                    |
+| `EASYMEET_PERSISTENT_ROOMS_JSON` | _(leer)_                                  | Optional: entire rooms JSON in one env string (overrides file). For Docker Compose without mounting the JSON file.                                                                                                     |
 
 **Docker / Compose:** **`env_file: ./.env`**. Das Image enthält eine Standard-**`persistent-rooms.json`** (Dockerfile); zum Überschreiben **ohne** Image-Rebuild: **`EASYMEET_PERSISTENT_ROOMS_JSON`** in **`.env`**. Weitere Werte in der YAML: **`environment:`** (siehe Kommentar in **`docker-compose.yml`**).
 

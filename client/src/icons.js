@@ -1,57 +1,57 @@
 import {
-  createElement,
-  Copy,
-  Link,
-  ExternalLink,
-  MessageCirclePlus,
-  MessageCircle,
-  LogOut,
-  QrCode,
-  Share2,
-  Smile,
-  Image,
-  Send,
-  X,
-  Phone,
-  PhoneCall,
-  Mic,
-  MicOff,
-  Volume2,
-  VolumeX,
-  Settings,
-  Monitor,
-  MonitorOff,
-  FolderUp,
-  Upload,
-  Download,
-  Video,
-  VideoOff,
-  Pause,
-  Play,
-  ChevronDown,
-  ChevronUp,
-  Loader2,
-  Menu,
-  Users,
-  MessageSquare,
-  MoreHorizontal,
-  PhoneOff,
-  LayoutGrid,
-  Grip,
-  Github,
-  Globe,
-  RefreshCw,
-  Lock,
-  Minus,
-  Maximize2,
-  ArrowRight,
-} from 'lucide';
+	createElement,
+	Copy,
+	Link,
+	ExternalLink,
+	MessageCirclePlus,
+	MessageCircle,
+	LogOut,
+	QrCode,
+	Share2,
+	Smile,
+	Image,
+	Send,
+	X,
+	Phone,
+	PhoneCall,
+	Mic,
+	MicOff,
+	Volume2,
+	VolumeX,
+	Settings,
+	Monitor,
+	MonitorOff,
+	FolderUp,
+	Upload,
+	Download,
+	Video,
+	VideoOff,
+	Pause,
+	Play,
+	ChevronDown,
+	ChevronUp,
+	Loader2,
+	Menu,
+	Users,
+	MessageSquare,
+	MoreHorizontal,
+	PhoneOff,
+	LayoutGrid,
+	Grip,
+	Github,
+	Globe,
+	RefreshCw,
+	Lock,
+	Minus,
+	Maximize2,
+	ArrowRight
+} from "lucide";
 
-const defaultAttrs = { 'stroke-width': 1.75, class: 'icon' };
-const smAttrs = { ...defaultAttrs, width: '1.75rem', height: '1.75rem' };
-const lockInlineAttrs = { ...defaultAttrs, width: '0.9rem', height: '0.9rem', class: 'icon landing-active-room__lock-svg' };
-const jumpInlineAttrs = { ...defaultAttrs, width: '0.95rem', height: '0.95rem', class: 'icon landing-active-room__jump-svg' };
-const lgAttrs = { ...defaultAttrs, width: '3rem', height: '3rem' };
+const defaultAttrs = { "stroke-width": 1.75, class: "icon" };
+const smAttrs = { ...defaultAttrs, width: "1.75rem", height: "1.75rem" };
+const lockInlineAttrs = { ...defaultAttrs, width: "0.9rem", height: "0.9rem", class: "icon landing-active-room__lock-svg" };
+const jumpInlineAttrs = { ...defaultAttrs, width: "0.95rem", height: "0.95rem", class: "icon landing-active-room__jump-svg" };
+const lgAttrs = { ...defaultAttrs, width: "3rem", height: "3rem" };
 
 export const iconCopy = () => createElement(Copy, smAttrs).outerHTML;
 export const iconLink = () => createElement(Link, smAttrs).outerHTML;
@@ -79,14 +79,14 @@ export const iconMonitorOff = () => createElement(MonitorOff, smAttrs).outerHTML
 export const iconFolderUp = () => createElement(FolderUp, defaultAttrs).outerHTML;
 export const iconUpload = () => createElement(Upload, lgAttrs).outerHTML;
 export const iconDownload = () => createElement(Download, defaultAttrs).outerHTML;
-export const iconDownloadLg = () => createElement(Download, { ...defaultAttrs, width: '4rem', height: '4rem' }).outerHTML;
+export const iconDownloadLg = () => createElement(Download, { ...defaultAttrs, width: "4rem", height: "4rem" }).outerHTML;
 export const iconVideo = () => createElement(Video, smAttrs).outerHTML;
 export const iconVideoOff = () => createElement(VideoOff, smAttrs).outerHTML;
 export const iconPause = () => createElement(Pause, smAttrs).outerHTML;
 export const iconPlay = () => createElement(Play, smAttrs).outerHTML;
 export const iconChevronDown = () => createElement(ChevronDown, smAttrs).outerHTML;
 export const iconChevronUp = () => createElement(ChevronUp, smAttrs).outerHTML;
-export const iconLoader2 = () => createElement(Loader2, { ...smAttrs, class: 'icon icon--spin' }).outerHTML;
+export const iconLoader2 = () => createElement(Loader2, { ...smAttrs, class: "icon icon--spin" }).outerHTML;
 export const iconMenu = () => createElement(Menu, smAttrs).outerHTML;
 export const iconUsers = () => createElement(Users, smAttrs).outerHTML;
 export const iconMessageSquare = () => createElement(MessageSquare, smAttrs).outerHTML;
@@ -127,7 +127,7 @@ export const iconLogo = () => `
 </svg>
 `;
 
-export const iconLogoWordmark = ({ width = '100%', height = '100%', style = '' } = {}) => `
+export const iconLogoWordmark = ({ width = "100%", height = "100%", style = "" } = {}) => `
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 520 150" width="${width}" height="${height}" class="icon logo-wordmark" style="${style}">
   <defs>
     <linearGradient id="logoPrimaryM" x1="0%" y1="0%" x2="100%" y2="100%">
@@ -164,4 +164,3 @@ export const iconLogoWordmark = ({ width = '100%', height = '100%', style = '' }
   <circle cx="505" cy="100" r="8" fill="#00d4aa" filter="url(#logoGlowM)" />
 </svg>
 `;
-

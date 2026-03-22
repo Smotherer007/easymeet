@@ -3,7 +3,7 @@
  * Pure functions for hash/verify, I/O only in callers.
  */
 
-import bcrypt from 'bcrypt';
+import bcrypt from "bcrypt";
 
 const SALT_ROUNDS = 10;
 
@@ -12,8 +12,8 @@ const SALT_ROUNDS = 10;
  * @returns {Promise<string>}
  */
 export async function hashPassword(password) {
-  if (!password || typeof password !== 'string') return '';
-  return bcrypt.hash(password.trim(), SALT_ROUNDS);
+	if (!password || typeof password !== "string") return "";
+	return bcrypt.hash(password.trim(), SALT_ROUNDS);
 }
 
 /**
@@ -22,7 +22,7 @@ export async function hashPassword(password) {
  * @returns {Promise<boolean>}
  */
 export async function verifyPassword(plainPassword, hash) {
-  if (!hash || plainPassword === undefined) return false;
-  if (typeof plainPassword !== 'string') return false;
-  return bcrypt.compare(plainPassword.trim(), hash);
+	if (!hash || plainPassword === undefined) return false;
+	if (typeof plainPassword !== "string") return false;
+	return bcrypt.compare(plainPassword.trim(), hash);
 }

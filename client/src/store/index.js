@@ -3,9 +3,9 @@
  * Single Source of Truth.
  */
 
-import { createInitialState } from '../domain/reducers/initialState.js';
-import { appReducer } from '../domain/reducers/appReducer.js';
-import { logAppDebug } from '../utils/easymeetLog.js';
+import { createInitialState } from "../domain/reducers/initialState.js";
+import { appReducer } from "../domain/reducers/appReducer.js";
+import { logAppDebug } from "../utils/easymeetLog.js";
 
 /** @type {AppState} */
 let state = createInitialState();
@@ -17,9 +17,9 @@ const subscribers = new Set();
  * @param {AppEvent} event
  */
 export function dispatch(event) {
-  logAppDebug('dispatch', event?.type);
-  state = appReducer(state, event);
-  subscribers.forEach((fn) => fn(state, event));
+	logAppDebug("dispatch", event?.type);
+	state = appReducer(state, event);
+	subscribers.forEach((fn) => fn(state, event));
 }
 
 /**
@@ -27,15 +27,15 @@ export function dispatch(event) {
  * @returns {() => void}
  */
 export function subscribe(fn) {
-  subscribers.add(fn);
-  return () => subscribers.delete(fn);
+	subscribers.add(fn);
+	return () => subscribers.delete(fn);
 }
 
 /**
  * @returns {AppState}
  */
 export function getState() {
-  return state;
+	return state;
 }
 
 /**
@@ -44,7 +44,7 @@ export function getState() {
  * @param {Partial<AppState>} patch
  */
 export function patchState(patch) {
-  logAppDebug('patchState', Object.keys(patch || {}));
-  state = { ...state, ...patch };
-  subscribers.forEach((fn) => fn(state, { type: 'system/patchState', payload: patch }));
+	logAppDebug("patchState", Object.keys(patch || {}));
+	state = { ...state, ...patch };
+	subscribers.forEach((fn) => fn(state, { type: "system/patchState", payload: patch }));
 }

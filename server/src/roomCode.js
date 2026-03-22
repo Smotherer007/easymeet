@@ -3,5 +3,8 @@
  * Avoids duplicate mediasoup rooms e.g. "abc123" vs "ABC-123".
  */
 export function normalizeRoomCode(str) {
-  return (str || '').trim().replace(/[^A-Z0-9]/gi, '').toUpperCase();
+	return (str || "")
+		.trim()
+		.replace(/[^A-Z0-9]/gi, "")
+		.toUpperCase();
 }

@@ -17,7 +17,7 @@
  * @returns {SuccessResult<T>}
  */
 export function ok(data) {
-  return { success: true, data };
+	return { success: true, data };
 }
 
 /**
@@ -27,10 +27,10 @@ export function ok(data) {
  * @returns {ErrorResult}
  */
 export function err(code, message, details) {
-  return {
-    success: false,
-    error: { code, message, details },
-  };
+	return {
+		success: false,
+		error: { code, message, details }
+	};
 }
 
 /**
@@ -40,8 +40,8 @@ export function err(code, message, details) {
  * @returns {Result<U>}
  */
 export function flatMap(result, fn) {
-  if (!result.success) return result;
-  return fn(result.data);
+	if (!result.success) return result;
+	return fn(result.data);
 }
 
 /**
@@ -51,6 +51,6 @@ export function flatMap(result, fn) {
  * @returns {Result<U>}
  */
 export function map(result, fn) {
-  if (!result.success) return result;
-  return ok(fn(result.data));
+	if (!result.success) return result;
+	return ok(fn(result.data));
 }

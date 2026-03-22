@@ -8,7 +8,7 @@
  * @returns {string}
  */
 export function selectScreen(state) {
-  return state.screen ?? 'landing';
+	return state.screen ?? "landing";
 }
 
 /**
@@ -16,7 +16,7 @@ export function selectScreen(state) {
  * @returns {string|null}
  */
 export function selectRoomId(state) {
-  return state.roomId ?? null;
+	return state.roomId ?? null;
 }
 
 /**
@@ -24,7 +24,7 @@ export function selectRoomId(state) {
  * @returns {string|null}
  */
 export function selectNickname(state) {
-  return state.nickname ?? null;
+	return state.nickname ?? null;
 }
 
 /**
@@ -32,7 +32,7 @@ export function selectNickname(state) {
  * @returns {string}
  */
 export function selectMyPeerId(state) {
-  return state.peer?.id ?? '';
+	return state.peer?.id ?? "";
 }
 
 /**
@@ -40,7 +40,7 @@ export function selectMyPeerId(state) {
  * @returns {Array}
  */
 export function selectMessages(state) {
-  return state.messages ?? [];
+	return state.messages ?? [];
 }
 
 /**
@@ -48,7 +48,7 @@ export function selectMessages(state) {
  * @returns {Array}
  */
 export function selectVoipMembers(state) {
-  return state.voipMembers ?? [];
+	return state.voipMembers ?? [];
 }
 
 /**
@@ -56,7 +56,7 @@ export function selectVoipMembers(state) {
  * @returns {Map}
  */
 export function selectScreenStreams(state) {
-  return state.screenStreams ?? new Map();
+	return state.screenStreams ?? new Map();
 }
 
 /**
@@ -64,7 +64,7 @@ export function selectScreenStreams(state) {
  * @returns {Map}
  */
 export function selectPeerMuteState(state) {
-  return state.peerMuteState ?? new Map();
+	return state.peerMuteState ?? new Map();
 }
 
 /**
@@ -72,7 +72,7 @@ export function selectPeerMuteState(state) {
  * @returns {Map}
  */
 export function selectPeerVolume(state) {
-  return state.peerVolume ?? new Map();
+	return state.peerVolume ?? new Map();
 }
 
 /**
@@ -80,7 +80,7 @@ export function selectPeerVolume(state) {
  * @returns {boolean}
  */
 export function selectIsMuted(state) {
-  return state.isMuted ?? false;
+	return state.isMuted ?? false;
 }
 
 /**
@@ -88,7 +88,7 @@ export function selectIsMuted(state) {
  * @returns {Map}
  */
 export function selectReceivedFileBlobs(state) {
-  return state.receivedFileBlobs ?? new Map();
+	return state.receivedFileBlobs ?? new Map();
 }
 
 /**
@@ -96,7 +96,7 @@ export function selectReceivedFileBlobs(state) {
  * @returns {boolean}
  */
 export function selectIsHost(state) {
-  return state.isHost ?? false;
+	return state.isHost ?? false;
 }
 
 /**
@@ -104,7 +104,7 @@ export function selectIsHost(state) {
  * @returns {MediaStream|null}
  */
 export function selectHostStream(state) {
-  return state.hostStream ?? null;
+	return state.hostStream ?? null;
 }
 
 /**
@@ -112,7 +112,7 @@ export function selectHostStream(state) {
  * @returns {boolean}
  */
 export function selectAudioEnabled(state) {
-  return state.audioEnabled ?? true;
+	return state.audioEnabled ?? true;
 }
 
 /**
@@ -120,7 +120,7 @@ export function selectAudioEnabled(state) {
  * @returns {boolean}
  */
 export function selectHasAudio(state) {
-  return state.hasAudio ?? false;
+	return state.hasAudio ?? false;
 }
 
 /**
@@ -129,10 +129,10 @@ export function selectHasAudio(state) {
  * @returns {MediaStream|null}
  */
 export function selectStreamForPeerId(state, peerId) {
-  if (peerId === state.peer?.id) {
-    return state.hostStream ?? null;
-  }
-  return state.screenStreams?.get(peerId)?.stream ?? null;
+	if (peerId === state.peer?.id) {
+		return state.hostStream ?? null;
+	}
+	return state.screenStreams?.get(peerId)?.stream ?? null;
 }
 
 /**
@@ -140,7 +140,7 @@ export function selectStreamForPeerId(state, peerId) {
  * @returns {Object}
  */
 export function selectPeer(state) {
-  return state.peer ?? null;
+	return state.peer ?? null;
 }
 
 /**
@@ -148,7 +148,7 @@ export function selectPeer(state) {
  * @returns {Object|null}
  */
 export function selectHostPeer(state) {
-  return state.hostPeer ?? null;
+	return state.hostPeer ?? null;
 }
 
 /**
@@ -156,7 +156,7 @@ export function selectHostPeer(state) {
  * @returns {Object|null}
  */
 export function selectViewerConn(state) {
-  return state.viewerConn ?? null;
+	return state.viewerConn ?? null;
 }
 
 /**
@@ -164,7 +164,7 @@ export function selectViewerConn(state) {
  * @returns {MediaStream|null}
  */
 export function selectLocalStream(state) {
-  return state.localStream ?? null;
+	return state.localStream ?? null;
 }
 
 /**
@@ -172,7 +172,7 @@ export function selectLocalStream(state) {
  * @returns {MediaStream|null}
  */
 export function selectBaseLocalStream(state) {
-  return state.baseLocalStream ?? null;
+	return state.baseLocalStream ?? null;
 }
 
 /**
@@ -180,27 +180,27 @@ export function selectBaseLocalStream(state) {
  * Prefer deviceId (real camera); else **base** (raw expected there), then local — many browsers omit deviceId.
  */
 export function selectFirstLiveDeviceVideoTrackFromStreams(base, local) {
-  const withDeviceId = (stream) => {
-    const tracks = stream?.getVideoTracks?.() ?? [];
-    for (const t of tracks) {
-      if (t && t.readyState === 'live' && t.kind === 'video' && t.getSettings?.()?.deviceId) return t;
-    }
-    return null;
-  };
-  for (const stream of [base, local]) {
-    const x = withDeviceId(stream);
-    if (x) return x;
-  }
-  const anyLive = (stream) => {
-    const tracks = stream?.getVideoTracks?.() ?? [];
-    for (const t of tracks) {
-      if (t && t.readyState === 'live' && t.kind === 'video') return t;
-    }
-    return null;
-  };
-  const b = anyLive(base);
-  if (b) return b;
-  return anyLive(local);
+	const withDeviceId = (stream) => {
+		const tracks = stream?.getVideoTracks?.() ?? [];
+		for (const t of tracks) {
+			if (t && t.readyState === "live" && t.kind === "video" && t.getSettings?.()?.deviceId) return t;
+		}
+		return null;
+	};
+	for (const stream of [base, local]) {
+		const x = withDeviceId(stream);
+		if (x) return x;
+	}
+	const anyLive = (stream) => {
+		const tracks = stream?.getVideoTracks?.() ?? [];
+		for (const t of tracks) {
+			if (t && t.readyState === "live" && t.kind === "video") return t;
+		}
+		return null;
+	};
+	const b = anyLive(base);
+	if (b) return b;
+	return anyLive(local);
 }
 
 /**
@@ -209,23 +209,23 @@ export function selectFirstLiveDeviceVideoTrackFromStreams(base, local) {
  * If the same track is wrongly in both, only that one reference exists.
  */
 export function selectCameraVideoTrackForEffects(state) {
-  const base = state.baseLocalStream;
-  const local = state.localStream;
-  const bv = base?.getVideoTracks?.()?.[0] ?? null;
-  const lv = local?.getVideoTracks?.()?.[0] ?? null;
-  if (bv && bv.readyState !== 'ended') {
-    /* No effect: often localStream === baseLocalStream → same track is OK (raw camera).
-     * With effect: separate streams, same video track = often intentional same raw in base+local
-     * (repair after stop) — then use deviceId to tell apart from "generator duplicated". */
-    if (lv && bv === lv && base !== local) {
-      const deviceId = bv.getSettings?.()?.deviceId;
-      if (deviceId) return bv;
-      return null;
-    }
-    return bv;
-  }
-  if (lv && lv.readyState !== 'ended') return lv;
-  return selectFirstLiveDeviceVideoTrackFromStreams(base, local);
+	const base = state.baseLocalStream;
+	const local = state.localStream;
+	const bv = base?.getVideoTracks?.()?.[0] ?? null;
+	const lv = local?.getVideoTracks?.()?.[0] ?? null;
+	if (bv && bv.readyState !== "ended") {
+		/* No effect: often localStream === baseLocalStream → same track is OK (raw camera).
+		 * With effect: separate streams, same video track = often intentional same raw in base+local
+		 * (repair after stop) — then use deviceId to tell apart from "generator duplicated". */
+		if (lv && bv === lv && base !== local) {
+			const deviceId = bv.getSettings?.()?.deviceId;
+			if (deviceId) return bv;
+			return null;
+		}
+		return bv;
+	}
+	if (lv && lv.readyState !== "ended") return lv;
+	return selectFirstLiveDeviceVideoTrackFromStreams(base, local);
 }
 
 /**
@@ -233,7 +233,7 @@ export function selectCameraVideoTrackForEffects(state) {
  * @returns {boolean}
  */
 export function selectIsVideoEnabled(state) {
-  return state.isVideoEnabled ?? false;
+	return state.isVideoEnabled ?? false;
 }
 
 /**
@@ -241,7 +241,7 @@ export function selectIsVideoEnabled(state) {
  * @returns {string}
  */
 export function selectBackgroundEffect(state) {
-  return state.backgroundEffect ?? 'none';
+	return state.backgroundEffect ?? "none";
 }
 
 /**
@@ -249,7 +249,7 @@ export function selectBackgroundEffect(state) {
  * @returns {Map}
  */
 export function selectPeerBackgroundEffect(state) {
-  return state.peerBackgroundEffect ?? new Map();
+	return state.peerBackgroundEffect ?? new Map();
 }
 
 /**
@@ -257,7 +257,7 @@ export function selectPeerBackgroundEffect(state) {
  * @returns {Map}
  */
 export function selectPeerVideoState(state) {
-  return state.peerVideoState ?? new Map();
+	return state.peerVideoState ?? new Map();
 }
 
 /**
@@ -265,7 +265,7 @@ export function selectPeerVideoState(state) {
  * @returns {boolean}
  */
 export function selectSettingsPanelOpen(state) {
-  return state.settingsPanelOpen ?? false;
+	return state.settingsPanelOpen ?? false;
 }
 
 /**
@@ -273,7 +273,7 @@ export function selectSettingsPanelOpen(state) {
  * @returns {string|null}
  */
 export function selectVideoDeviceId(state) {
-  return state.videoDeviceId ?? null;
+	return state.videoDeviceId ?? null;
 }
 
 /**
@@ -281,7 +281,7 @@ export function selectVideoDeviceId(state) {
  * @returns {string|null}
  */
 export function selectInputDeviceId(state) {
-  return state.inputDeviceId ?? null;
+	return state.inputDeviceId ?? null;
 }
 
 /**
@@ -289,7 +289,7 @@ export function selectInputDeviceId(state) {
  * @returns {string|null}
  */
 export function selectOutputDeviceId(state) {
-  return state.outputDeviceId ?? null;
+	return state.outputDeviceId ?? null;
 }
 
 /**
@@ -297,7 +297,7 @@ export function selectOutputDeviceId(state) {
  * @returns {boolean}
  */
 export function selectHasVideoSupport(state) {
-  return state.hasVideoSupport ?? false;
+	return state.hasVideoSupport ?? false;
 }
 
 /**
@@ -305,7 +305,7 @@ export function selectHasVideoSupport(state) {
  * @returns {Object}
  */
 export function selectWindowPositions(state) {
-  return state.windowPositions ?? {};
+	return state.windowPositions ?? {};
 }
 
 /**
@@ -313,7 +313,7 @@ export function selectWindowPositions(state) {
  * @returns {string}
  */
 export function selectVideoLayoutMode(state) {
-  return state.videoLayoutMode ?? 'grid';
+	return state.videoLayoutMode ?? "grid";
 }
 
 /**
@@ -321,7 +321,7 @@ export function selectVideoLayoutMode(state) {
  * @returns {Object}
  */
 export function selectVideoTilePositions(state) {
-  return state.videoTilePositions ?? {};
+	return state.videoTilePositions ?? {};
 }
 
 /**
@@ -329,7 +329,7 @@ export function selectVideoTilePositions(state) {
  * @returns {string|null}
  */
 export function selectPassword(state) {
-  return state.password ?? null;
+	return state.password ?? null;
 }
 
 /**
@@ -337,7 +337,7 @@ export function selectPassword(state) {
  * @returns {number}
  */
 export function selectUnreadChatCount(state) {
-  return state.unreadChatCount ?? 0;
+	return state.unreadChatCount ?? 0;
 }
 
 /**
@@ -346,10 +346,10 @@ export function selectUnreadChatCount(state) {
  * @returns {string}
  */
 export function selectNickForPeerId(state, peerId) {
-  const fromScreen = state.screenStreams?.get(peerId)?.nick;
-  if (fromScreen) return fromScreen;
-  const member = (state.voipMembers ?? []).find((m) => m.peerId === peerId);
-  return member?.nick ?? '?';
+	const fromScreen = state.screenStreams?.get(peerId)?.nick;
+	if (fromScreen) return fromScreen;
+	const member = (state.voipMembers ?? []).find((m) => m.peerId === peerId);
+	return member?.nick ?? "?";
 }
 
 /**
@@ -358,7 +358,7 @@ export function selectNickForPeerId(state, peerId) {
  * @returns {{ blob: Blob; filename: string; mimeType?: string }|undefined}
  */
 export function selectReceivedFileBlob(state, fileId) {
-  return state.receivedFileBlobs?.get(fileId);
+	return state.receivedFileBlobs?.get(fileId);
 }
 
 /**
@@ -367,7 +367,7 @@ export function selectReceivedFileBlob(state, fileId) {
  * @returns {number}
  */
 export function selectPeerVolumeFor(state, peerId) {
-  return state.peerVolume?.get(peerId) ?? 100;
+	return state.peerVolume?.get(peerId) ?? 100;
 }
 
 /**
@@ -375,25 +375,25 @@ export function selectPeerVolumeFor(state, peerId) {
  * @returns {Map<string, MediaStream>}
  */
 export function selectRemoteStreams(state) {
-  return state.remoteStreams ?? new Map();
+	return state.remoteStreams ?? new Map();
 }
 
 /** @param {AppState} state @returns {Function|undefined} */
 export function selectPreviewEffectStop(state) {
-  return state._previewEffectStop;
+	return state._previewEffectStop;
 }
 
 /** @param {AppState} state @returns {MediaStream|undefined} */
 export function selectPreviewStream(state) {
-  return state._previewStream;
+	return state._previewStream;
 }
 
 /** @param {AppState} state @returns {Function|undefined} */
 export function selectDeviceChangeHandler(state) {
-  return state._deviceChangeHandler;
+	return state._deviceChangeHandler;
 }
 
 /** @param {AppState} state @returns {Function|undefined} */
 export function selectCallDeviceChangeHandler(state) {
-  return state._callDeviceChangeHandler;
+	return state._callDeviceChangeHandler;
 }
