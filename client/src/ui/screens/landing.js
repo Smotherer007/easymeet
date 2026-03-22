@@ -1,5 +1,15 @@
 import { t } from "../../i18n.js";
-import { iconMessageCirclePlus, iconMessageCircle, iconLogoWordmark, iconGithub, iconGlobe, iconRefreshCw, iconLockInline, iconPinnedRoomJump } from "../../icons.js";
+import {
+	iconMessageCirclePlus,
+	iconMessageCircle,
+	iconLogoWordmark,
+	iconGithub,
+	iconGlobe,
+	iconRefreshCw,
+	iconLockInline,
+	iconPinnedRoomJump,
+	iconLandingActiveRoomsEmpty
+} from "../../icons.js";
 import { fetchActiveRooms, fetchPinnedRooms } from "../../effects/network/api.js";
 
 export function renderLanding() {
@@ -45,15 +55,7 @@ export function renderLanding() {
         <p class="landing__active-loading" id="active-rooms-loading">${t("activeRoomsLoading")}</p>
         <p class="landing__active-error" id="active-rooms-error" hidden></p>
         <div class="landing__active-empty-wrap" id="active-rooms-empty" hidden>
-          <div class="landing__empty-illustration" aria-hidden="true">
-            <svg class="landing__empty-svg" viewBox="0 0 120 100" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <ellipse cx="60" cy="88" rx="40" ry="6" fill="currentColor" opacity="0.12"/>
-              <rect x="28" y="28" width="64" height="48" rx="10" stroke="currentColor" stroke-width="2" opacity="0.35"/>
-              <circle cx="48" cy="48" r="6" fill="currentColor" opacity="0.45"/>
-              <path d="M58 52 L72 40 L88 56" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" opacity="0.5"/>
-              <circle cx="78" cy="42" r="4" fill="currentColor" opacity="0.35"/>
-            </svg>
-          </div>
+          <div class="landing__empty-icon" aria-hidden="true">${iconLandingActiveRoomsEmpty()}</div>
           <p class="landing__empty-headline">${t("activeRoomsEmptyHeadline")}</p>
           <p class="landing__empty-copy">${t("activeRoomsEmpty")}</p>
           <button type="button" class="btn btn--secondary btn--sm" data-action="join-empty-cta">${t("activeRoomsEmptyCta")}</button>

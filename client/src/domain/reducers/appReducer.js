@@ -28,6 +28,8 @@ function reduceRoomEntered(state, payload, isHost) {
 		messages: [],
 		members: [nick].filter(Boolean),
 		voipMembers: voip,
+		roomPolls: [],
+		myHandRaised: false,
 		/** Start unmuted — otherwise ensureInitialCallMedia skips mic (mediasoup: no audio producer). User can mute. */
 		isMuted: false,
 		peerMuteState: new Map([[p.peerId, false]]),
@@ -80,7 +82,7 @@ function reduceRoomMemberJoined(state, payload) {
 	if (!peerId) return state;
 	const exists = (state.voipMembers ?? []).some((m) => m.peerId === peerId);
 	if (exists) return state;
-	return { ...state, voipMembers: [...(state.voipMembers ?? []), { peerId, nick: nick ?? "?" }] };
+	return { ...state, voipMembers: [...(state.voipMembers ?? []), { peerId, nick: nick ?? "?", handRaised: false }] };
 }
 
 function reduceVoipMuteReceived(state, payload) {
@@ -261,6 +263,39 @@ function reduceUiSettingsPanelToggled(state, payload) {
 	return { ...state, settingsPanelOpen: payload?.isOpen ?? !state.settingsPanelOpen };
 }
 
+function reduceRoomReaction(state, payload) {
+	const { peerId, emoji } = payload ?? {};
+	if (!peerId || !emoji) return state;
+	return {
+		...state,
+		_reactionNonce: (state._reactionNonce ?? 0) + 1,
+		_reactionLast: { peerId, emoji }
+	};
+}
+
+function reduceRoomPollsSet(state, payload) {
+	const polls = payload?.polls;
+	if (!Array.isArray(polls)) return state;
+	return { ...state, roomPolls: polls };
+}
+
+function reduceRoomPollUpsert(state, payload) {
+	const poll = payload?.poll;
+	if (!poll?.id) return state;
+	const list = [...(state.roomPolls ?? [])];
+	const i = list.findIndex((p) => p.id === poll.id);
+	if (i >= 0) list[i] = poll;
+	else list.push(poll);
+	return { ...state, roomPolls: list };
+}
+
+function reduceRoomHandRaised(state, payload) {
+	const { peerId, raised } = payload ?? {};
+	const myId = state.peer?.id;
+	if (!peerId || peerId !== myId) return state;
+	return { ...state, myHandRaised: !!raised };
+}
+
 function reducePeerConnectionEstablished(state, payload) {
 	const { peer: peerObj, hostPeer, viewerConn, roomId } = payload ?? {};
 	return {
@@ -401,6 +436,10 @@ const HANDLERS = {
 	"ui/unreadCountCleared": reduceUiUnreadCountCleared,
 	"ui/settingsPanelToggled": reduceUiSettingsPanelToggled,
 	"peer/connectionEstablished": reducePeerConnectionEstablished,
+	"room/reaction": reduceRoomReaction,
+	"room/pollsSet": reduceRoomPollsSet,
+	"room/pollUpsert": reduceRoomPollUpsert,
+	"room/handRaisedSelf": reduceRoomHandRaised,
 	"storage/devicesRestored": reduceStorageDevicesRestored,
 	"storage/videoLayoutRestored": reduceStorageVideoLayoutRestored,
 	"storage/windowPositionsRestored": reduceStorageWindowPositionsRestored,

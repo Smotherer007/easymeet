@@ -233,7 +233,25 @@ const translations = {
 		backgroundStrangerThings: "Stranger Things - Scoops Ahoy",
 		backgroundCosmopolitan: "Cosmopolitan Magazine Cover",
 		backgroundMgmLogo: "MGM Logo",
-		backgroundTeamSonicRacing: "Team Sonic Racing"
+		backgroundTeamSonicRacing: "Team Sonic Racing",
+		reactionsTitle: "Reaktion senden",
+		raiseHand: "Hand heben",
+		lowerHand: "Hand senken",
+		pollsTitle: "Umfragen",
+		pollsToggle: "Umfragen",
+		pollsEmpty: "Noch keine Umfrage.",
+		pollNew: "Neue Umfrage",
+		pollQuestionPlaceholder: "Frage…",
+		pollOptionPlaceholder: "Antwort",
+		pollCreate: "Starten",
+		pollClose: "Umfrage beenden",
+		pollClosed: "Beendet",
+		pollVotesLabel: "{n} Stimmen",
+		handRaisedMarker: "Hand gehoben",
+		pollNeedTwoOptions: "Bitte mindestens zwei Antworten eintragen.",
+		pollAddOption: "Weitere Antwort",
+		pollRemoveOption: "Antwort entfernen",
+		pollMaxOptions: "Es sind höchstens 8 Antworten möglich."
 	},
 	en: {
 		back: "← Back",
@@ -462,7 +480,25 @@ const translations = {
 		backgroundStrangerThings: "Stranger Things - Scoops Ahoy",
 		backgroundCosmopolitan: "Cosmopolitan Magazine Cover",
 		backgroundMgmLogo: "MGM Logo",
-		backgroundTeamSonicRacing: "Team Sonic Racing"
+		backgroundTeamSonicRacing: "Team Sonic Racing",
+		reactionsTitle: "Send reaction",
+		raiseHand: "Raise hand",
+		lowerHand: "Lower hand",
+		pollsTitle: "Polls",
+		pollsToggle: "Polls",
+		pollsEmpty: "No polls yet.",
+		pollNew: "New poll",
+		pollQuestionPlaceholder: "Your question…",
+		pollOptionPlaceholder: "Answer",
+		pollCreate: "Start poll",
+		pollClose: "End poll",
+		pollClosed: "Closed",
+		pollVotesLabel: "{n} votes",
+		handRaisedMarker: "Hand raised",
+		pollNeedTwoOptions: "Please enter at least two answers.",
+		pollAddOption: "Add answer",
+		pollRemoveOption: "Remove answer",
+		pollMaxOptions: "You can add at most 8 answers."
 	}
 };
 

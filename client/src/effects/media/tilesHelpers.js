@@ -34,8 +34,35 @@ export function getTileState(state, peerId, stream) {
 
 	const isMuted = isLocal ? selectIsMuted(state) : (selectPeerMuteState(state).get(peerId) ?? false);
 	const vol = selectPeerVolumeFor(state, peerId);
-	const nick = selectVoipMembers(state).find((m) => m.peerId === peerId)?.nick || "...";
-	return { isLocal, hasVideo, isMuted, vol, nick };
+	const member = selectVoipMembers(state).find((m) => m.peerId === peerId);
+	const nick = member?.nick || "...";
+	const handRaised = !!member?.handRaised;
+	return { isLocal, hasVideo, isMuted, vol, nick, handRaised };
+}
+
+function createHandBadgeElement() {
+	const el = document.createElement("span");
+	el.className = "video-tile__hand";
+	el.setAttribute("aria-hidden", "true");
+	el.title = t("handRaisedMarker");
+	el.textContent = "✋";
+	return el;
+}
+
+/**
+ * @param {HTMLElement} statusRow
+ * @param {boolean} handRaised
+ */
+export function syncHandRaisedOnStatusRow(statusRow, handRaised) {
+	let el = statusRow.querySelector(".video-tile__hand");
+	if (handRaised) {
+		if (!el) {
+			el = createHandBadgeElement();
+			statusRow.insertBefore(el, statusRow.firstChild);
+		}
+	} else if (el) {
+		el.remove();
+	}
 }
 
 export function createMediaElement(isLocal) {
@@ -91,9 +118,12 @@ export function createVolumeControlElement(peerId, vol) {
 }
 
 export function createStatusRowElement(peerId, tileState) {
-	const { isLocal, isMuted, vol } = tileState;
+	const { isLocal, isMuted, vol, handRaised } = tileState;
 	const statusRow = document.createElement("div");
 	statusRow.className = "video-tile__status-row";
+	if (handRaised) {
+		statusRow.appendChild(createHandBadgeElement());
+	}
 	if (isLocal || isMuted) {
 		statusRow.appendChild(createMuteStatusElement(isMuted));
 	} else {
@@ -134,18 +164,30 @@ export function createNewTile(container, peerId, tileState) {
 	return { tile, mediaEl };
 }
 
+function getMicSlotInsertBefore(statusRow) {
+	const cam = statusRow.querySelector(".video-tile__camera-status");
+	return cam ?? null;
+}
+
 export function syncStatusRowVolumeControl(statusRow, peerId, tileState) {
 	const { isLocal, isMuted, vol } = tileState;
 	const wantsVolumeControl = !isLocal && !isMuted;
 	const volumeWrap = statusRow.querySelector(".voip-view__volume-wrap");
 	const hasVolumeControl = !!volumeWrap;
+	const beforeCam = getMicSlotInsertBefore(statusRow);
 	if (wantsVolumeControl !== hasVolumeControl) {
-		const toRemove = volumeWrap || statusRow.querySelector(":scope > .video-tile__mute-status");
+		const toRemove =
+			volumeWrap ||
+			[...statusRow.children].find((c) => c.classList.contains("video-tile__mute-status") && !c.classList.contains("video-tile__hand"));
 		if (toRemove) toRemove.remove();
 		if (wantsVolumeControl) {
-			statusRow.insertBefore(createVolumeControlElement(peerId, vol), statusRow.firstChild);
+			const node = createVolumeControlElement(peerId, vol);
+			if (beforeCam) statusRow.insertBefore(node, beforeCam);
+			else statusRow.appendChild(node);
 		} else {
-			statusRow.insertBefore(createMuteStatusElement(isMuted), statusRow.firstChild);
+			const node = createMuteStatusElement(isMuted);
+			if (beforeCam) statusRow.insertBefore(node, beforeCam);
+			else statusRow.appendChild(node);
 		}
 	} else {
 		const muteStatusEl = statusRow.querySelector(".video-tile__mute-status");
@@ -205,6 +247,7 @@ export function updateExistingTile(tile, peerId, tileState) {
 	}
 	syncStatusRowVolumeControl(statusRow, peerId, tileState);
 	syncStatusRowCamera(statusRow, hasVideo);
+	syncHandRaisedOnStatusRow(statusRow, !!tileState.handRaised);
 	syncCameraOffElement(tile, hasVideo);
 }
 

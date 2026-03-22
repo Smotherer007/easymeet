@@ -43,7 +43,11 @@ export function getSessionResetSlice() {
 		_deviceChangeHandler: null,
 		_callDeviceChangeHandler: null,
 		_previewEffectStop: null,
-		_previewStream: null
+		_previewStream: null,
+		_reactionNonce: 0,
+		_reactionLast: null,
+		roomPolls: [],
+		myHandRaised: false
 	};
 }
 
@@ -64,6 +68,8 @@ export function getJoinAttemptRollbackSlice() {
 		remoteStreams: new Map(),
 		messages: [],
 		unreadChatCount: 0,
-		isHost: false
+		isHost: false,
+		roomPolls: [],
+		myHandRaised: false
 	};
 }

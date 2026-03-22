@@ -4,9 +4,17 @@
  */
 
 import { getState, patchState } from "../../store/index.js";
-import { selectMyPeerId, selectOutputDeviceId, selectVideoTilePositions, selectRemoteStreams, selectLocalStream, selectScreenStreams } from "../../domain/selectors/index.js";
+import {
+	selectMyPeerId,
+	selectOutputDeviceId,
+	selectVideoTilePositions,
+	selectRemoteStreams,
+	selectLocalStream,
+	selectScreenStreams,
+	selectVoipMembers
+} from "../../domain/selectors/index.js";
 import { startSpeakingIndicator, stopSpeakingIndicator } from "../../speaking-indicator.js";
-import { getTileState, createNewTile, updateExistingTile, applyStreamToMedia } from "./tilesHelpers.js";
+import { getTileState, createNewTile, updateExistingTile, applyStreamToMedia, syncHandRaisedOnStatusRow } from "./tilesHelpers.js";
 import { mediaDebugWireStreamVideoTracks, mediaDebugLog, mediaDebugStreamInfo } from "../../utils/mediaDebug.js";
 
 const TILE_WIDTH = 280;
@@ -83,6 +91,19 @@ export function updateVideoGalleryColumns() {
 	const cols = count <= 2 ? 1 : count <= 4 ? 2 : count <= 6 ? 3 : Math.min(4, Math.ceil(Math.sqrt(count)));
 	gallery.dataset.count = String(count);
 	gallery.style.setProperty("--video-cols", String(cols));
+}
+
+/** Synchronisiert Hand-heben-Anzeige auf Kacheln (ohne erneutes attachRemoteAudio). */
+export function syncHandRaisedOnVideoTiles() {
+	const gallery = document.getElementById("video-gallery");
+	if (!gallery) return;
+	const members = selectVoipMembers(getState());
+	gallery.querySelectorAll(".video-tile").forEach((tile) => {
+		const id = tile.dataset.peerId;
+		const raised = !!members.find((m) => m.peerId === id)?.handRaised;
+		const row = tile.querySelector(".video-tile__status-row");
+		if (row) syncHandRaisedOnStatusRow(row, raised);
+	});
 }
 
 export function attachRemoteAudio(peerId, stream, app) {

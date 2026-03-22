@@ -10,6 +10,7 @@ import { AwaitQueue } from "awaitqueue";
 import * as cryptoUtil from "../../utils/crypto.js";
 import { mediaDebugLog, mediaDebugStreamInfo, mediaDebugTrackInfo } from "../../utils/mediaDebug.js";
 import { logMsInfo, logMsWarn, logMsError } from "../../utils/easymeetLog.js";
+import { replaceEmojiShortcodes } from "../../utils/emojiShortcodes.js";
 import { getAudioProcessingConstraints } from "../storage/audioSettingsStorage.js";
 import protooPkg from "protoo-client";
 
@@ -513,16 +514,21 @@ export async function setupRoomParticipant(peerObj, nick, localStream, callbacks
 				if (msg.peerId === peerId) break;
 				const exists = membersRef.some((m) => m.peerId === msg.peerId);
 				if (!exists) {
-					membersRef.push({ peerId: msg.peerId, nick: msg.nick ?? "?" });
+					membersRef.push({
+						peerId: msg.peerId,
+						nick: msg.nick ?? "?",
+						handRaised: !!msg.handRaised
+					});
 					dispatch?.({ type: "voip/membersUpdated", payload: { members: [...membersRef] } });
 					dispatch?.({ type: "room/memberJoined", payload: { peerId: msg.peerId, nick: msg.nick ?? "?" } });
 					dispatch?.({ type: "chat/messageReceived", payload: { type: "join", nick: msg.nick, peerId: msg.peerId } });
 				} else {
-					if (msg.nick) {
-						const row = membersRef.find((m) => m.peerId === msg.peerId);
-						if (row) row.nick = msg.nick;
-						dispatch?.({ type: "voip/membersUpdated", payload: { members: [...membersRef] } });
+					const row = membersRef.find((m) => m.peerId === msg.peerId);
+					if (row) {
+						if (msg.nick) row.nick = msg.nick;
+						if (msg.handRaised !== undefined) row.handRaised = !!msg.handRaised;
 					}
+					dispatch?.({ type: "voip/membersUpdated", payload: { members: [...membersRef] } });
 				}
 				if (msg.videoEnabled !== undefined) {
 					dispatch?.({ type: "voip/videoStateUpdated", payload: { peerId: msg.peerId, isVideoEnabled: msg.videoEnabled } });
@@ -564,6 +570,10 @@ export async function setupRoomParticipant(peerObj, nick, localStream, callbacks
 						dispatch?.({ type: "voip/muteReceived", payload: { peerId: m.peerId, isMuted: m.muted } });
 					}
 				});
+				if (peerId) {
+					const me = membersRef.find((m) => m.peerId === peerId);
+					dispatch?.({ type: "room/handRaisedSelf", payload: { peerId, raised: !!me?.handRaised } });
+				}
 				break;
 			case "chat":
 				dispatch?.({
@@ -593,6 +603,22 @@ export async function setupRoomParticipant(peerObj, nick, localStream, callbacks
 			case "file_end":
 			case "file_chunk":
 				fileHandler?.(msg);
+				break;
+			case "reaction":
+				dispatch?.({ type: "room/reaction", payload: { peerId: msg.peerId, emoji: msg.emoji } });
+				break;
+			case "hand_raise": {
+				const row = membersRef.find((m) => m.peerId === msg.peerId);
+				if (row) row.handRaised = !!msg.raised;
+				dispatch?.({ type: "voip/membersUpdated", payload: { members: [...membersRef] } });
+				if (msg.peerId === peerId) {
+					dispatch?.({ type: "room/handRaisedSelf", payload: { peerId, raised: !!msg.raised } });
+				}
+				break;
+			}
+			case "poll_created":
+			case "poll_update":
+				if (msg.poll) dispatch?.({ type: "room/pollUpsert", payload: { poll: msg.poll } });
 				break;
 			default:
 				break;
@@ -860,7 +886,7 @@ export async function setupRoomParticipant(peerObj, nick, localStream, callbacks
 		/** Like initialState.isMuted (false): without callback do not falsely signal muted */
 		const muted = getMuted?.() ?? false;
 
-		const { peers } = await protoo.request("join", {
+		const { peers, easymeetPolls } = await protoo.request("join", {
 			displayName: nick,
 			device: { flag: "easymeet", name: "Easymeet" },
 			rtpCapabilities: device.rtpCapabilities,
@@ -868,8 +894,14 @@ export async function setupRoomParticipant(peerObj, nick, localStream, callbacks
 			easymeet: { muted, videoEnabled, backgroundEffect }
 		});
 
-		membersRef = [{ peerId, nick }, ...(peers || []).map((p) => ({ peerId: p.peerId, nick: p.displayName ?? "?" }))];
+		membersRef = [
+			{ peerId, nick, handRaised: false },
+			...(peers || []).map((p) => ({ peerId: p.peerId, nick: p.displayName ?? "?", handRaised: false }))
+		];
 		dispatch?.({ type: "voip/membersUpdated", payload: { members: [...membersRef] } });
+		if (Array.isArray(easymeetPolls) && easymeetPolls.length) {
+			dispatch?.({ type: "room/pollsSet", payload: { polls: easymeetPolls } });
+		}
 		dispatch?.({
 			type: "chat/membersUpdated",
 			payload: { list: membersRef.map((m) => m.nick).filter(Boolean) }
@@ -953,8 +985,9 @@ export async function setupRoomParticipant(peerObj, nick, localStream, callbacks
 
 	function sendChat(nickName, text, ts, giphyUrlOrUrls) {
 		const giphyUrls = Array.isArray(giphyUrlOrUrls) ? giphyUrlOrUrls : giphyUrlOrUrls ? [giphyUrlOrUrls] : [];
-		notifyEasymeet(protoo, { type: "chat", nick: nickName, text, ts, giphyUrls });
-		dispatch?.({ type: "chat/messageReceived", payload: { type: "chat", nick: nickName, text, ts, giphyUrls } });
+		const expanded = replaceEmojiShortcodes(text);
+		notifyEasymeet(protoo, { type: "chat", nick: nickName, text: expanded, ts, giphyUrls });
+		dispatch?.({ type: "chat/messageReceived", payload: { type: "chat", nick: nickName, text: expanded, ts, giphyUrls } });
 	}
 
 	async function setScreenStream(stream) {

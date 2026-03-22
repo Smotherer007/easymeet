@@ -24,8 +24,36 @@ function buildMembersList(room) {
 			nick: p.nick,
 			muted: p.muted,
 			videoEnabled: p.videoEnabled,
-			backgroundEffect: p.backgroundEffect
+			backgroundEffect: p.backgroundEffect,
+			handRaised: !!p.handRaised
 		}));
+}
+
+function sanitizeReactionEmoji(raw) {
+	if (typeof raw !== "string") return "";
+	const s = raw.trim().slice(0, 16);
+	if (!s || /[<>]/.test(s) || /[{}\u0000-\u001f]/.test(s)) return "";
+	return s;
+}
+
+function serializePollPublic(poll) {
+	const tallies = poll.options.map(() => 0);
+	for (const idx of poll.votes.values()) {
+		if (typeof idx === "number" && idx >= 0 && idx < tallies.length) tallies[idx] += 1;
+	}
+	return {
+		id: poll.id,
+		question: poll.question,
+		options: [...poll.options],
+		tallies,
+		closed: !!poll.closed,
+		creatorPeerId: poll.creatorPeerId
+	};
+}
+
+function getPollsSnapshot(room) {
+	if (!room.polls?.size) return [];
+	return [...room.polls.values()].map(serializePollPublic);
 }
 
 function serializeProtoPeer(msPeer) {
@@ -249,13 +277,14 @@ async function handleProtooRequest(roomId, room, msPeer, request, accept, reject
 					nick: msPeer.nick,
 					muted: msPeer.muted,
 					videoEnabled: msPeer.videoEnabled,
-					backgroundEffect: msPeer.backgroundEffect
+					backgroundEffect: msPeer.backgroundEffect,
+					handRaised: !!msPeer.handRaised
 				},
 				msPeer.peerId
 			);
 
 			const peersPayload = otherPeers.map((p) => serializeProtoPeer(p));
-			accept({ peers: peersPayload });
+			accept({ peers: peersPayload, easymeetPolls: getPollsSnapshot(room) });
 
 			await notifyExistingProducersToNewPeer(room, msPeer);
 
@@ -497,6 +526,62 @@ async function handleProtooNotification(roomId, room, msPeer, notification) {
 				case "file_chunk":
 					broadcastEasymeet(roomId, msg, msPeer.peerId);
 					break;
+
+				case "reaction": {
+					const emoji = sanitizeReactionEmoji(msg.emoji);
+					if (!emoji) break;
+					broadcastEasymeet(roomId, { type: "reaction", peerId: msPeer.peerId, emoji, ts: Date.now() }, null);
+					break;
+				}
+
+				case "hand_raise": {
+					msPeer.handRaised = Boolean(msg.raised);
+					broadcastEasymeet(
+						roomId,
+						{ type: "hand_raise", peerId: msPeer.peerId, raised: msPeer.handRaised },
+						msPeer.peerId
+					);
+					broadcastEasymeet(roomId, { type: "members_updated", members: buildMembersList(room) }, null);
+					break;
+				}
+
+				case "poll_create": {
+					const q = typeof msg.question === "string" ? msg.question.trim().slice(0, 200) : "";
+					const rawOpts = Array.isArray(msg.options) ? msg.options : [];
+					const opts = rawOpts.map((o) => String(o).trim().slice(0, 80)).filter(Boolean);
+					if (q.length < 1 || opts.length < 2 || opts.length > 8) break;
+					room.pollSeq = (room.pollSeq || 0) + 1;
+					const pollId = `p${room.pollSeq}_${randomUUID().slice(0, 8)}`;
+					const poll = {
+						id: pollId,
+						question: q,
+						options: opts,
+						votes: new Map(),
+						creatorPeerId: msPeer.peerId,
+						closed: false
+					};
+					room.polls.set(pollId, poll);
+					broadcastEasymeet(roomId, { type: "poll_created", poll: serializePollPublic(poll) }, null);
+					break;
+				}
+
+				case "poll_vote": {
+					const poll = room.polls?.get(msg.pollId);
+					if (!poll || poll.closed) break;
+					const idx = Number(msg.optionIndex);
+					if (!Number.isInteger(idx) || idx < 0 || idx >= poll.options.length) break;
+					poll.votes.set(msPeer.peerId, idx);
+					broadcastEasymeet(roomId, { type: "poll_update", poll: serializePollPublic(poll) }, null);
+					break;
+				}
+
+				case "poll_close": {
+					const poll = room.polls?.get(msg.pollId);
+					if (!poll || poll.creatorPeerId !== msPeer.peerId) break;
+					poll.closed = true;
+					broadcastEasymeet(roomId, { type: "poll_update", poll: serializePollPublic(poll) }, null);
+					break;
+				}
 
 				default:
 					break;

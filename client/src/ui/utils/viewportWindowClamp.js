@@ -10,7 +10,8 @@ export const WINDOW_RECT_MINS = {
 	participants: { w: 200, h: 180 },
 	stream: { w: 320, h: 240 },
 	settings: { w: 360, h: 400 },
-	share: { w: 360, h: 400 }
+	share: { w: 360, h: 400 },
+	polls: { w: 300, h: 260 }
 };
 
 export function getViewportRect() {

@@ -21,6 +21,7 @@ import {
 	iconImage,
 	iconSend,
 	iconMoreHorizontal,
+	iconSettings,
 	iconUpload,
 	iconMessageSquare,
 	iconLayoutGrid,
@@ -30,8 +31,11 @@ import {
 	iconVideoOff,
 	iconVideo,
 	iconGrip,
-	iconLogoWordmark
+	iconLogoWordmark,
+	iconHand,
+	iconBarChart2
 } from "../../icons.js";
+import { replaceEmojiShortcodes } from "../../utils/emojiShortcodes.js";
 import { renderChatContent } from "../../link-embed.js";
 import { EMOJI_DATA } from "../../emoji-data.js";
 import { escapeHtml } from "../../shared/escape.js";
@@ -55,7 +59,10 @@ function renderLeaveMessage(m) {
 
 function renderChatMessage(m, myNick) {
 	const parts = [];
-	if (m.text?.trim()) parts.push(renderChatContent(m.text, escapeHtml, t("openInNewTab")));
+	if (m.text?.trim()) {
+		const expanded = replaceEmojiShortcodes(m.text);
+		parts.push(renderChatContent(expanded, escapeHtml, t("openInNewTab")));
+	}
 	const urls = m.giphyUrls?.length ? m.giphyUrls : m.giphyUrl ? [m.giphyUrl] : [];
 	urls.forEach((u) => parts.push(`<span class="chat__gif-wrap"><img src="${escapeHtml(u)}" alt="GIF" class="chat__gif" loading="lazy" /></span>`));
 	const content = parts.length ? parts.join("") : "";
@@ -100,6 +107,7 @@ export function renderVoipParticipantHtmlFloating(m, state) {
 	const { muteMap, volumeMap, myPeerId, isMuted } = state;
 	const nick = m.nick ?? "?";
 	const peerId = m.peerId ?? "";
+	const handMark = m.handRaised ? `<span class="voip-view__hand" title="${escapeHtml(t("handRaisedMarker"))}">✋</span>` : "";
 	const isSelf = peerId === myPeerId;
 	const memberMuted = isSelf ? isMuted : (muteMap.get(peerId) ?? false);
 	const vol = volumeMap.get(peerId) ?? 100;
@@ -111,7 +119,7 @@ export function renderVoipParticipantHtmlFloating(m, state) {
 	const streamHtml = streaming
 		? `<div class="voip-view__participant-stream" data-action="open-stream-modal" data-peer-id="${escapeHtml(peerId)}" title="${t("clickToExpand")}"><video class="voip-view__stream-thumb" autoplay playsinline muted disablepictureinpicture></video></div>`
 		: "";
-	return `<div class="voip-view__participant" data-peer-id="${escapeHtml(peerId)}" data-self="${isSelf}"><div class="voip-view__participant-info"><div class="voip-view__participant-name">${escapeHtml(nick)}</div><div class="voip-view__participant-status-row">${volumeControl}</div></div>${streamHtml}</div>`;
+	return `<div class="voip-view__participant" data-peer-id="${escapeHtml(peerId)}" data-self="${isSelf}"><div class="voip-view__participant-info"><div class="voip-view__participant-name">${escapeHtml(nick)}${handMark}</div><div class="voip-view__participant-status-row">${volumeControl}</div></div>${streamHtml}</div>`;
 }
 
 export function renderVoipParticipantsHtmlFloating(voipMembers, state) {
@@ -147,7 +155,16 @@ export function renderLeaveRoomModal() {
  * Gemeinsame Steuerleiste: Desktop eine Reihe; mobil Primär (Stumm/Kamera/Verlassen) + „Mehr“.
  */
 function renderMeetingControlBarInner(state) {
-	const { isMuted, isVideoEnabled, hostStream, hasScreenShareSupport, unreadChatCount, roomId, videoLayoutMode = "grid" } = state;
+	const {
+		isMuted,
+		isVideoEnabled,
+		hostStream,
+		hasScreenShareSupport,
+		unreadChatCount,
+		roomId,
+		videoLayoutMode = "grid",
+		myHandRaised = false
+	} = state;
 	const screenSlot = hasScreenShareSupport
 		? `<span class="meeting-control-bar__screen-slot">${renderMeetingScreenShareSlotInner({ hasScreenShareSupport, hostStream })}</span>`
 		: "";
@@ -155,20 +172,34 @@ function renderMeetingControlBarInner(state) {
 	const inFree = videoLayoutMode === "free";
 	const layoutTitle = inFree ? t("layoutGrid") : t("layoutFree");
 	const layoutIcon = inFree ? iconLayoutGrid() : iconGrip();
+	const handTitle = myHandRaised ? t("lowerHand") : t("raiseHand");
+	const reactionEmojis = ["👍", "👏", "😂", "😮", "❤️", "🎉"];
+	const reactionBtns = reactionEmojis
+		.map(
+			(e) =>
+				`<button type="button" class="reaction-popover__btn" data-action="send-reaction" data-emoji="${e}" title="${e}">${e}</button>`
+		)
+		.join("");
 	return `
     <div class="meeting-control-bar__primary">
       <button class="meeting-control-btn chat__mute-btn--${isMuted ? "muted" : "unmuted"}" data-action="toggle-mute" title="${isMuted ? t("unmute") : t("mute")}">${isMuted ? iconMicOff() : iconMic()}</button>
       <button class="meeting-control-btn video-btn--${isVideoEnabled ? "on" : "off"}" data-action="toggle-video" title="${isVideoEnabled ? t("cameraOn") : t("cameraOff")}">${isVideoEnabled ? iconVideo() : iconVideoOff()}</button>
       <button class="meeting-control-btn meeting-control-btn--leave" data-action="leave" title="${t("leaveRoom")}">${iconPhoneOff()}</button>
+      <button class="meeting-control-btn meeting-control-btn--chat" data-action="toggle-chat-panel" title="${t("tabChat")}"><span class="meeting-control-btn__icon-wrap">${iconMessageSquare()}<span class="chat-badge" id="chat-badge" ${unreadChatCount > 0 ? "" : "hidden"}>${unreadChatCount > 99 ? "99+" : unreadChatCount}</span></span></button>
+      <button class="meeting-control-btn" data-action="toggle-sidebar" title="${t("participants")}">${iconUsers()}</button>
     </div>
     <button type="button" class="meeting-control-btn meeting-control-btn--more" data-action="toggle-meeting-more" aria-label="${moreLabel}" aria-expanded="false" title="${moreLabel}">${iconMoreHorizontal()}</button>
     <div class="meeting-control-bar__secondary">
+      <div class="reaction-popover-wrap">
+        <button type="button" class="meeting-control-btn" data-action="toggle-reaction-popover" aria-expanded="false" aria-haspopup="true" title="${escapeHtml(t("reactionsTitle"))}">${iconSmile()}</button>
+        <div class="reaction-popover" id="reaction-popover" hidden role="menu">${reactionBtns}</div>
+      </div>
+      <button type="button" class="meeting-control-btn meeting-control-btn--hand${myHandRaised ? " meeting-control-btn--active" : ""}" data-action="toggle-hand" title="${escapeHtml(handTitle)}" aria-pressed="${myHandRaised ? "true" : "false"}">${iconHand()}</button>
+      <button type="button" class="meeting-control-btn" data-action="toggle-polls-panel" title="${escapeHtml(t("pollsToggle"))}">${iconBarChart2()}</button>
       ${screenSlot}
-      <button class="meeting-control-btn meeting-control-btn--chat" data-action="toggle-chat-panel" title="${t("tabChat")}"><span class="meeting-control-btn__icon-wrap">${iconMessageSquare()}<span class="chat-badge" id="chat-badge" ${unreadChatCount > 0 ? "" : "hidden"}>${unreadChatCount > 99 ? "99+" : unreadChatCount}</span></span></button>
-      <button class="meeting-control-btn" data-action="toggle-video-layout" title="${layoutTitle}">${layoutIcon}</button>
-      <button class="meeting-control-btn" data-action="toggle-sidebar" title="${t("participants")}">${iconUsers()}</button>
       ${roomId ? `<button class="meeting-control-btn" data-action="share" title="${t("shareRoom")}">${iconShare2()}</button>` : ""}
-      <button class="meeting-control-btn meeting-control-btn--settings" data-action="toggle-settings" title="${t("settings")}">${iconMoreHorizontal()}</button>
+      <button class="meeting-control-btn meeting-control-btn--layout" data-action="toggle-video-layout" title="${layoutTitle}" aria-label="${escapeHtml(layoutTitle)}">${layoutIcon}</button>
+      <button class="meeting-control-btn meeting-control-btn--settings" data-action="toggle-settings" title="${t("settings")}" aria-label="${escapeHtml(t("settings"))}">${iconSettings()}</button>
     </div>
   `;
 }
@@ -208,7 +239,10 @@ export function renderFloatingWindowVideos(pos, isOpen = true) {
         <button type="button" class="btn btn--ghost btn--sm floating-window__minimize" data-action="minimize-floating-videos" title="${escapeHtml(t("minimizeWindow"))}" aria-label="${escapeHtml(t("minimizeWindow"))}">${iconMinus()}</button>
       </div>
       <div class="floating-window__body">
-        <div class="video-gallery video-gallery--grid" id="video-gallery" data-layout-mode="grid"></div>
+        <div class="meeting-videos-stack">
+          <div class="video-gallery video-gallery--grid" id="video-gallery" data-layout-mode="grid"></div>
+          <div class="reaction-float-layer" id="reaction-float-layer" aria-hidden="true"></div>
+        </div>
       </div>
       <div class="floating-window__resize-handle" data-resize-handle title="${t("resize")}"></div>
     </div>
@@ -435,12 +469,137 @@ export function renderChatPanelContent(messagesHtml, voipParticipantsHtml, voipM
   `;
 }
 
+/** Server: min. 2, max. 8 Optionen (protoo poll_create). */
+export const POLL_CREATE_MAX_OPTIONS = 8;
+
+/**
+ * @param {number} optionNumber 1-basiert für Platzhalter „Antwort 1“ …
+ */
+export function renderPollOptionRowHtml(optionNumber) {
+	const p1 = escapeHtml(t("pollOptionPlaceholder"));
+	const removeLabel = escapeHtml(t("pollRemoveOption"));
+	return `<div class="poll-create__option-row">
+    <input type="text" class="poll-create__input poll-create__input--option poll-create-option" maxlength="80" placeholder="${p1} ${optionNumber}" autocomplete="off" />
+    <button type="button" class="poll-create__row-remove btn btn--ghost btn--sm" data-action="poll-remove-option" hidden aria-label="${removeLabel}">${iconX()}</button>
+  </div>`;
+}
+
+function renderPollCreateFormHtml() {
+	return `<div class="poll-create">
+    <h4 class="poll-create__title">${escapeHtml(t("pollNew"))}</h4>
+    <div class="poll-create__fields">
+      <input type="text" id="poll-create-question" class="poll-create__input poll-create__input--question" maxlength="200" placeholder="${escapeHtml(t("pollQuestionPlaceholder"))}" autocomplete="off" />
+      <div class="poll-create__options" id="poll-create-options">
+        ${renderPollOptionRowHtml(1)}
+        ${renderPollOptionRowHtml(2)}
+      </div>
+      <button type="button" class="btn btn--ghost btn--sm poll-create__add-option" data-action="poll-add-option">${escapeHtml(t("pollAddOption"))}</button>
+    </div>
+    <button type="button" class="btn btn--primary btn--sm poll-create__submit" data-action="poll-create-submit">${escapeHtml(t("pollCreate"))}</button>
+  </div>`;
+}
+
+/**
+ * Entfernen-Buttons nur ab 3 Zeilen; „Weitere Antwort“ bis Server-Limit.
+ * @param {HTMLElement} container
+ */
+export function syncPollCreateOptionUi(container) {
+	const wrap = container.querySelector("#poll-create-options");
+	if (!wrap) return;
+	const rows = wrap.querySelectorAll(".poll-create__option-row");
+	const showRemove = rows.length > 2;
+	rows.forEach((r) => {
+		const btn = r.querySelector('[data-action="poll-remove-option"]');
+		if (btn) btn.hidden = !showRemove;
+	});
+	const addBtn = container.querySelector('[data-action="poll-add-option"]');
+	if (addBtn) {
+		const atMax = rows.length >= POLL_CREATE_MAX_OPTIONS;
+		addBtn.disabled = atMax;
+		addBtn.title = atMax ? t("pollMaxOptions") : "";
+	}
+}
+
+function renderOnePollBlock(poll, myId) {
+	const closed = !!poll.closed;
+	const opts = poll.options || [];
+	const tallies = poll.tallies || opts.map(() => 0);
+	const rows = opts
+		.map((opt, i) => {
+			const c = tallies[i] ?? 0;
+			if (!closed) {
+				return `<button type="button" class="poll-option-btn" data-action="poll-vote" data-poll-id="${escapeHtml(poll.id)}" data-option-index="${i}"><span class="poll-option-btn__label">${escapeHtml(opt)}</span><span class="poll-option-btn__tally">${c}</span></button>`;
+			}
+			return `<div class="poll-option-result"><span>${escapeHtml(opt)}</span><span>${c}</span></div>`;
+		})
+		.join("");
+	const closeBtn =
+		poll.creatorPeerId === myId && !closed
+			? `<button type="button" class="btn btn--ghost btn--sm poll-card__close" data-action="poll-close" data-poll-id="${escapeHtml(poll.id)}">${escapeHtml(t("pollClose"))}</button>`
+			: "";
+	const status = closed ? `<span class="poll-badge">${escapeHtml(t("pollClosed"))}</span>` : "";
+	return `<div class="poll-card" data-poll-id="${escapeHtml(poll.id)}">
+    <div class="poll-card__head"><strong>${escapeHtml(poll.question)}</strong>${status}</div>
+    <div class="poll-card__options">${rows}</div>
+    ${closeBtn}
+  </div>`;
+}
+
+function renderPollsDockInner(state) {
+	const myId = state.peer?.id ?? "";
+	const polls = state.roomPolls ?? [];
+	let html = polls.map((poll) => renderOnePollBlock(poll, myId)).join("");
+	if (!polls.length) {
+		html += `<p class="polls-dock__empty">${escapeHtml(t("pollsEmpty"))}</p>`;
+	}
+	html += renderPollCreateFormHtml();
+	return html;
+}
+
+/** @param {string} pollsStyle inline styles for position/size (like share/settings modals) */
+export function renderPollsDock(pollsStyle) {
+	return `
+    <div class="polls-modal" id="polls-modal" hidden>
+      <div class="polls-dock polls-modal__content" data-draggable data-window="polls" style="${pollsStyle}" aria-label="${escapeHtml(t("pollsTitle"))}">
+        <div class="polls-dock__header" data-drag-handle>
+          <h3 class="polls-dock__title">${escapeHtml(t("pollsTitle"))}</h3>
+          <button type="button" class="btn btn--ghost btn--sm" data-action="minimize-polls-modal" title="${escapeHtml(t("minimizeWindow"))}" aria-label="${escapeHtml(t("minimizeWindow"))}">${iconMinus()}</button>
+        </div>
+        <div class="polls-dock__body" id="polls-dock-body"></div>
+        <div class="polls-modal__resize-handle" data-resize-handle title="${escapeHtml(t("resize"))}"></div>
+      </div>
+    </div>`;
+}
+
+/** @param {HTMLElement} container @param {object} state */
+export function refreshPollsDock(container, state) {
+	const body = container.querySelector("#polls-dock-body");
+	if (!body) return;
+	body.innerHTML = renderPollsDockInner(state);
+	syncPollCreateOptionUi(container);
+}
+
+/**
+ * @param {HTMLElement} container
+ * @param {boolean} raised
+ */
+export function updateHandRaiseMeetingBar(container, raised) {
+	container.querySelectorAll('[data-action="toggle-hand"]').forEach((btn) => {
+		btn.classList.toggle("meeting-control-btn--active", raised);
+		btn.title = raised ? t("lowerHand") : t("raiseHand");
+		btn.setAttribute("aria-pressed", raised ? "true" : "false");
+	});
+}
+
 export function renderGridMeetingSection(state, messagesHtml, voipParticipantsHtml) {
 	const controlBar = renderMeetingControlBarGrid(state);
 	const chatPanel = renderChatPanelContent(messagesHtml, voipParticipantsHtml, state.voipMembers?.length ?? 0);
 	return `
     <div class="meeting-main">
-      <div class="video-gallery video-gallery--grid" id="video-gallery" data-layout-mode="grid"></div>
+      <div class="meeting-videos-stack">
+        <div class="video-gallery video-gallery--grid" id="video-gallery" data-layout-mode="grid"></div>
+        <div class="reaction-float-layer" id="reaction-float-layer" aria-hidden="true"></div>
+      </div>
     </div>
     ${controlBar}
     ${chatPanel}

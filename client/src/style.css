@@ -302,16 +302,25 @@ body {
 	border: 1px dashed var(--glass-border);
 }
 
-.landing__empty-illustration {
+.landing__empty-icon {
+	width: 5.25rem;
+	height: 5.25rem;
+	margin: 0;
+	border-radius: 50%;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	flex-shrink: 0;
 	color: var(--accent);
-	width: 120px;
-	height: 100px;
+	background: linear-gradient(145deg, rgba(99, 102, 241, 0.14) 0%, rgba(0, 240, 192, 0.08) 100%);
+	border: 1px solid rgba(255, 255, 255, 0.1);
+	box-shadow: 0 8px 28px rgba(0, 0, 0, 0.25);
 }
 
-.landing__empty-svg {
-	width: 100%;
-	height: 100%;
+.landing__empty-icon .landing__empty-state-svg {
 	display: block;
+	flex-shrink: 0;
+	opacity: 0.95;
 }
 
 .landing__empty-headline {
@@ -982,6 +991,7 @@ body {
 .stream-modal.overlay--front,
 .settings-modal.overlay--front,
 .share-modal.overlay--front,
+.polls-modal.overlay--front,
 .chat-panel--overlay.overlay--front {
 	z-index: 9999;
 }
@@ -1149,7 +1159,8 @@ body {
 .floating-window.floating-window--minimize-out,
 .stream-modal:not([hidden]) .stream-modal__content.floating-window--minimize-out,
 .settings-modal:not([hidden]) .settings-modal__content.floating-window--minimize-out,
-.share-modal:not([hidden]) .share-modal__content.floating-window--minimize-out {
+.share-modal:not([hidden]) .share-modal__content.floating-window--minimize-out,
+.polls-modal:not([hidden]) .polls-modal__content.floating-window--minimize-out {
 	transition:
 		transform 0s linear,
 		opacity 0s linear;
@@ -1162,7 +1173,8 @@ body {
 .floating-window.floating-window--minimize-out.floating-window--minimize-out--run,
 .stream-modal:not([hidden]) .stream-modal__content.floating-window--minimize-out.floating-window--minimize-out--run,
 .settings-modal:not([hidden]) .settings-modal__content.floating-window--minimize-out.floating-window--minimize-out--run,
-.share-modal:not([hidden]) .share-modal__content.floating-window--minimize-out.floating-window--minimize-out--run {
+.share-modal:not([hidden]) .share-modal__content.floating-window--minimize-out.floating-window--minimize-out--run,
+.polls-modal:not([hidden]) .polls-modal__content.floating-window--minimize-out.floating-window--minimize-out--run {
 	transition:
 		transform 0.38s cubic-bezier(0.4, 0, 0.2, 1),
 		opacity 0.32s ease;
@@ -1173,7 +1185,8 @@ body {
 .floating-window.floating-window--minimize-in.floating-window--minimize-in--from,
 .stream-modal:not([hidden]) .stream-modal__content.floating-window--minimize-in.floating-window--minimize-in--from,
 .settings-modal:not([hidden]) .settings-modal__content.floating-window--minimize-in.floating-window--minimize-in--from,
-.share-modal:not([hidden]) .share-modal__content.floating-window--minimize-in.floating-window--minimize-in--from {
+.share-modal:not([hidden]) .share-modal__content.floating-window--minimize-in.floating-window--minimize-in--from,
+.polls-modal:not([hidden]) .polls-modal__content.floating-window--minimize-in.floating-window--minimize-in--from {
 	transition: none !important;
 	transform: translate(var(--min-dx, 0), var(--min-dy, 0)) scale(0.14) !important;
 	opacity: 0;
@@ -1183,7 +1196,8 @@ body {
 .floating-window.floating-window--minimize-in.floating-window--minimize-in--run,
 .stream-modal:not([hidden]) .stream-modal__content.floating-window--minimize-in.floating-window--minimize-in--run,
 .settings-modal:not([hidden]) .settings-modal__content.floating-window--minimize-in.floating-window--minimize-in--run,
-.share-modal:not([hidden]) .share-modal__content.floating-window--minimize-in.floating-window--minimize-in--run {
+.share-modal:not([hidden]) .share-modal__content.floating-window--minimize-in.floating-window--minimize-in--run,
+.polls-modal:not([hidden]) .polls-modal__content.floating-window--minimize-in.floating-window--minimize-in--run {
 	transition:
 		transform 0.38s cubic-bezier(0.22, 1, 0.36, 1),
 		opacity 0.32s ease !important;
@@ -1231,8 +1245,467 @@ body {
 	flex: 1;
 	min-height: 0;
 	display: flex;
+	flex-direction: column;
 	overflow: visible;
 	padding-bottom: 5rem; /* Space for control bar so tiles don't slip underneath */
+}
+
+.meeting-videos-stack {
+	position: relative;
+	flex: 1;
+	min-height: 0;
+	display: flex;
+	flex-direction: column;
+}
+
+.meeting-videos-stack .video-gallery {
+	flex: 1;
+	min-height: 0;
+}
+
+.reaction-float-layer {
+	position: absolute;
+	inset: 0;
+	pointer-events: none;
+	overflow: visible;
+	z-index: 6;
+}
+
+.reaction-float {
+	position: absolute;
+	font-size: 1.75rem;
+	line-height: 1;
+	pointer-events: none;
+	z-index: 7;
+	text-shadow: 0 1px 4px rgba(0, 0, 0, 0.65);
+	will-change: transform, opacity;
+}
+
+.reaction-float--animate {
+	animation: easymeet-reaction-float 2.35s ease-out forwards;
+}
+
+@keyframes easymeet-reaction-float {
+	0% {
+		opacity: 1;
+		transform: translateY(0) scale(1);
+	}
+	100% {
+		opacity: 0;
+		transform: translateY(-120px) scale(1.12);
+	}
+}
+
+.reaction-popover-wrap {
+	position: relative;
+	display: inline-flex;
+	flex-direction: column;
+	align-items: center;
+}
+
+.reaction-popover {
+	position: absolute;
+	bottom: calc(100% + 10px);
+	left: 50%;
+	transform: translateX(-50%);
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.2rem;
+	justify-content: center;
+	padding: 0.45rem 0.5rem;
+	background: rgba(22, 22, 32, 0.96);
+	backdrop-filter: blur(12px);
+	-webkit-backdrop-filter: blur(12px);
+	border-radius: 14px;
+	border: 1px solid rgba(255, 255, 255, 0.1);
+	box-shadow: 0 8px 32px rgba(0, 0, 0, 0.45);
+	z-index: 160;
+	min-width: 132px;
+	max-width: min(260px, 86vw);
+}
+
+/* Eigenes display: flex würde sonst [hidden] unwirksam machen (MDN: hidden + display) */
+.reaction-popover[hidden] {
+	display: none !important;
+}
+
+.reaction-popover__btn {
+	font-size: 1.35rem;
+	line-height: 1;
+	padding: 0.3rem 0.35rem;
+	border: none;
+	background: transparent;
+	border-radius: 8px;
+	cursor: pointer;
+	transition: background 0.15s ease;
+}
+
+.reaction-popover__btn:hover {
+	background: rgba(255, 255, 255, 0.1);
+}
+
+.meeting-control-btn.meeting-control-btn--active {
+	background: rgba(99, 102, 241, 0.32);
+	box-shadow: 0 0 14px rgba(129, 140, 248, 0.4);
+}
+
+.video-tile__hand {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	flex-shrink: 0;
+	font-size: 1rem;
+	line-height: 1;
+	padding: 0.2rem;
+	filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.65));
+}
+
+.voip-view__hand {
+	margin-left: 0.35rem;
+	font-size: 0.95rem;
+	vertical-align: middle;
+}
+
+/* Umfragen-Modal – wie settings/share: verschiebbar, Größe, Minimieren zur Leiste */
+.polls-modal {
+	position: fixed;
+	inset: 0;
+	z-index: 1000;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	padding: 1.5rem;
+	pointer-events: none;
+}
+
+.polls-modal[hidden] {
+	display: none;
+}
+
+.polls-modal__content.polls-dock {
+	position: fixed;
+	left: 50%;
+	top: 50%;
+	transform: translate(-50%, -50%);
+	width: 100%;
+	max-width: 95vw;
+	max-height: 95vh;
+	min-width: 300px;
+	min-height: 260px;
+	display: flex;
+	flex-direction: column;
+	background: rgba(18, 18, 26, 0.97);
+	backdrop-filter: blur(16px);
+	-webkit-backdrop-filter: blur(16px);
+	border: 1px solid rgba(255, 255, 255, 0.08);
+	border-radius: var(--radius-lg);
+	box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5);
+	overflow: hidden;
+	pointer-events: auto;
+}
+
+.polls-modal__resize-handle {
+	position: absolute;
+	right: 0;
+	bottom: 0;
+	width: 16px;
+	height: 16px;
+	cursor: nwse-resize;
+	z-index: 5;
+}
+
+.polls-modal__resize-handle::after {
+	content: "";
+	position: absolute;
+	right: 2px;
+	bottom: 2px;
+	width: 10px;
+	height: 10px;
+	border-right: 2px solid var(--text-muted);
+	border-bottom: 2px solid var(--text-muted);
+	border-radius: 0 0 2px 0;
+	opacity: 0.6;
+}
+
+.polls-modal__resize-handle:hover::after {
+	opacity: 1;
+}
+
+.polls-dock__header {
+	flex-shrink: 0;
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 0.5rem;
+	padding: 0.65rem 0.85rem;
+	border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+	cursor: grab;
+	user-select: none;
+}
+
+.polls-dock__header:active {
+	cursor: grabbing;
+}
+
+.polls-dock__title {
+	margin: 0;
+	font-size: 1rem;
+	font-weight: 600;
+}
+
+.polls-dock__body {
+	flex: 1;
+	min-height: 0;
+	overflow-y: auto;
+	padding: 0.75rem;
+	display: flex;
+	flex-direction: column;
+	gap: 1rem;
+}
+
+.polls-dock__empty {
+	margin: 0;
+	color: var(--text-muted);
+	font-size: 0.9rem;
+}
+
+.poll-card {
+	padding: 0.65rem 0.75rem;
+	border-radius: var(--radius-md);
+	border: 1px solid rgba(255, 255, 255, 0.08);
+	background: rgba(255, 255, 255, 0.03);
+}
+
+.poll-card__head {
+	display: flex;
+	align-items: flex-start;
+	justify-content: space-between;
+	gap: 0.5rem;
+	margin-bottom: 0.5rem;
+	font-size: 0.95rem;
+}
+
+.poll-badge {
+	font-size: 0.7rem;
+	font-weight: 600;
+	text-transform: uppercase;
+	letter-spacing: 0.04em;
+	color: var(--text-muted);
+	white-space: nowrap;
+}
+
+.poll-card__options {
+	display: flex;
+	flex-direction: column;
+	gap: 0.35rem;
+}
+
+.poll-option-btn {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 0.5rem;
+	width: 100%;
+	padding: 0.45rem 0.55rem;
+	text-align: left;
+	font-size: 0.9rem;
+	border-radius: var(--radius-sm);
+	border: 1px solid rgba(255, 255, 255, 0.1);
+	background: rgba(0, 0, 0, 0.2);
+	color: var(--text);
+	cursor: pointer;
+	transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.poll-option-btn:hover {
+	background: rgba(99, 102, 241, 0.2);
+	border-color: rgba(129, 140, 248, 0.35);
+}
+
+.poll-option-btn__label {
+	flex: 1;
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.poll-option-btn__tally {
+	font-variant-numeric: tabular-nums;
+	font-weight: 600;
+	opacity: 0.85;
+}
+
+.poll-option-result {
+	display: flex;
+	justify-content: space-between;
+	gap: 0.5rem;
+	font-size: 0.88rem;
+	padding: 0.35rem 0;
+	border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.poll-option-result:last-child {
+	border-bottom: none;
+}
+
+.poll-card__close {
+	margin-top: 0.5rem;
+}
+
+/* Neue Umfrage – Eingaben im App-Theme (Glas, Accent, Fokus) */
+.poll-create {
+	position: relative;
+	padding: 0.9rem 0.95rem;
+	border-radius: var(--radius-md);
+	background:
+		linear-gradient(155deg, rgba(99, 102, 241, 0.09) 0%, transparent 42%),
+		linear-gradient(320deg, rgba(0, 212, 170, 0.06) 0%, transparent 45%),
+		rgba(0, 0, 0, 0.32);
+	border: 1px solid rgba(255, 255, 255, 0.09);
+	box-shadow:
+		inset 0 1px 0 rgba(255, 255, 255, 0.05),
+		0 4px 20px rgba(0, 0, 0, 0.25);
+}
+
+.poll-create__title {
+	margin: 0 0 0.7rem;
+	display: flex;
+	align-items: center;
+	gap: 0.45rem;
+	font-family: var(--font-display);
+	font-size: 0.88rem;
+	font-weight: 600;
+	color: var(--text);
+	letter-spacing: 0.02em;
+}
+
+.poll-create__title::before {
+	content: "";
+	width: 4px;
+	height: 1.05em;
+	border-radius: 3px;
+	background: var(--accent-gradient);
+	flex-shrink: 0;
+	box-shadow: 0 0 12px rgba(129, 140, 248, 0.35);
+}
+
+.poll-create__fields {
+	display: flex;
+	flex-direction: column;
+	gap: 0.55rem;
+}
+
+.poll-create__options {
+	display: flex;
+	flex-direction: column;
+	gap: 0.5rem;
+}
+
+.poll-create__option-row {
+	display: flex;
+	align-items: stretch;
+	gap: 0.4rem;
+}
+
+.poll-create__option-row .poll-create__input {
+	width: auto;
+	flex: 1;
+	min-width: 0;
+}
+
+.poll-create__row-remove {
+	flex-shrink: 0;
+	width: 40px;
+	min-width: 40px;
+	min-height: 40px;
+	padding: 0;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	align-self: center;
+	border-radius: 10px;
+	color: var(--text-muted);
+}
+
+.poll-create__row-remove:hover:not(:disabled) {
+	color: var(--danger);
+	background: rgba(239, 68, 68, 0.12);
+}
+
+.poll-create__row-remove .icon {
+	width: 1.1rem;
+	height: 1.1rem;
+}
+
+.poll-create__add-option {
+	align-self: flex-start;
+	margin-top: 0.1rem;
+}
+
+.poll-create__add-option:disabled {
+	opacity: 0.42;
+	cursor: not-allowed;
+}
+
+.poll-create__input {
+	width: 100%;
+	margin: 0;
+	padding: 0.68rem 0.9rem;
+	font-family: inherit;
+	font-size: 0.92rem;
+	line-height: 1.35;
+	color: var(--text);
+	background: var(--bg-input);
+	border: 1px solid var(--border);
+	border-radius: 10px;
+	box-shadow: inset 0 2px 6px rgba(0, 0, 0, 0.22);
+	transition:
+		border-color 0.2s ease,
+		box-shadow 0.2s ease,
+		background 0.2s ease;
+	-webkit-appearance: none;
+	appearance: none;
+}
+
+.poll-create__input--question {
+	font-size: 0.95rem;
+	font-weight: 500;
+}
+
+.poll-create__input--option {
+	font-size: 0.88rem;
+}
+
+.poll-create__input::placeholder {
+	color: var(--text-muted);
+	opacity: 0.78;
+	font-weight: 400;
+}
+
+.poll-create__input:hover {
+	border-color: rgba(255, 255, 255, 0.14);
+	background: rgba(26, 26, 36, 0.92);
+}
+
+.poll-create__input:focus {
+	outline: none;
+	border-color: rgba(129, 140, 248, 0.55);
+	box-shadow:
+		0 0 0 3px rgba(99, 102, 241, 0.22),
+		inset 0 2px 6px rgba(0, 0, 0, 0.16);
+	background: rgba(22, 22, 32, 0.96);
+}
+
+.poll-create__submit {
+	width: 100%;
+	margin-top: 0.65rem;
+	font-weight: 600;
+	letter-spacing: 0.02em;
+	box-shadow: 0 2px 14px rgba(0, 212, 170, 0.2);
+}
+
+.poll-create__submit:hover {
+	box-shadow: 0 4px 20px rgba(0, 212, 170, 0.28);
 }
 
 .meeting-control-bar {
@@ -1271,6 +1744,13 @@ body {
 
 .meeting-control-btn.video-btn--on {
 	box-shadow: 0 0 14px rgba(129, 140, 248, 0.35);
+}
+
+/* Raster/Freies Layout direkt links vom Zahnrad-Einstellungen */
+.meeting-control-btn--layout {
+	margin-left: 0.35rem;
+	padding-left: 0.4rem;
+	border-left: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .meeting-control-btn[title]:hover {
@@ -1541,8 +2021,10 @@ body {
 	right: 0.75rem;
 	z-index: 2;
 	display: flex;
+	flex-direction: row;
 	align-items: center;
 	gap: 0.35rem;
+	/* Reihenfolge: Hand → Mikro/Lautstärke → Kamera (kein Überlappen) */
 }
 
 .video-tile__mute-status {
@@ -4270,9 +4752,10 @@ body {
 	background: var(--accent-dim);
 }
 
+/* Oben: nicht über der unteren Meeting-Leiste liegen */
 .toast-root {
 	position: fixed;
-	bottom: max(1.25rem, env(safe-area-inset-bottom));
+	top: max(0.75rem, env(safe-area-inset-top));
 	left: 50%;
 	transform: translateX(-50%);
 	z-index: 2000;
@@ -4296,7 +4779,7 @@ body {
 	border-radius: 999px;
 	box-shadow: 0 8px 32px rgba(0, 0, 0, 0.45);
 	opacity: 0;
-	transform: translateY(12px) scale(0.94);
+	transform: translateY(-12px) scale(0.94);
 	transition:
 		opacity 0.32s var(--ease-spring),
 		transform 0.32s var(--ease-spring);

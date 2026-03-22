@@ -32,6 +32,7 @@ import { refreshDeviceSelects } from "./devices.js";
 import { startSpeakingIndicator, stopSpeakingIndicator } from "../../speaking-indicator.js";
 import { mediaDebugLog, mediaDebugStreamInfo, mediaDebugTrackInfo } from "../../utils/mediaDebug.js";
 import { showToast } from "../../utils/toast.js";
+import { POLL_CREATE_MAX_OPTIONS } from "../../ui/screens/room-view-renderers.js";
 
 /** DOMException.name → appropriate i18n key (not every error is permission denied). */
 function alertMediaAccessError(err, kind) {
@@ -508,6 +509,10 @@ function toolbarShareBtn(app) {
 	return app.querySelector('.meeting-control-bar [data-action="share"]');
 }
 
+function toolbarPollsBtn(app) {
+	return app.querySelector('.meeting-control-bar [data-action="toggle-polls-panel"]');
+}
+
 function toolbarScreenBtn(app) {
 	return app.querySelector(".meeting-control-bar #stop-screen-btn") || app.querySelector(".meeting-control-bar #start-screen-btn");
 }
@@ -623,6 +628,22 @@ function minimizeShareModalToToolbar(app) {
 	runMinimizeToToolbar(app, content, toolbarShareBtn, () => {
 		app.querySelector("#share-modal")?.setAttribute("hidden", "");
 	});
+}
+
+function minimizePollsModalToToolbar(app) {
+	const content = app.querySelector("#polls-modal:not([hidden]) .polls-modal__content");
+	runMinimizeToToolbar(app, content, toolbarPollsBtn, () => {
+		app.querySelector("#polls-modal")?.setAttribute("hidden", "");
+	});
+}
+
+function openPollsPanelFromToolbar(app) {
+	const modal = app.querySelector("#polls-modal");
+	const content = modal?.querySelector(".polls-modal__content");
+	if (!modal || !content) return;
+	modal.removeAttribute("hidden");
+	clearToolbarMinimizeMotion(content);
+	runExpandFromToolbar(app, content, toolbarPollsBtn);
 }
 
 function openFreeLayoutVideosPanel(app) {
@@ -843,6 +864,8 @@ function buildRoomViewConfigPart2(app, deps) {
 			});
 		},
 		onMinimizeShareModal: () => minimizeShareModalToToolbar(app),
+		onOpenPollsPanel: () => openPollsPanelFromToolbar(app),
+		onMinimizePollsModal: () => minimizePollsModalToToolbar(app),
 		onMinimizeSettingsModal: () => minimizeSettingsModalToToolbar(),
 		onInputDeviceChange: (deviceId) => handleInputDeviceChange(app, deviceId, setupAudioTrackEndedHandler, refreshDeviceSelects, navigate),
 		onVideoDeviceChange: (deviceId) => handleVideoDeviceChange(app, deviceId, refreshDeviceSelects, navigate),
@@ -856,7 +879,40 @@ function buildRoomViewConfigPart2(app, deps) {
 			handleStopScreen();
 			app.querySelectorAll(".stream-modal").forEach((el) => el.setAttribute("hidden", ""));
 		},
-		onAudioScreenToggle: () => handleAudioScreenToggle(app, getStreamForViewers)
+		onAudioScreenToggle: () => handleAudioScreenToggle(app, getStreamForViewers),
+		onToggleHand: () => {
+			const s = getState();
+			const p = selectors.selectHostPeer(s) || selectors.selectViewerConn(s);
+			if (!p?.sendWs) return;
+			p.sendWs({ type: "hand_raise", raised: !selectors.selectMyHandRaised(s) });
+		},
+		onSendReaction: (emoji) => {
+			if (!emoji) return;
+			const s = getState();
+			const p = selectors.selectHostPeer(s) || selectors.selectViewerConn(s);
+			p?.sendWs?.({ type: "reaction", emoji });
+		},
+		onPollVote: (pollId, optionIndex) => {
+			const p = selectors.selectHostPeer(getState()) || selectors.selectViewerConn(getState());
+			p?.sendWs?.({ type: "poll_vote", pollId, optionIndex });
+		},
+		onPollCreate: (question, options) => {
+			if (!question?.trim() || !options || options.length < 2) {
+				alert(t("pollNeedTwoOptions"));
+				return;
+			}
+			if (options.length > POLL_CREATE_MAX_OPTIONS) {
+				alert(t("pollMaxOptions"));
+				return;
+			}
+			const p = selectors.selectHostPeer(getState()) || selectors.selectViewerConn(getState());
+			p?.sendWs?.({ type: "poll_create", question: question.trim(), options });
+		},
+		onPollClose: (pollId) => {
+			if (!pollId) return;
+			const p = selectors.selectHostPeer(getState()) || selectors.selectViewerConn(getState());
+			p?.sendWs?.({ type: "poll_close", pollId });
+		}
 	};
 }
 

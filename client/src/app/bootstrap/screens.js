@@ -17,6 +17,7 @@ import {
 import { isSupported as isBackgroundEffectsSupported, BACKGROUND_IMAGES } from "../../effects/backgroundEffects.js";
 import { getCustomBackgrounds } from "../../effects/storage/customBackgroundStorage.js";
 import { attachRoomViewAndHandlers as attachRoomViewFromModule } from "../../effects/ui/roomView.js";
+import { refreshPollsDock } from "../../ui/screens/room-view-renderers.js";
 import { getStreamForPeerId, getStreamForScreenShare } from "../../effects/media/tiles.js";
 import * as selectors from "../../domain/selectors/index.js";
 import { handleCreateRoom, handleJoinRoom } from "./roomJoinCreate.js";
@@ -223,6 +224,7 @@ export function renderRoomViewContent(appEl, ctx) {
 	);
 	renderLangSwitcher(appEl, ctx);
 	attachRoomViewFromModule(appEl, getRoomViewDeps(appEl, ctx));
+	refreshPollsDock(appEl, getState());
 }
 
 /**

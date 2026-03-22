@@ -44,7 +44,10 @@ import {
 	Lock,
 	Minus,
 	Maximize2,
-	ArrowRight
+	ArrowRight,
+	Hand,
+	BarChart2,
+	Radio
 } from "lucide";
 
 const defaultAttrs = { "stroke-width": 1.75, class: "icon" };
@@ -52,6 +55,8 @@ const smAttrs = { ...defaultAttrs, width: "1.75rem", height: "1.75rem" };
 const lockInlineAttrs = { ...defaultAttrs, width: "0.9rem", height: "0.9rem", class: "icon landing-active-room__lock-svg" };
 const jumpInlineAttrs = { ...defaultAttrs, width: "0.95rem", height: "0.95rem", class: "icon landing-active-room__jump-svg" };
 const lgAttrs = { ...defaultAttrs, width: "3rem", height: "3rem" };
+/** Landing: leere aktive Räume – groß, passend zur Empty-State-Kachel */
+const landingEmptyStateAttrs = { ...defaultAttrs, width: "2.75rem", height: "2.75rem", class: "icon landing__empty-state-svg", "stroke-width": 1.5 };
 
 export const iconCopy = () => createElement(Copy, smAttrs).outerHTML;
 export const iconLink = () => createElement(Link, smAttrs).outerHTML;
@@ -100,6 +105,10 @@ export const iconRefreshCw = () => createElement(RefreshCw, smAttrs).outerHTML;
 export const iconLockInline = () => createElement(Lock, lockInlineAttrs).outerHTML;
 /** Pinned rooms: tap-to-join hint (no live presence). */
 export const iconPinnedRoomJump = () => createElement(ArrowRight, jumpInlineAttrs).outerHTML;
+export const iconHand = () => createElement(Hand, smAttrs).outerHTML;
+export const iconBarChart2 = () => createElement(BarChart2, smAttrs).outerHTML;
+/** „Keine live-Räume“ – dezentes Lucide-Icon statt Illustration */
+export const iconLandingActiveRoomsEmpty = () => createElement(Radio, landingEmptyStateAttrs).outerHTML;
 
 export const iconLogo = () => `
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="4rem" height="4rem" class="icon logo-icon" style="margin-bottom: 1rem; display: inline-block;">

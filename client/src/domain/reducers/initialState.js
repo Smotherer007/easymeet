@@ -62,6 +62,10 @@ export function createInitialState() {
 		freeLayoutChatOpen: false,
 		freeLayoutParticipantsOpen: false,
 		freeLayoutVideosOpen: true,
-		windowPositions: { ...WINDOW_POSITION_DEFAULTS }
+		windowPositions: { ...WINDOW_POSITION_DEFAULTS },
+		_reactionNonce: 0,
+		_reactionLast: null,
+		roomPolls: [],
+		myHandRaised: false
 	};
 }

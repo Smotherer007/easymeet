@@ -34,6 +34,7 @@ const msRooms = new Map();
  * @property {boolean} muted
  * @property {boolean} videoEnabled
  * @property {string} backgroundEffect
+ * @property {boolean} handRaised
  */
 
 /**
@@ -42,6 +43,8 @@ const msRooms = new Map();
  * @property {Map<string, PeerState>} peers
  * @property {import('protoo-server').Room} protooRoom
  * @property {number} createdAt
+ * @property {Map<string, object>} polls
+ * @property {number} pollSeq
  */
 
 export async function createWorkers() {
@@ -79,8 +82,11 @@ export async function getOrCreateRoom(roomId) {
 		router,
 		peers: new Map(),
 		protooRoom: new ProtooRoom(),
-		createdAt: Date.now()
+		createdAt: Date.now(),
+		polls: new Map(),
+		pollSeq: 0
 	};
+	room.canonicalRoomId = id;
 	msRooms.set(id, room);
 	logMediasoupInfo("router created", { roomId: id });
 	return room;
@@ -147,7 +153,8 @@ export function createPeerState(peerId, nick) {
 		consumers: new Map(),
 		muted: true,
 		videoEnabled: false,
-		backgroundEffect: "none"
+		backgroundEffect: "none",
+		handRaised: false
 	};
 }
 

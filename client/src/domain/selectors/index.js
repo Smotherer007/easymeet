@@ -397,3 +397,19 @@ export function selectDeviceChangeHandler(state) {
 export function selectCallDeviceChangeHandler(state) {
 	return state._callDeviceChangeHandler;
 }
+
+/**
+ * @param {AppState} state
+ * @returns {boolean}
+ */
+export function selectMyHandRaised(state) {
+	return !!state.myHandRaised;
+}
+
+/**
+ * @param {AppState} state
+ * @returns {Array<{ id: string, question: string, options: string[], tallies: number[], closed: boolean, creatorPeerId: string }>}
+ */
+export function selectRoomPolls(state) {
+	return state.roomPolls ?? [];
+}

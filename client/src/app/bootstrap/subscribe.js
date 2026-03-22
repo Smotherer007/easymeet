@@ -8,6 +8,9 @@ import { stopSpeakingIndicator } from "../../speaking-indicator.js";
 import { appendMessage, updateVoipParticipants, updateChatBadge, updateFileShareMessage, updateReceivingProgress, hideReceivingProgress } from "../../ui/screens/index.js";
 import { attachRemoteAudio, detachRemoteAudio, getStreamForVideoTile, getStreamForPeerId, getStreamForScreenShare } from "../../effects/media/tiles.js";
 import { patchMeetingScreenSharePresentation } from "../../effects/ui/roomView.js";
+import { spawnFloatingReaction } from "../../effects/ui/floatingReactions.js";
+import { syncHandRaisedOnVideoTiles } from "../../effects/media/tiles.js";
+import { refreshPollsDock, updateHandRaiseMeetingBar } from "../../ui/screens/room-view-renderers.js";
 import * as selectors from "../../domain/selectors/index.js";
 import { t } from "../../i18n.js";
 import { showToast } from "../../utils/toast.js";
@@ -141,6 +144,7 @@ function handleVoipOrRoomUpdate(appEl, state) {
 		selectors.selectIsVideoEnabled(state),
 		selectors.selectPeerBackgroundEffect(state)
 	);
+	syncHandRaisedOnVideoTiles();
 }
 
 /**
@@ -191,6 +195,15 @@ export function createSubscriptionHandler(appEl, getState, dispatch) {
 		if (!event?.type) return;
 		const evt = event.type;
 		const p = event.payload;
+		if (evt === "room/reaction" && p?.peerId && p?.emoji && selectors.selectScreen(state) === "room-view") {
+			spawnFloatingReaction(appEl, p.peerId, p.emoji);
+		}
+		if (evt === "room/handRaisedSelf" && selectors.selectScreen(state) === "room-view") {
+			updateHandRaiseMeetingBar(appEl, !!p?.raised);
+		}
+		if ((evt === "room/pollUpsert" || evt === "room/pollsSet") && selectors.selectScreen(state) === "room-view") {
+			refreshPollsDock(appEl, state);
+		}
 		if (evt === "chat/messageReceived") handleChatMessageReceived(appEl, getState, dispatch, state, p);
 		dispatchVoipEvent(appEl, dispatch, state, evt, p);
 		dispatchFileEvent(appEl, state, evt, p);

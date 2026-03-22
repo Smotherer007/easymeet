@@ -22,7 +22,11 @@ import {
 	renderFileModalContent,
 	renderMeetingScreenShareSlotInner,
 	renderStreamModalHostActionsInner,
-	renderLeaveRoomModal
+	renderLeaveRoomModal,
+	renderPollsDock,
+	renderPollOptionRowHtml,
+	syncPollCreateOptionUi,
+	POLL_CREATE_MAX_OPTIONS
 } from "./room-view-renderers.js";
 import {
 	iconLogOut,
@@ -56,6 +60,7 @@ import {
 } from "../../icons.js";
 import { EMOJI_DATA, searchEmojis } from "../../emoji-data.js";
 import { renderChatContent } from "../../link-embed.js";
+import { replaceEmojiShortcodes } from "../../utils/emojiShortcodes.js";
 import { WINDOW_POSITION_DEFAULTS } from "../../shared/windowPositionsDefaults.js";
 import { mergeAndClampWindowRect, clampWindowRectById, clampDraggablePosition } from "../utils/viewportWindowClamp.js";
 
@@ -85,7 +90,8 @@ function renderFloatingWindows(state) {
 	const controlBar = renderMeetingControlBarFloating({
 		...state,
 		hasScreenShareSupport: state.hasScreenShareSupport ?? true,
-		videoLayoutMode: "free"
+		videoLayoutMode: "free",
+		myHandRaised: state.myHandRaised ?? false
 	});
 	const pVideos = pos("videos");
 	const pChat = pos("chat");
@@ -141,6 +147,8 @@ export function renderRoomView(state) {
 	const settingsStyle = `left:${settingsRect.x}px;top:${settingsRect.y}px;width:${settingsRect.w}px;height:${settingsRect.h}px;transform:none`;
 	const shareRect = mergeAndClampWindowRect("share", WINDOW_POSITION_DEFAULTS.share, windowPositions.share);
 	const shareStyle = `left:${shareRect.x}px;top:${shareRect.y}px;width:${shareRect.w}px;height:${shareRect.h}px;transform:none`;
+	const pollsRect = mergeAndClampWindowRect("polls", WINDOW_POSITION_DEFAULTS.polls, windowPositions.polls);
+	const pollsStyle = `left:${pollsRect.x}px;top:${pollsRect.y}px;width:${pollsRect.w}px;height:${pollsRect.h}px;transform:none`;
 
 	const joinUrl = roomId && getJoinUrl ? getJoinUrl(roomId) : "";
 	const formattedRoomId = roomId ? roomId.replace(/(.{3})/g, "$1-").replace(/-$/, "") : "";
@@ -181,6 +189,7 @@ export function renderRoomView(state) {
       </div>
       ${renderSettingsModalContent(settingsState)}
       ${renderFileModalContent()}
+      ${renderPollsDock(pollsStyle)}
       ${renderLeaveRoomModal()}
     </div>
   `;
@@ -302,7 +311,10 @@ export function appendMessage(container, msg, opts = {}) {
 	} else if (msg.type === "chat") {
 		div.className = "chat__msg";
 		const parts = [];
-		if (msg.text?.trim()) parts.push(renderChatContent(msg.text, escapeHtml, t("openInNewTab")));
+		if (msg.text?.trim()) {
+			const expanded = replaceEmojiShortcodes(msg.text);
+			parts.push(renderChatContent(expanded, escapeHtml, t("openInNewTab")));
+		}
 		const urls = msg.giphyUrls?.length ? msg.giphyUrls : msg.giphyUrl ? [msg.giphyUrl] : [];
 		urls.forEach((u) => parts.push(`<span class="chat__gif-wrap"><img src="${escapeHtml(u)}" alt="GIF" class="chat__gif" loading="lazy" /></span>`));
 		const content = parts.length ? parts.join("") : "";
@@ -394,7 +406,10 @@ export function updateVoipParticipants(
 			const streamHtml = showThumb
 				? `<div class="voip-view__participant-stream" data-action="open-stream-modal" data-peer-id="${escapeHtml(peerId)}" title="${t("clickToExpand")}"><video class="voip-view__stream-thumb" autoplay playsinline muted disablepictureinpicture></video></div>`
 				: "";
-			return `<div class="voip-view__participant" data-peer-id="${escapeHtml(peerId)}" data-self="${isSelf}" data-has-background-effect="${hasBgEffect}"><div class="voip-view__participant-info"><div class="voip-view__participant-name">${escapeHtml(nick)}</div><div class="voip-view__participant-status-row">${volumeControl}</div></div>${streamHtml}</div>`;
+			const handMark = m.handRaised
+				? `<span class="voip-view__hand" title="${escapeHtml(t("handRaisedMarker"))}">✋</span>`
+				: "";
+			return `<div class="voip-view__participant" data-peer-id="${escapeHtml(peerId)}" data-self="${isSelf}" data-has-background-effect="${hasBgEffect}"><div class="voip-view__participant-info"><div class="voip-view__participant-name">${escapeHtml(nick)}${handMark}</div><div class="voip-view__participant-status-row">${volumeControl}</div></div>${streamHtml}</div>`;
 		})
 		.join("");
 	if (getStreamForScreenShare) {
@@ -539,6 +554,7 @@ const FLOATING_WINDOW_MAX = { w: 1920, h: 1080 };
 const STREAM_MODAL_MIN = { w: 320, h: 240 };
 const SETTINGS_MODAL_MIN = { w: 360, h: 400 };
 const SHARE_MODAL_MIN = { w: 360, h: 400 };
+const POLLS_MODAL_MIN = { w: 300, h: 260 };
 
 function setupSettingsModalResize(container, callbacks = {}) {
 	const content = container.querySelector(".settings-modal__content");
@@ -678,6 +694,52 @@ function setupShareModalResize(container, callbacks = {}) {
 	handle.addEventListener("mousedown", onMouseDown);
 }
 
+function setupPollsModalResize(container, callbacks = {}) {
+	const content = container.querySelector(".polls-modal__content");
+	const handle = content?.querySelector("[data-resize-handle]");
+	if (!content || !handle || !callbacks.onWindowResize) return;
+	let startX = 0,
+		startY = 0,
+		startW = 0,
+		startH = 0;
+	const onMouseDown = (e) => {
+		e.preventDefault();
+		e.stopPropagation();
+		const rect = content.getBoundingClientRect();
+		startX = e.clientX;
+		startY = e.clientY;
+		startW = rect.width;
+		startH = rect.height;
+		document.addEventListener("mousemove", onMouseMove);
+		document.addEventListener("mouseup", onMouseUp);
+	};
+	const onMouseMove = (e) => {
+		const dw = e.clientX - startX;
+		const dh = e.clientY - startY;
+		let w = Math.round(Math.max(POLLS_MODAL_MIN.w, Math.min(FLOATING_WINDOW_MAX.w, startW + dw)));
+		let h = Math.round(Math.max(POLLS_MODAL_MIN.h, Math.min(FLOATING_WINDOW_MAX.h, startH + dh)));
+		content.style.width = `${w}px`;
+		content.style.height = `${h}px`;
+		const rect = content.getBoundingClientRect();
+		const c = clampWindowRectById("polls", { x: rect.left, y: rect.top, w: rect.width, h: rect.height });
+		content.style.left = `${c.x}px`;
+		content.style.top = `${c.y}px`;
+		content.style.width = `${c.w}px`;
+		content.style.height = `${c.h}px`;
+		startX = e.clientX;
+		startY = e.clientY;
+		startW = c.w;
+		startH = c.h;
+		const positions = { ...(callbacks.getWindowPositions?.() || {}), polls: { x: c.x, y: c.y, w: c.w, h: c.h } };
+		callbacks.onWindowResize?.("polls", positions);
+	};
+	const onMouseUp = () => {
+		document.removeEventListener("mousemove", onMouseMove);
+		document.removeEventListener("mouseup", onMouseUp);
+	};
+	handle.addEventListener("mousedown", onMouseDown);
+}
+
 function setupFloatingWindowResize(container, callbacks = {}) {
 	container.querySelectorAll(".floating-window[data-window]").forEach((win) => {
 		const handle = win.querySelector("[data-resize-handle]");
@@ -740,9 +802,16 @@ function setupDraggableModals(container, callbacks = {}) {
 		const onMouseDown = (e) => {
 			if (e.target.closest("button")) return;
 			e.preventDefault();
-			const overlay = content.closest(".floating-window") || content.closest(".stream-modal") || content.closest(".settings-modal") || content.closest(".share-modal");
+			const overlay =
+				content.closest(".floating-window") ||
+				content.closest(".stream-modal") ||
+				content.closest(".settings-modal") ||
+				content.closest(".share-modal") ||
+				content.closest(".polls-modal");
 			if (overlay) {
-				container.querySelectorAll(".floating-window, .stream-modal, .settings-modal, .share-modal").forEach((el) => el.classList.remove("overlay--front"));
+				container
+					.querySelectorAll(".floating-window, .stream-modal, .settings-modal, .share-modal, .polls-modal")
+					.forEach((el) => el.classList.remove("overlay--front"));
 				overlay.classList.add("overlay--front");
 			}
 			const rect = content.getBoundingClientRect();
@@ -793,6 +862,9 @@ function attachRoomViewModalListeners(container, callbacks) {
 	});
 	container.querySelectorAll('[data-action="minimize-share-modal"]').forEach((el) => {
 		el.addEventListener("click", () => callbacks.onMinimizeShareModal?.());
+	});
+	container.querySelectorAll('[data-action="minimize-polls-modal"]').forEach((el) => {
+		el.addEventListener("click", () => callbacks.onMinimizePollsModal?.());
 	});
 	container.querySelectorAll('[data-action="minimize-stream-modal"]').forEach((el) => {
 		el.addEventListener("click", () => callbacks.onMinimizeStreamModal?.());
@@ -962,7 +1034,7 @@ function attachRoomViewShareModalCopyListeners(container) {
 
 /** Skip modals with hidden; still clamp floating windows when collapsed (visible in viewport when opened). */
 function shouldClampDraggable(el) {
-	const modal = el.closest("#stream-modal, #settings-modal, #share-modal");
+	const modal = el.closest("#stream-modal, #settings-modal, #share-modal, #polls-modal");
 	if (modal?.hasAttribute("hidden")) return false;
 	return true;
 }
@@ -998,6 +1070,23 @@ export function attachRoomViewListeners(container, callbacks) {
 	const viewportClampAc = new AbortController();
 	container._easymeetViewportClampAbort = viewportClampAc;
 	const vSignal = viewportClampAc.signal;
+
+	function closeReactionPopover() {
+		container.querySelector("#reaction-popover")?.setAttribute("hidden", "");
+		container.querySelectorAll('[data-action="toggle-reaction-popover"]').forEach((b) => b.setAttribute("aria-expanded", "false"));
+	}
+
+	document.addEventListener(
+		"click",
+		(e) => {
+			const pop = container.querySelector("#reaction-popover");
+			if (!pop || pop.hasAttribute("hidden")) return;
+			if (e.target.closest("#reaction-popover") || e.target.closest('[data-action="toggle-reaction-popover"]')) return;
+			closeReactionPopover();
+		},
+		{ signal: vSignal }
+	);
+
 	let clampRaf = 0;
 	const scheduleViewportClamp = () => {
 		cancelAnimationFrame(clampRaf);
@@ -1039,6 +1128,7 @@ export function attachRoomViewListeners(container, callbacks) {
 	setupStreamModalResize(container, { onWindowResize: callbacks.onWindowResize, getWindowPositions: callbacks.getWindowPositions });
 	setupSettingsModalResize(container, { onWindowResize: callbacks.onWindowResize, getWindowPositions: callbacks.getWindowPositions });
 	setupShareModalResize(container, { onWindowResize: callbacks.onWindowResize, getWindowPositions: callbacks.getWindowPositions });
+	setupPollsModalResize(container, { onWindowResize: callbacks.onWindowResize, getWindowPositions: callbacks.getWindowPositions });
 	attachRoomViewModalListeners(container, callbacks);
 	attachRoomViewDownloadListeners(container, callbacks);
 	attachRoomViewShareListeners(container, callbacks);
@@ -1059,6 +1149,97 @@ export function attachRoomViewListeners(container, callbacks) {
 	});
 	container.querySelectorAll('[data-action="toggle-mute"]').forEach((el) => el.addEventListener("click", () => callbacks.onToggleMute?.()));
 	container.querySelectorAll('[data-action="toggle-video"]').forEach((el) => el.addEventListener("click", () => callbacks.onToggleVideo?.()));
+
+	container.addEventListener(
+		"click",
+		(e) => {
+			const tr = e.target.closest('[data-action="toggle-reaction-popover"]');
+			if (!tr) return;
+			e.stopPropagation();
+			const pop = container.querySelector("#reaction-popover");
+			if (!pop) return;
+			const willOpen = pop.hasAttribute("hidden");
+			if (willOpen) pop.removeAttribute("hidden");
+			else pop.setAttribute("hidden", "");
+			tr.setAttribute("aria-expanded", willOpen ? "true" : "false");
+		},
+		{ signal: vSignal }
+	);
+	container.addEventListener(
+		"click",
+		(e) => {
+			const sr = e.target.closest('[data-action="send-reaction"]');
+			if (!sr?.dataset?.emoji) return;
+			e.preventDefault();
+			callbacks.onSendReaction?.(sr.dataset.emoji);
+			closeReactionPopover();
+		},
+		{ signal: vSignal }
+	);
+	container.querySelectorAll('[data-action="toggle-hand"]').forEach((el) =>
+		el.addEventListener("click", () => {
+			callbacks.onToggleHand?.();
+			container.querySelectorAll(".meeting-control-bar").forEach((bar) => bar.classList.remove("meeting-control-bar--more-open"));
+			container.querySelectorAll('[data-action="toggle-meeting-more"]').forEach((b) => b.setAttribute("aria-expanded", "false"));
+		})
+	);
+	container.querySelectorAll('[data-action="toggle-polls-panel"]').forEach((el) =>
+		el.addEventListener("click", () => {
+			const modal = container.querySelector("#polls-modal");
+			if (!modal) return;
+			if (modal.hasAttribute("hidden")) callbacks.onOpenPollsPanel?.();
+			else callbacks.onMinimizePollsModal?.();
+			container.querySelectorAll(".meeting-control-bar").forEach((bar) => bar.classList.remove("meeting-control-bar--more-open"));
+			container.querySelectorAll('[data-action="toggle-meeting-more"]').forEach((b) => b.setAttribute("aria-expanded", "false"));
+		})
+	);
+	container.addEventListener(
+		"click",
+		(e) => {
+			const addOpt = e.target.closest('[data-action="poll-add-option"]');
+			if (addOpt) {
+				e.preventDefault();
+				const wrap = container.querySelector("#poll-create-options");
+				if (!wrap) return;
+				const n = wrap.querySelectorAll(".poll-create__option-row").length;
+				if (n >= POLL_CREATE_MAX_OPTIONS) return;
+				wrap.insertAdjacentHTML("beforeend", renderPollOptionRowHtml(n + 1));
+				syncPollCreateOptionUi(container);
+				return;
+			}
+			const remOpt = e.target.closest('[data-action="poll-remove-option"]');
+			if (remOpt) {
+				e.preventDefault();
+				const row = remOpt.closest(".poll-create__option-row");
+				const wrap = container.querySelector("#poll-create-options");
+				if (!row || !wrap || wrap.querySelectorAll(".poll-create__option-row").length <= 2) return;
+				row.remove();
+				syncPollCreateOptionUi(container);
+				return;
+			}
+			const voteBtn = e.target.closest('[data-action="poll-vote"]');
+			if (voteBtn?.dataset?.pollId != null && voteBtn.dataset.optionIndex != null) {
+				callbacks.onPollVote?.(voteBtn.dataset.pollId, parseInt(voteBtn.dataset.optionIndex, 10));
+				return;
+			}
+			const closePoll = e.target.closest('[data-action="poll-close"]');
+			if (closePoll?.dataset?.pollId) {
+				callbacks.onPollClose?.(closePoll.dataset.pollId);
+				return;
+			}
+			const createSub = e.target.closest('[data-action="poll-create-submit"]');
+			if (createSub) {
+				const qEl = container.querySelector("#poll-create-question");
+				const q = qEl?.value?.trim() ?? "";
+				const opts = [...container.querySelectorAll(".poll-create-option")]
+					.map((inp) => inp.value.trim())
+					.filter(Boolean);
+				callbacks.onPollCreate?.(q, opts);
+			}
+		},
+		{ signal: vSignal }
+	);
+
 	container.querySelectorAll('[data-action="toggle-meeting-more"]').forEach((el) =>
 		el.addEventListener("click", () => {
 			container.querySelectorAll(".meeting-control-bar").forEach((bar) => {
@@ -1155,6 +1336,16 @@ export function attachRoomViewListeners(container, callbacks) {
 			const leaveM = container.querySelector("#leave-room-modal");
 			if (leaveM && !leaveM.hasAttribute("hidden")) {
 				leaveM.setAttribute("hidden", "");
+				return;
+			}
+			const pop = container.querySelector("#reaction-popover");
+			if (pop && !pop.hasAttribute("hidden")) {
+				closeReactionPopover();
+				return;
+			}
+			const pollsModal = container.querySelector("#polls-modal");
+			if (pollsModal && !pollsModal.hasAttribute("hidden")) {
+				callbacks.onMinimizePollsModal?.();
 				return;
 			}
 			const modal = container.querySelector("#settings-modal");
