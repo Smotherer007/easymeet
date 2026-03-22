@@ -1,12 +1,13 @@
 {
   "name": "easymeet-server",
+  "private": true,
   "type": "module",
   "engines": {
     "node": ">=22"
   },
   "scripts": {
-    "start": "node index.js",
-    "dev": "node index.js"
+    "start": "node src/index.js",
+    "dev": "node --watch src/index.js"
   },
   "dependencies": {
     "dotenv": "^16.4.7",

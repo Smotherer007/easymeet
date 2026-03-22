@@ -1,38 +1,38 @@
-# Easymeet – Production-Compose
+# Easymeet – Docker Compose (Konfiguration nur zur Laufzeit, kein Image-Rebuild)
 #
-# 1. Optional: cp .env.example .env und MEDIASOUP_ANNOUNCED_IP setzen.
-# 2. Netzwerk: docker network create frontend
-# 3. docker compose up -d
+# Variablen: ./.env → Umgebungsvariablen im Container (env_file).
+# Optional: unter `environment:` Werte setzen — überschreiben env_file.
 #
-# Keine `ports:` – Zugriff nur intern (z. B. Nginx Proxy Manager im selben Netz → app:3001).
-# RTP-UDP (RTC_*) muss von eurem Proxy/Host zu diesem Container durchgereicht werden.
+# Feste Räume **ohne Volume**: in .env z. B.
+#   EASYMEET_PERSISTENT_ROOMS_JSON='{"rooms":[{"id":"LOBBY"}]}'
+# (eine Zeile, minified). Dann brauchst du keinen Mount.
 #
-# Fehler „port is already allocated“ trotzdem? → meist docker-compose.override.yml
-# oder gemergte Compose mit ports:. Prüfen: docker compose config
-# Siehe docs/docker-compose-troubleshooting.md
+# **Mit** JSON-Datei auf dem Host: unten den `volumes:`-Block einkommentieren (Bind-Mount aktivieren).
+# Dazu in .env: EASYMEET_PERSISTENT_ROOMS=persistent-rooms.json
 #
-# Ohne .env gelten die Default-Werte in ${VAR:-default}.
+# Einmalig: cp .env.example .env
+#
+# Start: docker network create frontend && docker compose up -d
 
 services:
-  app:
-    image: smotherer/easymeet:latest
-    env_file:
-      - path: .env
-        required: false
-    environment:
-      - PORT=${PORT:-3001}
-      - NODE_ENV=${NODE_ENV:-production}
-      - MEDIASOUP_LISTEN_IP=${MEDIASOUP_LISTEN_IP:-0.0.0.0}
-      - MEDIASOUP_ANNOUNCED_IP=${MEDIASOUP_ANNOUNCED_IP:-}
-      - RTC_MIN_PORT=${RTC_MIN_PORT:-40000}
-      - RTC_MAX_PORT=${RTC_MAX_PORT:-40200}
-    networks:
-      - frontend
-    # Eigene feste Räume (überschreibt die im Image eingebaute Standard-JSON):
-    # cp config/persistent-rooms.example.json config/persistent-rooms.json
-    # volumes:
-    #   - ./config/persistent-rooms.json:/app/config/persistent-rooms.json:ro
+    app:
+        image: smotherer/easymeet:latest
+        env_file:
+            - path: ./.env
+              required: false
+        # Optional: feste Werte direkt in der YAML (überschreiben gleiche Keys aus env_file)
+        # environment:
+        #   MEDIASOUP_ANNOUNCED_IP: 203.0.113.10
+        #   PORT: "3001"
+        # Nur nötig, wenn du persistent-rooms als Datei pflegst (nicht nur EASYMEET_PERSISTENT_ROOMS_JSON):
+        # volumes:
+        #     - type: bind
+        #       source: ./persistent-rooms.json
+        #       target: /app/persistent-rooms.json
+        #       read_only: true
+        networks:
+            - frontend
 
 networks:
-  frontend:
-    external: true
+    frontend:
+        external: true

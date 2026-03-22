@@ -1,54 +1,52 @@
 {
-  "name": "easymeet",
-  "version": "0.1.0",
-  "description": "Browser video conferencing – mediasoup SFU, chat, file sharing, screen share, virtual backgrounds",
-  "author": "Patrick Weppelmann",
-  "license": "Apache-2.0",
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/Smotherer007/easymeet.git"
-  },
-  "homepage": "https://easymeet.easyroomtools.tech/",
-  "bugs": {
-    "url": "https://github.com/Smotherer007/easymeet/issues"
-  },
-  "keywords": [
-    "video-conference",
-    "webrtc",
-    "mediasoup",
-    "sfu",
-    "screen-sharing",
-    "chat",
-    "virtual-backgrounds",
-    "videocall",
-    "meeting"
-  ],
-  "type": "module",
-  "scripts": {
-    "dev": "vite",
-    "server": "node server/index.js",
-    "dev:all": "concurrently \"npm run server\" \"npm run dev\"",
-    "build": "vite build",
-    "preview": "vite preview",
-    "docker:build": "docker build --no-cache --platform linux/amd64 -t smotherer/easymeet:latest .",
-    "docker:push": "docker push smotherer/easymeet:latest",
-    "docker:build:and:push": "npm run docker:build && npm run docker:push",
-    "electron": "npm run start --prefix electron",
-    "electron:dev": "npm run start:dev --prefix electron"
-  },
-  "devDependencies": {
-    "concurrently": "^9.2.1"
-  },
-  "dependencies": {
-    "@mediapipe/selfie_segmentation": "^0.1.1675465747",
-    "@mediapipe/tasks-vision": "^0.10.32",
-    "awaitqueue": "^3.3.0",
-    "bcrypt": "^6.0.0",
-    "fflate": "^0.8.2",
-    "lucide": "^0.577.0",
-    "mediasoup-client": "^3.7.17",
-    "protoo-client": "^4.0.7",
-    "qrcode": "^1.5.4",
-    "vite": "^7.3.1"
-  }
+	"name": "easymeet",
+	"private": true,
+	"version": "0.1.0",
+	"description": "Browser video conferencing – mediasoup SFU, chat, file sharing, screen share, virtual backgrounds",
+	"author": "Patrick Weppelmann",
+	"license": "Apache-2.0",
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/Smotherer007/easymeet.git"
+	},
+	"homepage": "https://easymeet.easyroomtools.tech/",
+	"bugs": {
+		"url": "https://github.com/Smotherer007/easymeet/issues"
+	},
+	"keywords": [
+		"video-conference",
+		"webrtc",
+		"mediasoup",
+		"sfu",
+		"screen-sharing",
+		"chat",
+		"virtual-backgrounds",
+		"videocall",
+		"meeting"
+	],
+	"type": "module",
+	"workspaces": [
+		"client",
+		"server"
+	],
+	"scripts": {
+		"dev": "npm run dev -w easymeet-client",
+		"server": "npm run start -w easymeet-server",
+		"dev:all": "concurrently \"npm run server\" \"npm run dev\"",
+		"rebuild:mediasoup": "npm rebuild mediasoup -w easymeet-server",
+		"build": "npm run build -w easymeet-client",
+		"preview": "npm run preview -w easymeet-client",
+		"pretty": "prettier --write \"**/*.{js,json,xml,html,css,scss,md,yaml,yml,sh}\"",
+		"pretty:check": "prettier --check \"**/*.{js,json,xml,html,css,scss,md,yaml,yml,sh}\"",
+		"docker:build": "docker build --no-cache --platform linux/amd64 -t smotherer/easymeet:latest .",
+		"docker:push": "docker push smotherer/easymeet:latest",
+		"docker:build:and:push": "npm run docker:build && npm run docker:push",
+		"docker:up": "docker compose up -d"
+	},
+	"devDependencies": {
+		"@prettier/plugin-xml": "^3.4.2",
+		"concurrently": "^9.2.1",
+		"prettier": "^3.8.1",
+		"prettier-plugin-sh": "^0.18.0"
+	}
 }

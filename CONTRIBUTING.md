@@ -19,7 +19,7 @@ Thank you for your interest in contributing to EasyMeet!
 1. Fork the repository.
 2. Create a branch: `git checkout -b feature/your-feature` or `fix/your-fix`.
 3. Make your changes. Follow the existing code style.
-4. Run `npm run build` to ensure the project builds.
+4. Run `npm run build` to ensure the project builds. Optionally `npm run pretty:check`.
 5. Commit with a clear message: `git commit -m "Add: short description"`.
 6. Push and open a Pull Request against `main`.
 
@@ -31,9 +31,13 @@ Thank you for your interest in contributing to EasyMeet!
 
 ### Development Setup
 
+Monorepo: **`client/`** (Vite-Frontend), **`server/`** mit **`server/src/`** (API + mediasoup). Im **Repository-Root**:
+
 ```bash
 npm install
 npm run dev:all
 ```
+
+Konfiguration: **`.env`** im Repo-Root aus **`.env.example`**; optional **`server/.env`** überschreibt einzelne Variablen. Formatierung: `npm run pretty`.
 
 See [README.md](README.md) for full documentation.

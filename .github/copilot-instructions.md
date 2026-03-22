@@ -243,7 +243,7 @@ Falls ein Punkt offen ist: Refactoring vor Merge.
 ### Compliance-Iststand (Repo, grob)
 
 - **Reducer / Domain:** `appReducer` und Slices sind weitgehend pure `(state, event) -> nextState`; `patchState` bleibt als Legacy-Kompositionspfad.
-- **Result&lt;T&gt;:** in `src/effects/network/api.js` und `shared/result.js` genutzt; nicht jeder ältere Pfad ist umgestellt.
+- **Result&lt;T&gt;:** in `client/src/effects/network/api.js` und `client/src/shared/result.js` genutzt; nicht jeder ältere Pfad ist umgestellt.
 - **Schichten:** Netzwerk/mediasoup in `effects/network`, UI-Orchestrierung in `effects/ui` / `ui/screens` — gelegentlich große Handler-Funktionen (Zeilenlimit bewusst nicht global erzwungen).
 - **Eine Rolle pro Funktion:** Ziel bei neuem Code; bestehende Module (z. B. `roomView.js`, `mediasoupClient.js`) sind orchestration-lastig.
 - **UI-Texte:** `src/i18n.js` kann lokalisierte Strings enthalten — das ist **kein** Ersatz für englische Code-Kommentare; Kommentare/JSDoc bleiben Englisch.
@@ -344,7 +344,7 @@ project/
 - `src/main.js`: schrittweise auf `src/app` + `src/store` aufteilen.
 - `src/effects/network/mediasoupClient.js`: Protoo + mediasoup; I/O nur hier bzw. `api.js`.
 - `src/screens/*`: nach `src/ui/screens` migrieren und nur noch ueber Selectors lesen.
-- `server/index.js`: I/O-Rand beibehalten, Domain-Regeln in pure Funktionen auslagern.
+- `server/src/index.js`: I/O-Rand beibehalten, Domain-Regeln in pure Funktionen auslagern.
 
 ---
 
