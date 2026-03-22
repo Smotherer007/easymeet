@@ -47,10 +47,10 @@ function canonicalRoomIdForProtoo(roomId) {
   return s || String(roomId ?? '').trim();
 }
 
-function getProtooUrl(roomId, peerId) {
+function getProtooUrl(roomId, peerId, wsToken) {
   const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
   const id = canonicalRoomIdForProtoo(roomId);
-  const q = new URLSearchParams({ roomId: id, peerId });
+  const q = new URLSearchParams({ roomId: id, peerId, token: wsToken });
 
   const isViteDevServer = typeof location !== 'undefined' && String(location.port) === '5173';
   const forceDirectBackend =
@@ -491,13 +491,17 @@ export async function setupRoomParticipant(peerObj, nick, localStream, callbacks
     dispatch,
     roomId = '',
     password = '',
+    wsToken = '',
     getLocalStream,
     getLocalBackgroundEffect,
     getMuted,
   } = callbacks;
 
   const peerId = peerObj.id;
-  const url = getProtooUrl(roomId, peerId);
+  if (!wsToken || String(wsToken).trim() === '') {
+    logMsWarn('setupRoomParticipant: wsToken missing — call POST /api/join first');
+  }
+  const url = getProtooUrl(roomId, peerId, wsToken);
   logMsInfo('setupRoomParticipant', { roomId: roomId || '(empty!)', peerId, nick });
   if (!roomId || String(roomId).trim() === '') {
     logMsWarn('roomId missing — Protoo/join will fail on server. Check state after create/join API.');

@@ -19,7 +19,7 @@ export function validateCreateRoomPayload(payload) {
 
 /**
  * @param {unknown} payload
- * @returns {import('../../shared/result.js').Result<{ identifier: string; password: string; peerId: string }>}
+ * @returns {import('../../shared/result.js').Result<{ identifier: string; password: string }>}
  */
 export function validateJoinPayload(payload) {
   const r = parseJoinBody(payload, '');
@@ -58,25 +58,27 @@ function normalizeRoomIdentifier(id) {
 /**
  * @param {string} identifier
  * @param {string} password
- * @param {string} peerId
- * @returns {Promise<import('../../shared/result.js').Result<{ hostPeerId: string; roomId: string }>>}
+ * @returns {Promise<import('../../shared/result.js').Result<{ roomId: string; peerId: string; wsToken: string }>>}
  */
-export async function fetchJoinRoom(identifier, password, peerId) {
+export async function fetchJoinRoom(identifier, password) {
   try {
     const normalized = normalizeRoomIdentifier(identifier) || (identifier || '').trim();
     const res = await fetchJson(`${API_BASE}/join`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ identifier: normalized || identifier, password, peerId }),
+      body: JSON.stringify({ identifier: normalized || identifier, password }),
     });
     const data = /** @type {Record<string, unknown>} */ (res.data || {});
     if (!res.ok) {
       return err('API', data.error || 'Join failed');
     }
-    return ok({
-      hostPeerId: String(data.hostPeerId ?? ''),
-      roomId: String(data.roomId ?? identifier),
-    });
+    const roomId = String(data.roomId ?? identifier);
+    const peerId = String(data.peerId ?? '');
+    const wsToken = String(data.wsToken ?? '');
+    if (!peerId || !wsToken) {
+      return err('API', 'Join response missing peerId or wsToken');
+    }
+    return ok({ roomId, peerId, wsToken });
   } catch (e) {
     return err('NETWORK', 'Connection failed', e);
   }

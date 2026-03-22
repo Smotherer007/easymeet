@@ -11,6 +11,7 @@ import { normalizeRoomCode } from "./roomCode.js";
 import { createWorkers, listActiveRoomsPublic, getRoom as getMediasoupRoom, listRoomParticipantNicks } from "./mediasoup/rooms.js";
 import { attachProtooToHttpServer } from "./mediasoup/protooSignaling.js";
 import { applyPersistentRooms } from "./persistentRooms.js";
+import { issueHandshakeToken, newAssignedPeerId } from "./wsJoinTokens.js";
 import { logHttp, logInfo, logWarn, logError } from "./logger.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -109,7 +110,7 @@ async function handleJoin(req, res) {
 		res.status(400).json(parsed.error);
 		return;
 	}
-	const { identifier, password: providedPassword, peerId } = parsed.data;
+	const { identifier, password: providedPassword } = parsed.data;
 	const found = findRoomByIdentifier(identifier);
 	if (!found) {
 		logWarn("POST /api/join room not found", { identifier: identifier.slice(0, 8) });
@@ -124,8 +125,10 @@ async function handleJoin(req, res) {
 			return res.status(401).json({ error: "Invalid password" });
 		}
 	}
-	logInfo("join ok", { roomId: actualRoomId, peerId });
-	res.json({ roomId: actualRoomId });
+	const peerId = newAssignedPeerId();
+	const wsToken = issueHandshakeToken(actualRoomId, peerId);
+	logInfo("join ok", { roomId: actualRoomId, peerIdPrefix: peerId.slice(0, 8) });
+	res.json({ roomId: actualRoomId, peerId, wsToken });
 }
 
 app.post("/api/join", async (req, res) => {

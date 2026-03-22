@@ -214,7 +214,7 @@ easymeet/
 | ------- | -------------------- | -------------------- |
 | `POST`  | `/api/rooms`         | Create a new room    |
 | `PATCH` | `/api/rooms/:roomId` | Register host PeerId |
-| `POST`  | `/api/join`          | Join a room          |
+| `POST`  | `/api/join`          | Join a room (returns server `peerId` + one-time `wsToken` for `/ws`) |
 | `GET`   | `/api/rooms/:roomId` | Check room status    |
 
 **Example – Create room:**
@@ -226,6 +226,8 @@ curl -X POST http://localhost:3001/api/rooms \
 ```
 
 **Response:** `{ "roomId": "ABC123", "hostPeerId": null }`
+
+**Join (then WebSocket):** `POST /api/join` with JSON `{ "identifier": "ABC123", "password": "" }` returns `{ "roomId", "peerId", "wsToken" }`. The client opens **`/ws?roomId=…&peerId=…&token=…`** with exactly those values; the token is **one-time** (~10 min TTL). Raum-Ersteller rufen nach `POST /api/rooms` dieselbe Join-Route auf, um `peerId`/`wsToken` zu erhalten.
 
 ### Persistent rooms (config)
 

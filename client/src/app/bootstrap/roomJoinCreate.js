@@ -41,24 +41,20 @@ async function doCreateRoomApiAndSetup(appEl, ctx, nick, pwd, code) {
   const createResult = await fetchCreateRoom(pwd, code);
   if (!createResult.success) return createResult;
   const { roomId } = createResult.data;
-  let p;
-  let id;
-  try {
-    const peerResult = await peer.createPeer();
-    p = peerResult.peer;
-    id = peerResult.id;
-  } catch (e) {
-    return err('PEER', e?.message ?? 'Peer-Verbindung fehlgeschlagen', e);
-  }
+  const joinResult = await fetchJoinRoom(roomId, pwd);
+  if (!joinResult.success) return joinResult;
+  const { roomId: joinedRoomId, peerId: id, wsToken } = joinResult.data;
+  const p = { id, _ms: true, destroy() {} };
   dispatch({ type: 'peer/connectionEstablished', payload: { peer: p } });
-  dispatch({ type: 'room/created', payload: { roomId, password: pwd, nickname: nick, peerId: id } });
+  dispatch({ type: 'room/created', payload: { roomId: joinedRoomId, password: pwd, nickname: nick, peerId: id } });
   if (nick) writeNickname(nick);
   let participant;
   try {
     participant = await peer.setupRoomParticipant(p, nick, () => selectors.selectLocalStream(getState()), {
       dispatch,
-      roomId,
+      roomId: joinedRoomId,
       password: pwd,
+      wsToken,
       getLocalStream: () => selectors.selectLocalStream(getState()),
       getLocalBackgroundEffect: () => selectors.selectBackgroundEffect(getState()) || 'none',
       getMuted: () => selectors.selectIsMuted(getState()),
@@ -87,35 +83,29 @@ export async function handleCreateRoom(appEl, ctx, nickname, password, roomCode 
 
 async function doJoinRoomApiAndSetup(appEl, ctx, roomId, password, nickname) {
   const { dispatch, getState, navigate } = ctx;
-  let p;
-  let id;
-  try {
-    const resolved = await peer.createPeer();
-    p = resolved.peer;
-    id = resolved.id;
-  } catch (e) {
-    return err('PEER', e?.message ?? 'Peer-Verbindung fehlgeschlagen', e);
-  }
-  dispatch({
-    type: 'room/joined',
-    payload: { roomId, password, nickname: (nickname ?? '').trim(), peerId: id },
-  });
-  dispatch({ type: 'peer/connectionEstablished', payload: { peer: p } });
-  const nick = selectors.selectNickname(getState());
-  if (nick) writeNickname(nick);
-  const joinResult = await fetchJoinRoom(roomId, selectors.selectPassword(getState()), id);
+  const pwd = (password ?? '').toString();
+  const joinResult = await fetchJoinRoom(roomId, pwd);
   if (!joinResult.success) {
     dispatch({ type: 'room/joinAttemptAborted' });
     return joinResult;
   }
-  const actualRoomId = joinResult.data.roomId || roomId;
+  const { roomId: actualRoomId, peerId: id, wsToken } = joinResult.data;
+  const p = { id, _ms: true, destroy() {} };
+  dispatch({
+    type: 'room/joined',
+    payload: { roomId: actualRoomId, password: pwd, nickname: (nickname ?? '').trim(), peerId: id },
+  });
+  dispatch({ type: 'peer/connectionEstablished', payload: { peer: p } });
+  const nick = selectors.selectNickname(getState());
+  if (nick) writeNickname(nick);
   dispatch({ type: 'peer/connectionEstablished', payload: { roomId: actualRoomId } });
   let participant;
   try {
     participant = await peer.setupRoomParticipant(p, nick, null, {
       dispatch,
       roomId: actualRoomId,
-      password: selectors.selectPassword(getState()),
+      password: pwd,
+      wsToken,
       getLocalStream: () => selectors.selectLocalStream(getState()),
       getLocalBackgroundEffect: () => selectors.selectBackgroundEffect(getState()) || 'none',
       getMuted: () => selectors.selectIsMuted(getState()),

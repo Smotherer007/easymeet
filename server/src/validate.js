@@ -31,7 +31,7 @@ export function validateRegisterHostPayload(body) {
 /**
  * @param {unknown} body
  * @param {string} [roomIdParam]
- * @returns {{ success: true; data: { identifier: string; password: string; peerId: string } } | { success: false; error: { code: string; message: string } }}
+ * @returns {{ success: true; data: { identifier: string; password: string } } | { success: false; error: { code: string; message: string } }}
  */
 export function validateJoinPayload(body, roomIdParam = '') {
   const r = parseJoinBody(body, roomIdParam);

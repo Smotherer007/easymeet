@@ -1,12 +1,12 @@
-# Easymeet – Docker Compose (Konfiguration nur zur Laufzeit, kein Image-Rebuild)
+# Easymeet — Docker Compose (runtime config only, no image rebuild)
 #
-# Variablen: ./.env → Umgebungsvariablen im Container (env_file).
-# Optional: unter `environment:` Werte setzen — überschreiben env_file.
+# Variables: ./.env → container environment (env_file).
+# Optional: set values under `environment:` — overrides env_file.
 #
-# Feste Räume zur Laufzeit überschreiben: in .env z. B. EASYMEET_PERSISTENT_ROOMS_JSON='{"rooms":[{"id":"LOBBY"}]}' (eine Zeile, minified).
-# Standard-Liste liegt im Image (/app/persistent-rooms.json); siehe Dockerfile.
+# Override pinned rooms at runtime: in .env e.g. EASYMEET_PERSISTENT_ROOMS_JSON='{"rooms":[{"id":"LOBBY"}]}' (one line, minified).
+# Default list is baked into the image (/app/persistent-rooms.json); see Dockerfile.
 #
-# Einmalig: cp .env.example .env
+# One-time: cp .env.example .env
 #
 # Start: docker network create frontend && docker compose up -d
 
@@ -16,7 +16,7 @@ services:
         env_file:
             - path: ./.env
               required: false
-        # Optional: feste Werte direkt in der YAML (überschreiben gleiche Keys aus env_file)
+        # Optional: fixed values in YAML (override same keys from env_file)
         # environment:
         #   MEDIASOUP_ANNOUNCED_IP: 203.0.113.10
         #   PORT: "3001"

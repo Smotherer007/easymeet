@@ -36,7 +36,7 @@ export function parseRegisterHostBody(body) {
 /**
  * @param {unknown} body
  * @param {string} [roomIdFromRoute]
- * @returns {{ ok: true; data: { identifier: string; password: string; peerId: string } } | { ok: false; code: string; message: string }}
+ * @returns {{ ok: true; data: { identifier: string; password: string } } | { ok: false; code: string; message: string }}
  */
 export function parseJoinBody(body, roomIdFromRoute = '') {
   if (!body || typeof body !== 'object') {
@@ -45,12 +45,8 @@ export function parseJoinBody(body, roomIdFromRoute = '') {
   const b = /** @type {Record<string, unknown>} */ (body);
   const identifier = String(b.identifier ?? b.roomId ?? roomIdFromRoute ?? '').trim();
   const password = (typeof b.password === 'string' ? b.password : '').trim();
-  const peerId = String(b.peerId ?? '').trim();
   if (!identifier) {
     return { ok: false, code: 'VALIDATION', message: 'identifier erforderlich' };
   }
-  if (!peerId) {
-    return { ok: false, code: 'VALIDATION', message: 'peerId erforderlich' };
-  }
-  return { ok: true, data: { identifier, password, peerId } };
+  return { ok: true, data: { identifier, password } };
 }

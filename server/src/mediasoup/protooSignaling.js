@@ -16,6 +16,7 @@ import {
   cleanupMediasoupPeerResources,
 } from './rooms.js';
 import { logProtooInfo, logProtooWarn, logProtooError } from '../logger.js';
+import { consumeHandshakeToken } from '../wsJoinTokens.js';
 
 const require = createRequire(import.meta.url);
 const { WebSocketServer: ProtooWebSocketServer } = require('protoo-server');
@@ -554,12 +555,27 @@ export function attachProtooToHttpServer(httpServer) {
         return;
       }
 
-      const rawRoomId = u.searchParams.get('roomId');
-      const peerId = u.searchParams.get('peerId');
-      const roomId = normalizeRoomCode(rawRoomId || '');
+      const token = u.searchParams.get('token');
+      const consumed = consumeHandshakeToken(token);
+      if (!consumed) {
+        logProtooWarn('connection rejected: missing or invalid WebSocket token (join again)');
+        reject(403, 'Invalid or expired WebSocket token');
+        return;
+      }
+
+      const roomId = normalizeRoomCode(consumed.roomId);
+      const peerId = consumed.peerId;
       if (!roomId || !peerId) {
-        logProtooWarn('connection rejected: missing roomId or peerId');
-        reject(400, 'missing or invalid roomId or peerId');
+        logProtooWarn('connection rejected: invalid handshake payload');
+        reject(400, 'invalid handshake');
+        return;
+      }
+
+      const urlRoom = normalizeRoomCode(u.searchParams.get('roomId') || '');
+      const urlPeer = (u.searchParams.get('peerId') || '').trim();
+      if (urlRoom !== roomId || urlPeer !== peerId) {
+        logProtooWarn('connection rejected: roomId/peerId mismatch vs token');
+        reject(403, 'WebSocket URL must match join response');
         return;
       }
 
