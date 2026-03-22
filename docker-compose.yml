@@ -3,12 +3,8 @@
 # Variablen: ./.env → Umgebungsvariablen im Container (env_file).
 # Optional: unter `environment:` Werte setzen — überschreiben env_file.
 #
-# Feste Räume **ohne Volume**: in .env z. B.
-#   EASYMEET_PERSISTENT_ROOMS_JSON='{"rooms":[{"id":"LOBBY"}]}'
-# (eine Zeile, minified). Dann brauchst du keinen Mount.
-#
-# **Mit** JSON-Datei auf dem Host: unten den `volumes:`-Block einkommentieren (Bind-Mount aktivieren).
-# Dazu in .env: EASYMEET_PERSISTENT_ROOMS=persistent-rooms.json
+# Feste Räume zur Laufzeit überschreiben: in .env z. B. EASYMEET_PERSISTENT_ROOMS_JSON='{"rooms":[{"id":"LOBBY"}]}' (eine Zeile, minified).
+# Standard-Liste liegt im Image (/app/persistent-rooms.json); siehe Dockerfile.
 #
 # Einmalig: cp .env.example .env
 #
@@ -24,12 +20,6 @@ services:
         # environment:
         #   MEDIASOUP_ANNOUNCED_IP: 203.0.113.10
         #   PORT: "3001"
-        # Nur nötig, wenn du persistent-rooms als Datei pflegst (nicht nur EASYMEET_PERSISTENT_ROOMS_JSON):
-        # volumes:
-        #     - type: bind
-        #       source: ./persistent-rooms.json
-        #       target: /app/persistent-rooms.json
-        #       read_only: true
         networks:
             - frontend
 

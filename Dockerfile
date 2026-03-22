@@ -32,7 +32,9 @@ RUN cd server && npm ci --omit=dev
 COPY --from=builder /app/client/dist ./client/dist
 COPY server ./server
 
-# .env + persistent-rooms.json kommen zur Laufzeit per Compose (Bind/env_file), siehe docker-compose.yml.
+# Standard-Festräume im Image (EASYMEET_PERSISTENT_ROOMS). Überschreiben: EASYMEET_PERSISTENT_ROOMS_JSON in .env
+# oder anderes EASYMEET_PERSISTENT_ROOMS + eigene Datei (eigenes Image/Volume).
+COPY persistent-rooms.default.json /app/persistent-rooms.json
 
 # Defaults; echte Werte per docker compose / docker run / .env (siehe .env.example)
 ENV NODE_ENV=production

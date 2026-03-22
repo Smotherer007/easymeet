@@ -300,7 +300,7 @@ Die Pipeline kann auch manuell unter **Actions → Build and Push Docker Image �
 | `EASYMEET_PERSISTENT_ROOMS`        | `persistent-rooms.json` in `.env.example`                | Path to JSON with `{"rooms":[...]}` (**relative to repo root** or absolute). Omit to disable pinned rooms (unless JSON env is set).                                                                                        |
 | `EASYMEET_PERSISTENT_ROOMS_JSON`   | _(leer)_                                                  | Optional: entire rooms JSON in one env string (overrides file). For Docker Compose without mounting the JSON file.                                                                                                       |
 
-**Docker / Compose:** Zur **Laufzeit** (kein Image-Rebuild): **`env_file: ./.env`**. Feste Räume **ohne Volume:** **`EASYMEET_PERSISTENT_ROOMS_JSON`** in **`.env`** (eine Zeile JSON). **Mit Datei:** in **`docker-compose.yml`** den auskommentierten **`volumes:`**-Block aktivieren und **`persistent-rooms.json`** im Root pflegen. Zusätzliche Werte in der YAML: **`environment:`** (siehe Kommentar dort).
+**Docker / Compose:** **`env_file: ./.env`**. Das Image enthält eine Standard-**`persistent-rooms.json`** (Dockerfile); zum Überschreiben **ohne** Image-Rebuild: **`EASYMEET_PERSISTENT_ROOMS_JSON`** in **`.env`**. Weitere Werte in der YAML: **`environment:`** (siehe Kommentar in **`docker-compose.yml`**).
 
 **Container startet nicht / Port 40000 belegt:** Das Repo hat **keine** `ports:` in `docker-compose.yml`. Häufig stammt das Mapping von **`docker-compose.override.yml`** (wird automatisch gemerged). Prüfen mit `docker compose config` – Details: [docs/docker-compose-troubleshooting.md](docs/docker-compose-troubleshooting.md).
 
@@ -314,7 +314,7 @@ docker run -p 3001:3001 -p 40000-40200:40000-40200/udp \
 	--env-file ./.env \
 	smotherer/easymeet:latest
 
-# Zusätzlich JSON-Datei vom Host (wie optionaler volumes:-Block in compose)
+# Optional: JSON vom Host mounten statt EASYMEET_PERSISTENT_ROOMS_JSON in .env
 docker run -p 3001:3001 -p 40000-40200:40000-40200/udp \
 	--env-file ./.env \
 	-v "$(pwd)/persistent-rooms.json:/app/persistent-rooms.json:ro" \
