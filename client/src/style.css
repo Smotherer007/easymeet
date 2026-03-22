@@ -15,6 +15,9 @@
 	--accent-gradient: linear-gradient(135deg, #34d399 0%, #22d3ee 45%, #818cf8 100%);
 	--danger: #ef4444;
 	--danger-hover: #f87171;
+	--radius-xs: 4px;
+	--radius-sm: 8px;
+	--radius-md: 10px;
 	--radius: 12px;
 	--radius-lg: 16px;
 	--shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
@@ -1501,28 +1504,44 @@ body {
 }
 
 .poll-option-btn {
+	position: relative;
 	display: flex;
 	align-items: center;
 	justify-content: space-between;
 	gap: 0.5rem;
 	width: 100%;
-	padding: 0.45rem 0.55rem;
+	padding: 0.45rem 0.65rem;
 	text-align: left;
 	font-size: 0.9rem;
 	border-radius: var(--radius-sm);
 	border: 1px solid rgba(255, 255, 255, 0.1);
-	background: rgba(0, 0, 0, 0.2);
+	background: rgba(0, 0, 0, 0.25);
 	color: var(--text);
 	cursor: pointer;
-	transition: background 0.15s ease, border-color 0.15s ease;
+	overflow: hidden;
+	transition: background 0.15s ease, border-color 0.15s ease, transform 0.1s ease;
+}
+
+.poll-option-btn__progress {
+	position: absolute;
+	left: 0;
+	top: 0;
+	bottom: 0;
+	background: linear-gradient(90deg, rgba(0, 212, 170, 0.15) 0%, rgba(99, 102, 241, 0.15) 100%);
+	pointer-events: none;
+	z-index: 0;
+	transition: width 0.4s var(--ease-spring);
 }
 
 .poll-option-btn:hover {
 	background: rgba(99, 102, 241, 0.2);
 	border-color: rgba(129, 140, 248, 0.35);
+	transform: translateX(2px);
 }
 
 .poll-option-btn__label {
+	position: relative;
+	z-index: 1;
 	flex: 1;
 	min-width: 0;
 	overflow: hidden;
@@ -1530,18 +1549,41 @@ body {
 }
 
 .poll-option-btn__tally {
+	position: relative;
+	z-index: 1;
 	font-variant-numeric: tabular-nums;
 	font-weight: 600;
-	opacity: 0.85;
+	opacity: 0.9;
 }
 
 .poll-option-result {
+	position: relative;
 	display: flex;
 	justify-content: space-between;
+	align-items: center;
 	gap: 0.5rem;
 	font-size: 0.88rem;
-	padding: 0.35rem 0;
-	border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+	padding: 0.5rem 0.65rem;
+	border-radius: var(--radius-xs);
+	background: rgba(255, 255, 255, 0.02);
+	margin-bottom: 2px;
+	overflow: hidden;
+}
+
+.poll-option-result__progress {
+	position: absolute;
+	left: 0;
+	top: 0;
+	bottom: 0;
+	background: rgba(255, 255, 255, 0.05);
+	pointer-events: none;
+	z-index: 0;
+	transition: width 0.6s var(--ease-spring);
+}
+
+.poll-option-result span {
+	position: relative;
+	z-index: 1;
 }
 
 .poll-option-result:last-child {
@@ -1721,7 +1763,7 @@ body {
 	backdrop-filter: blur(16px) saturate(1.15);
 	-webkit-backdrop-filter: blur(16px) saturate(1.15);
 	border: 1px solid rgba(255, 255, 255, 0.08);
-	border-radius: 999px;
+	border-radius: var(--radius-lg);
 	box-shadow:
 		0 4px 28px rgba(0, 0, 0, 0.45),
 		0 0 0 1px rgba(255, 255, 255, 0.03);
@@ -4776,7 +4818,7 @@ body {
 	backdrop-filter: blur(16px);
 	-webkit-backdrop-filter: blur(16px);
 	border: 1px solid rgba(255, 255, 255, 0.08);
-	border-radius: 999px;
+	border-radius: var(--radius-lg);
 	box-shadow: 0 8px 32px rgba(0, 0, 0, 0.45);
 	opacity: 0;
 	transform: translateY(-12px) scale(0.94);
@@ -4917,40 +4959,36 @@ body {
 }
 
 @media (max-width: 768px) {
+	/* Eine Fläche: alle Buttons als Grid-Kinder, 6 Icons pro Reihe (kein „Mehr“-Menü) */
 	.meeting-control-bar {
-		flex-wrap: wrap;
-		max-width: min(calc(100vw - 1rem), 420px);
-		justify-content: center;
-		row-gap: 0.35rem;
-		padding: 0.45rem 0.65rem;
+		display: grid;
+		grid-template-columns: repeat(6, minmax(0, 1fr));
+		gap: 0.35rem 0.28rem;
+		row-gap: 0.4rem;
+		max-width: min(calc(100vw - 0.75rem), 400px);
+		width: 100%;
+		justify-items: center;
+		align-items: center;
+		padding: 0.5rem 0.5rem;
 	}
 
-	.meeting-control-bar__primary {
-		display: flex;
-		align-items: center;
-		gap: 0.25rem;
-		order: 1;
+	.meeting-control-bar__primary,
+	.meeting-control-bar__secondary {
+		display: contents;
 	}
 
 	.meeting-control-btn--more {
-		display: flex !important;
-		order: 2;
+		display: none !important;
 	}
 
-	.meeting-control-bar__secondary {
-		display: none;
-		order: 3;
-		width: 100%;
-		flex-wrap: wrap;
-		justify-content: center;
-		gap: 0.35rem;
-		padding-top: 0.35rem;
-		margin-top: 0.2rem;
-		border-top: 1px solid rgba(255, 255, 255, 0.06);
+	.meeting-control-btn--leave {
+		margin-left: 0;
 	}
 
-	.meeting-control-bar--more-open .meeting-control-bar__secondary {
-		display: flex;
+	.meeting-control-btn--layout {
+		margin-left: 0;
+		padding-left: 0;
+		border-left: none;
 	}
 
 	.chat-panel--overlay {

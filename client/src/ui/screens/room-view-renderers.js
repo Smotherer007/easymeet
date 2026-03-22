@@ -40,7 +40,6 @@ import { renderChatContent } from "../../link-embed.js";
 import { EMOJI_DATA } from "../../emoji-data.js";
 import { escapeHtml } from "../../shared/escape.js";
 import { mergeAndClampWindowRect } from "../utils/viewportWindowClamp.js";
-
 export { escapeHtml };
 
 export function formatTime(ts) {
@@ -152,7 +151,7 @@ export function renderLeaveRoomModal() {
 }
 
 /**
- * Gemeinsame Steuerleiste: Desktop eine Reihe; mobil Primär (Stumm/Kamera/Verlassen) + „Mehr“.
+ * Gemeinsame Steuerleiste: Desktop eine Reihe; Smartphone bis 768px Grid mit 6 Icons pro Reihe (alle sichtbar).
  */
 function renderMeetingControlBarInner(state) {
 	const {
@@ -520,17 +519,33 @@ export function syncPollCreateOptionUi(container) {
 	}
 }
 
-function renderOnePollBlock(poll, myId) {
+function renderOnePollBlock(poll, myId, participantCount = 0) {
 	const closed = !!poll.closed;
 	const opts = poll.options || [];
 	const tallies = poll.tallies || opts.map(() => 0);
+	const totalVotes = tallies.reduce((a, b) => a + b, 0);
+	/** Balken: Anteil der Raumteilnehmer (visuelles Feedback); Fallback Anteil der Stimmen wenn keine Member-Liste. */
+	const barDenominator =
+		participantCount > 0 ? participantCount : totalVotes > 0 ? totalVotes : 1;
+	const barPct = (votes) =>
+		barDenominator > 0 ? Math.min(100, Math.round((votes / barDenominator) * 100)) : 0;
+
 	const rows = opts
 		.map((opt, i) => {
 			const c = tallies[i] ?? 0;
+			const pct = barPct(c);
 			if (!closed) {
-				return `<button type="button" class="poll-option-btn" data-action="poll-vote" data-poll-id="${escapeHtml(poll.id)}" data-option-index="${i}"><span class="poll-option-btn__label">${escapeHtml(opt)}</span><span class="poll-option-btn__tally">${c}</span></button>`;
+				return `<button type="button" class="poll-option-btn" data-action="poll-vote" data-poll-id="${escapeHtml(poll.id)}" data-option-index="${i}">
+          <div class="poll-option-btn__progress" style="width: ${pct}%"></div>
+          <span class="poll-option-btn__label">${escapeHtml(opt)}</span>
+          <span class="poll-option-btn__tally">${c}</span>
+        </button>`;
 			}
-			return `<div class="poll-option-result"><span>${escapeHtml(opt)}</span><span>${c}</span></div>`;
+			return `<div class="poll-option-result">
+        <div class="poll-option-result__progress" style="width: ${pct}%"></div>
+        <span>${escapeHtml(opt)}</span>
+        <span>${c}</span>
+      </div>`;
 		})
 		.join("");
 	const closeBtn =
@@ -548,7 +563,8 @@ function renderOnePollBlock(poll, myId) {
 function renderPollsDockInner(state) {
 	const myId = state.peer?.id ?? "";
 	const polls = state.roomPolls ?? [];
-	let html = polls.map((poll) => renderOnePollBlock(poll, myId)).join("");
+	const participantCount = state.voipMembers?.length ?? 0;
+	let html = polls.map((poll) => renderOnePollBlock(poll, myId, participantCount)).join("");
 	if (!polls.length) {
 		html += `<p class="polls-dock__empty">${escapeHtml(t("pollsEmpty"))}</p>`;
 	}

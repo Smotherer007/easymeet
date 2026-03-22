@@ -38,8 +38,14 @@ function sanitizeReactionEmoji(raw) {
 
 function serializePollPublic(poll) {
 	const tallies = poll.options.map(() => 0);
-	for (const idx of poll.votes.values()) {
-		if (typeof idx === "number" && idx >= 0 && idx < tallies.length) tallies[idx] += 1;
+	for (const v of poll.votes.values()) {
+		if (typeof v === "number" && Number.isInteger(v) && v >= 0 && v < tallies.length) {
+			tallies[v] += 1;
+		} else if (Array.isArray(v)) {
+			for (const idx of v) {
+				if (typeof idx === "number" && Number.isInteger(idx) && idx >= 0 && idx < tallies.length) tallies[idx] += 1;
+			}
+		}
 	}
 	return {
 		id: poll.id,
