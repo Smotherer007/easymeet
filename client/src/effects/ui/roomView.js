@@ -31,6 +31,7 @@ import { applyEffectToCallStream, recoverCameraAfterEffectLoss } from "../media/
 import { refreshDeviceSelects } from "./devices.js";
 import { startSpeakingIndicator, stopSpeakingIndicator } from "../../speaking-indicator.js";
 import { mediaDebugLog, mediaDebugStreamInfo, mediaDebugTrackInfo } from "../../utils/mediaDebug.js";
+import { showToast } from "../../utils/toast.js";
 
 /** DOMException.name → appropriate i18n key (not every error is permission denied). */
 function alertMediaAccessError(err, kind) {
@@ -213,9 +214,14 @@ function handleDownloadFile(fileId) {
 	}
 }
 
+function snapWindowCoord(n, grid = 12) {
+	return Math.round(Number(n) / grid) * grid;
+}
+
 function handleWindowMove(windowId, pos) {
+	const snapped = { ...pos, x: snapWindowCoord(pos.x), y: snapWindowCoord(pos.y) };
 	const wp = selectors.selectWindowPositions(getState());
-	const positions = { ...wp, [windowId]: { ...(wp[windowId] || {}), ...pos } };
+	const positions = { ...wp, [windowId]: { ...(wp[windowId] || {}), ...snapped } };
 	patchState({ windowPositions: positions });
 	try {
 		localStorage.setItem(WINDOW_POSITIONS_STORAGE, JSON.stringify(positions));
@@ -645,6 +651,10 @@ function handleToggleVideoLayout(app, navigate) {
 		return;
 	}
 	const next = mode === "grid" ? "free" : "grid";
+	if (next === "free" && typeof window !== "undefined" && window.matchMedia("(max-width: 768px)").matches) {
+		showToast(t("freeLayoutUnavailableMobile"), { type: "warning", duration: 3800 });
+		return;
+	}
 	patchState({
 		videoLayoutMode: next,
 		/* Beim Wechsel in Free-Layout: Chat/Teilnehmer nicht automatisch aufklappen; Videos sichtbar */
@@ -1466,7 +1476,7 @@ function handleOutputDeviceChange(deviceId) {
 async function prepareFileList(files, progressArea, showProgress) {
 	let fileList = Array.from(files);
 	if (files[0]?.webkitRelativePath) {
-		showProgress(`<p class="file-progress__filename">${t("preparingZip")}</p><div class="file-progress__spinner"></div>`);
+		showProgress(`<p class="file-progress__filename">${t("preparingZip")}</p><div class="em-brand-spinner em-brand-spinner--sm" aria-hidden="true"></div>`);
 		const zipFile = await zipFileList(files);
 		if (zipFile) fileList = [zipFile];
 	}

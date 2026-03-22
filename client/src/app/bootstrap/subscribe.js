@@ -9,6 +9,8 @@ import { appendMessage, updateVoipParticipants, updateChatBadge, updateFileShare
 import { attachRemoteAudio, detachRemoteAudio, getStreamForVideoTile, getStreamForPeerId, getStreamForScreenShare } from "../../effects/media/tiles.js";
 import { patchMeetingScreenSharePresentation } from "../../effects/ui/roomView.js";
 import * as selectors from "../../domain/selectors/index.js";
+import { t } from "../../i18n.js";
+import { showToast } from "../../utils/toast.js";
 
 let lastMemberCount = 0;
 
@@ -56,8 +58,16 @@ function handleChatMessageReceived(appEl, getState, dispatch, state, p) {
 		if (p.nick && !members.includes(p.nick)) {
 			dispatch({ type: "chat/membersUpdated", payload: { list: [...members, p.nick] } });
 		}
+		if (p.nick && selectors.selectScreen(state) === "room-view") {
+			showToast(`${p.nick} ${t("participantJoined")}`, { type: "info" });
+		}
 	} else if (p.type === "leave") {
 		dispatch({ type: "chat/membersUpdated", payload: { list: members.filter((n) => n !== p.nick) } });
+		if (p.nick && selectors.selectScreen(state) === "room-view") {
+			showToast(`${p.nick} ${t("participantLeft")}`, { type: "info" });
+		}
+	} else if (p.type === "file_share" && p.nick && p.nick !== selectors.selectNickname(state) && selectors.selectScreen(state) === "room-view") {
+		showToast(t("toastFileReceived").replace("{name}", p.nick), { type: "success" });
 	}
 	if (selectors.selectScreen(state) === "room-view" && p.type !== "members") {
 		appendMessage(appEl, p, {

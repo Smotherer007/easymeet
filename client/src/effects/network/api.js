@@ -8,6 +8,16 @@ import { parseCreateRoomBody, parseJoinBody } from "../../shared/roomApiPayloads
 import { fetchJson } from "./httpClient.js";
 
 /**
+ * @param {unknown} data
+ * @param {string} fallback
+ */
+function apiFailureMessage(data, fallback) {
+	const o = data && typeof data === "object" ? /** @type {Record<string, unknown>} */ (data) : {};
+	const msg = o.message ?? o.error;
+	return typeof msg === "string" && msg.trim() ? msg : fallback;
+}
+
+/**
  * @param {unknown} payload
  * @returns {import('../../shared/result.js').Result<{ password: string; roomCode: string }>}
  */
@@ -41,7 +51,7 @@ export async function fetchCreateRoom(password, roomCode) {
 		});
 		const data = /** @type {Record<string, unknown>} */ (res.data || {});
 		if (!res.ok) {
-			return err("API", data.error || "Could not create room");
+			return err("API", apiFailureMessage(data, "Could not create room"));
 		}
 		return ok({
 			roomId: String(data.roomId ?? "")
@@ -75,7 +85,7 @@ export async function fetchJoinRoom(identifier, password) {
 		});
 		const data = /** @type {Record<string, unknown>} */ (res.data || {});
 		if (!res.ok) {
-			return err("API", data.error || "Join failed");
+			return err("API", apiFailureMessage(data, "Join failed"));
 		}
 		const roomId = String(data.roomId ?? identifier);
 		const peerId = String(data.peerId ?? "");
@@ -97,7 +107,7 @@ export async function fetchActiveRooms() {
 		const res = await fetchJson(`${API_BASE}/rooms/active`);
 		const data = /** @type {Record<string, unknown>} */ (res.data || {});
 		if (!res.ok) {
-			return err("API", data.error || "Could not load active rooms");
+			return err("API", apiFailureMessage(data, "Could not load active rooms"));
 		}
 		const rooms = Array.isArray(data.rooms) ? data.rooms : [];
 		return ok({ rooms });
@@ -114,7 +124,7 @@ export async function fetchPinnedRooms() {
 		const res = await fetchJson(`${API_BASE}/rooms/pinned`);
 		const data = /** @type {Record<string, unknown>} */ (res.data || {});
 		if (!res.ok) {
-			return err("API", data.error || "Could not load pinned rooms");
+			return err("API", apiFailureMessage(data, "Could not load pinned rooms"));
 		}
 		const rooms = Array.isArray(data.rooms) ? data.rooms : [];
 		return ok({ rooms });
@@ -132,7 +142,7 @@ export async function fetchRoomStatus(identifier) {
 		const res = await fetchJson(url);
 		const data = /** @type {Record<string, unknown>} */ (res.data || {});
 		if (!res.ok) {
-			return err("API", data.error || "Status request failed");
+			return err("API", apiFailureMessage(data, "Status request failed"));
 		}
 		return ok({
 			exists: !!data.exists,

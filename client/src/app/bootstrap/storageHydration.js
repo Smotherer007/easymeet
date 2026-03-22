@@ -48,8 +48,12 @@ function loadDeviceIdsFromStorage(dispatch, readDeviceIds) {
 function loadLayoutFromStorage(dispatch) {
 	try {
 		const layout = localStorage.getItem(VIDEO_LAYOUT_STORAGE);
-		if (layout === "free" || layout === "grid") {
-			dispatch({ type: "storage/videoLayoutRestored", payload: { videoLayoutMode: layout } });
+		let mode = layout === "free" || layout === "grid" ? layout : null;
+		if (mode === "free" && typeof window !== "undefined" && window.matchMedia("(max-width: 768px)").matches) {
+			mode = "grid";
+		}
+		if (mode) {
+			dispatch({ type: "storage/videoLayoutRestored", payload: { videoLayoutMode: mode } });
 		}
 		const stored = localStorage.getItem(WINDOW_POSITIONS_STORAGE);
 		if (stored) {

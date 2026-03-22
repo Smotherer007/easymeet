@@ -1,6 +1,7 @@
 /**
- * App – Composition Root.
- * Migrationshinweis: Bootstrap-Logik schrittweise von main.js hierher verschieben.
+ * Composition Root – zentraler Einstieg für App-Start und Store.
+ * Bootstrap-Orchestrierung: ./bootstrap/index.js
  */
 
+export { bootstrap } from "./bootstrap/index.js";
 export { getState, patchState, dispatch, subscribe } from "../store/index.js";

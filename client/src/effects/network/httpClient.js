@@ -24,8 +24,9 @@ export async function fetchJson(url, init = {}) {
 			}
 		}
 		if (!res.ok) {
-			logApiWarn(method, url, res.status, data);
-			return { ok: false, status: res.status, data };
+			const requestId = res.headers.get("x-request-id");
+			logApiWarn(method, url, res.status, data, requestId ? `requestId=${requestId}` : "");
+			return { ok: false, status: res.status, data, requestId: requestId || undefined };
 		}
 		logApiDebug("json keys", typeof data === "object" && data && !Array.isArray(data) ? Object.keys(data) : typeof data);
 		logApiInfo(method, url, "→", res.status);

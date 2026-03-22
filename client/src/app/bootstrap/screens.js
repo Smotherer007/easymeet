@@ -2,7 +2,7 @@
  * DOM-Rendering und Screen-Navigation (ohne Subscription-Logik).
  */
 
-import { getLang, setLang } from "../../i18n.js";
+import { getLang, setLang, t } from "../../i18n.js";
 import {
 	renderLanding,
 	attachLandingListeners,
@@ -50,12 +50,56 @@ export function renderLangSwitcher(appEl, ctx) {
 	if (screen === "room-view") return;
 	const lang = getLang();
 	el.innerHTML = `
-    <button type="button" class="lang-switcher__btn ${lang === "de" ? "lang-switcher__btn--active" : ""}" data-lang="de">DE</button>
-    <button type="button" class="lang-switcher__btn ${lang === "en" ? "lang-switcher__btn--active" : ""}" data-lang="en">EN</button>
+    <div class="lang-switcher__dropdown">
+      <button type="button" class="lang-switcher__trigger" aria-expanded="false" aria-haspopup="listbox" aria-label="${t("langAriaLabel")}">
+        <span class="lang-switcher__flag" aria-hidden="true">${lang === "de" ? "🇩🇪" : "🇬🇧"}</span>
+        <span class="lang-switcher__code">${lang === "de" ? "DE" : "EN"}</span>
+        <span class="lang-switcher__chevron" aria-hidden="true">▾</span>
+      </button>
+      <ul class="lang-switcher__menu" role="listbox" hidden>
+        <li role="presentation">
+          <button type="button" role="option" class="lang-switcher__option ${lang === "de" ? "lang-switcher__option--active" : ""}" data-lang="de">
+            <span class="lang-switcher__flag" aria-hidden="true">🇩🇪</span> Deutsch
+          </button>
+        </li>
+        <li role="presentation">
+          <button type="button" role="option" class="lang-switcher__option ${lang === "en" ? "lang-switcher__option--active" : ""}" data-lang="en">
+            <span class="lang-switcher__flag" aria-hidden="true">🇬🇧</span> English
+          </button>
+        </li>
+      </ul>
+    </div>
   `;
-	el.querySelectorAll("[data-lang]").forEach((btn) => {
-		btn.addEventListener("click", () => setLang(btn.dataset.lang));
+	const trigger = el.querySelector(".lang-switcher__trigger");
+	const menu = el.querySelector(".lang-switcher__menu");
+	const closeMenu = () => {
+		menu?.setAttribute("hidden", "");
+		trigger?.setAttribute("aria-expanded", "false");
+	};
+	trigger?.addEventListener("click", (e) => {
+		e.stopPropagation();
+		const open = menu?.hasAttribute("hidden");
+		if (open) menu?.removeAttribute("hidden");
+		else menu?.setAttribute("hidden", "");
+		trigger?.setAttribute("aria-expanded", open ? "true" : "false");
 	});
+	el.querySelectorAll("[data-lang]").forEach((btn) => {
+		btn.addEventListener("click", () => {
+			setLang(btn.dataset.lang || "de");
+			closeMenu();
+		});
+	});
+	if (!el._easymeetLangOutsideClose) {
+		el._easymeetLangOutsideClose = true;
+		document.addEventListener("click", (e) => {
+			if (e.target.closest("#lang-switcher")) return;
+			const root = document.getElementById("lang-switcher");
+			const m = root?.querySelector(".lang-switcher__menu");
+			const tr = root?.querySelector(".lang-switcher__trigger");
+			m?.setAttribute("hidden", "");
+			tr?.setAttribute("aria-expanded", "false");
+		});
+	}
 }
 
 export function getJoinUrl(roomId) {

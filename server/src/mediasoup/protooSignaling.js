@@ -6,10 +6,12 @@
  */
 
 import { createRequire } from "module";
+import { randomUUID } from "node:crypto";
 import { normalizeRoomCode } from "../roomCode.js";
 import { getOrCreateRoom, getRoom, closePeer, createPeerState, createWebRtcTransport, cleanupMediasoupPeerResources } from "./rooms.js";
-import { logProtooInfo, logProtooWarn, logProtooError } from "../logger.js";
+import { logProtooInfo, logProtooWarn, logProtooError, runWithLogContextAsync } from "../logger.js";
 import { consumeHandshakeToken } from "../wsJoinTokens.js";
+import { EasymeetErrorCode, protooErrorReason } from "../easymeetErrors.js";
 
 const require = createRequire(import.meta.url);
 const { WebSocketServer: ProtooWebSocketServer } = require("protoo-server");
@@ -182,7 +184,16 @@ function attachPeerToRoom(roomId, room, msPeer, protooPeer) {
 
 	protooPeer.on("request", async (request, accept, reject) => {
 		try {
-			await handleProtooRequest(roomId, room, msPeer, request, accept, reject);
+			await runWithLogContextAsync(
+				{
+					connectionId: msPeer.connectionId,
+					roomId,
+					peerId: msPeer.peerId
+				},
+				async () => {
+					await handleProtooRequest(roomId, room, msPeer, request, accept, reject);
+				}
+			);
 		} catch (err) {
 			logProtooError("request error", request.method, err?.message || err);
 			reject(err instanceof Error ? err : new Error(String(err)));
@@ -207,7 +218,7 @@ async function handleProtooRequest(roomId, room, msPeer, request, accept, reject
 
 		case "join": {
 			if (msPeer.joined) {
-				reject(new Error("Peer already joined"));
+				reject(new Error(protooErrorReason(EasymeetErrorCode.PEER_ALREADY_JOINED, "Peer already joined")));
 				return;
 			}
 			const { displayName, device: _device, rtpCapabilities, sctpCapabilities, easymeet } = data;
@@ -262,7 +273,11 @@ async function handleProtooRequest(roomId, room, msPeer, request, accept, reject
 				forceTcp: !!forceTcp
 			});
 			if (!info) {
-				reject(new Error("createWebRtcTransport failed"));
+				reject(
+					new Error(
+						protooErrorReason(EasymeetErrorCode.TRANSPORT_CREATE_FAILED, "createWebRtcTransport failed")
+					)
+				);
 				return;
 			}
 			accept({
@@ -279,7 +294,7 @@ async function handleProtooRequest(roomId, room, msPeer, request, accept, reject
 			const { transportId, dtlsParameters } = data;
 			const transport = msPeer.transports.get(transportId);
 			if (!transport) {
-				reject(new Error("transport not found"));
+				reject(new Error(protooErrorReason(EasymeetErrorCode.TRANSPORT_NOT_FOUND, "transport not found")));
 				return;
 			}
 			await transport.connect({ dtlsParameters });
@@ -291,7 +306,7 @@ async function handleProtooRequest(roomId, room, msPeer, request, accept, reject
 			const { transportId } = data;
 			const transport = msPeer.transports.get(transportId);
 			if (!transport) {
-				reject(new Error("transport not found"));
+				reject(new Error(protooErrorReason(EasymeetErrorCode.TRANSPORT_NOT_FOUND, "transport not found")));
 				return;
 			}
 			const iceParameters = await transport.restartIce();
@@ -301,13 +316,13 @@ async function handleProtooRequest(roomId, room, msPeer, request, accept, reject
 
 		case "produce": {
 			if (!msPeer.joined) {
-				reject(new Error("not joined"));
+				reject(new Error(protooErrorReason(EasymeetErrorCode.NOT_JOINED, "not joined")));
 				return;
 			}
 			const { transportId, kind, rtpParameters, appData } = data;
 			const transport = msPeer.transports.get(transportId);
 			if (!transport) {
-				reject(new Error("transport not found"));
+				reject(new Error(protooErrorReason(EasymeetErrorCode.TRANSPORT_NOT_FOUND, "transport not found")));
 				return;
 			}
 
@@ -346,7 +361,14 @@ async function handleProtooRequest(roomId, room, msPeer, request, accept, reject
 		}
 
 		default:
-			reject(new Error(`unknown method "${method}"`));
+			reject(
+				new Error(
+					protooErrorReason(
+						EasymeetErrorCode.UNKNOWN_PROTOO_METHOD,
+						`unknown method "${method}"`
+					)
+				)
+			);
 	}
 }
 
@@ -505,7 +527,7 @@ export function attachProtooToHttpServer(httpServer) {
 
 			if (u.pathname !== "/ws") {
 				logProtooWarn("connection rejected: not /ws", u.pathname);
-				reject(404, "Not Found");
+				reject(404, protooErrorReason(EasymeetErrorCode.WS_PATH_NOT_FOUND, "Not Found"));
 				return;
 			}
 
@@ -513,7 +535,10 @@ export function attachProtooToHttpServer(httpServer) {
 			const consumed = consumeHandshakeToken(token);
 			if (!consumed) {
 				logProtooWarn("connection rejected: missing or invalid WebSocket token (join again)");
-				reject(403, "Invalid or expired WebSocket token");
+				reject(
+					403,
+					protooErrorReason(EasymeetErrorCode.WS_TOKEN_INVALID, "Invalid or expired WebSocket token")
+				);
 				return;
 			}
 
@@ -521,7 +546,7 @@ export function attachProtooToHttpServer(httpServer) {
 			const peerId = consumed.peerId;
 			if (!roomId || !peerId) {
 				logProtooWarn("connection rejected: invalid handshake payload");
-				reject(400, "invalid handshake");
+				reject(400, protooErrorReason(EasymeetErrorCode.WS_HANDSHAKE_INVALID, "invalid handshake"));
 				return;
 			}
 
@@ -529,7 +554,10 @@ export function attachProtooToHttpServer(httpServer) {
 			const urlPeer = (u.searchParams.get("peerId") || "").trim();
 			if (urlRoom !== roomId || urlPeer !== peerId) {
 				logProtooWarn("connection rejected: roomId/peerId mismatch vs token");
-				reject(403, "WebSocket URL must match join response");
+				reject(
+					403,
+					protooErrorReason(EasymeetErrorCode.WS_URL_TOKEN_MISMATCH, "WebSocket URL must match join response")
+				);
 				return;
 			}
 
@@ -547,17 +575,21 @@ export function attachProtooToHttpServer(httpServer) {
 					const transport = accept();
 					const protooPeer = room.protooRoom.createPeer(peerId, transport);
 					const msPeer = createPeerState(peerId, "");
+					msPeer.connectionId = randomUUID();
 					room.peers.set(peerId, msPeer);
 
 					attachPeerToRoom(roomId, room, msPeer, protooPeer);
-					logProtooInfo("peer connected", { roomId, peerId });
+					logProtooInfo("peer connected", { roomId, peerId, conn: msPeer.connectionId?.slice(0, 8) });
 				} catch (err) {
 					logProtooError("connection failed", err?.message || err);
-					reject(500, String(err?.message || err));
+					reject(
+						500,
+						protooErrorReason(EasymeetErrorCode.CONNECTION_FAILED, String(err?.message || err))
+					);
 				}
 			})();
 		} catch (e) {
-			reject(500, String(e?.message || e));
+			reject(500, protooErrorReason(EasymeetErrorCode.CONNECTION_FAILED, String(e?.message || e)));
 		}
 	});
 

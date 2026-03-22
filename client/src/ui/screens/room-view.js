@@ -21,7 +21,8 @@ import {
 	renderSettingsModalContent,
 	renderFileModalContent,
 	renderMeetingScreenShareSlotInner,
-	renderStreamModalHostActionsInner
+	renderStreamModalHostActionsInner,
+	renderLeaveRoomModal
 } from "./room-view-renderers.js";
 import {
 	iconLogOut,
@@ -81,14 +82,18 @@ function renderFloatingWindows(state) {
 	const floatingState = { ...state, muteMap, volumeMap, myPeerId: state.peer?.id ?? "" };
 	const messagesHtml = renderMessagesHtml(messages, (id) => state.receivedFileBlobs?.get?.(id), state.nickname);
 	const voipParticipantsHtml = renderVoipParticipantsHtmlFloating(voipMembers, floatingState);
-	const controlBar = renderMeetingControlBarFloating({ ...state, hasScreenShareSupport: state.hasScreenShareSupport ?? true });
+	const controlBar = renderMeetingControlBarFloating({
+		...state,
+		hasScreenShareSupport: state.hasScreenShareSupport ?? true,
+		videoLayoutMode: "free"
+	});
 	const pVideos = pos("videos");
 	const pChat = pos("chat");
 	const pParticipants = pos("participants");
 	const pStream = pos("stream");
 	return (
 		renderFloatingWindowVideos(pVideos, !!freeLayoutVideosOpen) +
-		`<div class="meeting-control-bar meeting-control-bar--floating">${controlBar}</div>` +
+		`<div class="meeting-control-bar meeting-control-bar--floating" id="meeting-control-bar">${controlBar}</div>` +
 		renderFloatingWindowChat(pChat, messagesHtml, !!freeLayoutChatOpen) +
 		renderFloatingWindowParticipants(pParticipants, voipParticipantsHtml, voipMembers.length, !!freeLayoutParticipantsOpen) +
 		renderStreamModalFloating(pStream, { isHost, hostStream, audioEnabled })
@@ -176,6 +181,7 @@ export function renderRoomView(state) {
       </div>
       ${renderSettingsModalContent(settingsState)}
       ${renderFileModalContent()}
+      ${renderLeaveRoomModal()}
     </div>
   `;
 }
@@ -776,7 +782,15 @@ function setupDraggableModals(container, callbacks = {}) {
 }
 
 function attachRoomViewModalListeners(container, callbacks) {
-	container.querySelector('[data-action="leave"]')?.addEventListener("click", callbacks.onLeave);
+	const leaveModal = container.querySelector("#leave-room-modal");
+	const openLeaveModal = () => leaveModal?.removeAttribute("hidden");
+	const closeLeaveModal = () => leaveModal?.setAttribute("hidden", "");
+	container.querySelectorAll('[data-action="leave"]').forEach((btn) => btn.addEventListener("click", openLeaveModal));
+	leaveModal?.querySelectorAll('[data-action="leave-cancel"]').forEach((el) => el.addEventListener("click", closeLeaveModal));
+	leaveModal?.querySelector('[data-action="leave-confirm"]')?.addEventListener("click", () => {
+		closeLeaveModal();
+		callbacks.onLeave?.();
+	});
 	container.querySelectorAll('[data-action="minimize-share-modal"]').forEach((el) => {
 		el.addEventListener("click", () => callbacks.onMinimizeShareModal?.());
 	});
@@ -809,9 +823,11 @@ function attachRoomViewShareListeners(container, callbacks) {
 		const btn = e.target.closest('[data-action="open-stream-modal"]');
 		if (btn) callbacks.onOpenStreamModal?.(btn.dataset?.peerId);
 	});
-	container.querySelector('[data-action="share"]')?.addEventListener("click", () => {
-		callbacks.onShareOpen?.();
-	});
+	container.querySelectorAll('[data-action="share"]').forEach((el) =>
+		el.addEventListener("click", () => {
+			callbacks.onShareOpen?.();
+		})
+	);
 }
 
 function attachRoomViewChatInputListeners(container, callbacks, input) {
@@ -1041,8 +1057,17 @@ export function attachRoomViewListeners(container, callbacks) {
 		if (list) list.scrollTop = list.scrollHeight;
 		updateScrollToBottomButton(container);
 	});
-	container.querySelector('[data-action="toggle-mute"]')?.addEventListener("click", () => callbacks.onToggleMute?.());
-	container.querySelector('[data-action="toggle-video"]')?.addEventListener("click", () => callbacks.onToggleVideo?.());
+	container.querySelectorAll('[data-action="toggle-mute"]').forEach((el) => el.addEventListener("click", () => callbacks.onToggleMute?.()));
+	container.querySelectorAll('[data-action="toggle-video"]').forEach((el) => el.addEventListener("click", () => callbacks.onToggleVideo?.()));
+	container.querySelectorAll('[data-action="toggle-meeting-more"]').forEach((el) =>
+		el.addEventListener("click", () => {
+			container.querySelectorAll(".meeting-control-bar").forEach((bar) => {
+				bar.classList.toggle("meeting-control-bar--more-open");
+				const open = bar.classList.contains("meeting-control-bar--more-open");
+				el.setAttribute("aria-expanded", open ? "true" : "false");
+			});
+		})
+	);
 	function positionVolumeTooltip(wrap) {
 		const tooltip = wrap?.querySelector(".voip-view__volume-tooltip");
 		if (!tooltip) return;
@@ -1111,19 +1136,27 @@ export function attachRoomViewListeners(container, callbacks) {
 	const closeSettingsModal = () => {
 		callbacks.onMinimizeSettingsModal?.();
 	};
-	container.querySelector('[data-action="toggle-video-layout"]')?.addEventListener("click", () => callbacks.onToggleVideoLayout?.());
-	container.querySelector('[data-action="toggle-settings"]')?.addEventListener("click", () => {
-		const modal = container.querySelector("#settings-modal");
-		if (!modal) return;
-		const isOpen = modal.hasAttribute("hidden");
-		if (isOpen) openSettingsModal();
-		else closeSettingsModal();
-	});
+	container.querySelectorAll('[data-action="toggle-video-layout"]').forEach((el) => el.addEventListener("click", () => callbacks.onToggleVideoLayout?.()));
+	container.querySelectorAll('[data-action="toggle-settings"]').forEach((el) =>
+		el.addEventListener("click", () => {
+			const modal = container.querySelector("#settings-modal");
+			if (!modal) return;
+			const isOpen = modal.hasAttribute("hidden");
+			if (isOpen) openSettingsModal();
+			else closeSettingsModal();
+			container.querySelectorAll(".meeting-control-bar").forEach((bar) => bar.classList.remove("meeting-control-bar--more-open"));
+		})
+	);
 	container.querySelectorAll('[data-action="minimize-settings-modal"]').forEach((el) => {
 		el.addEventListener("click", closeSettingsModal);
 	});
 	container.addEventListener("keydown", (e) => {
 		if (e.key === "Escape") {
+			const leaveM = container.querySelector("#leave-room-modal");
+			if (leaveM && !leaveM.hasAttribute("hidden")) {
+				leaveM.setAttribute("hidden", "");
+				return;
+			}
 			const modal = container.querySelector("#settings-modal");
 			if (modal && !modal.hasAttribute("hidden")) closeSettingsModal();
 		}
@@ -1214,7 +1247,12 @@ export function attachRoomViewListeners(container, callbacks) {
 	window.addEventListener("resize", syncMobileMeetingOverlay, { signal: vSignal });
 	requestAnimationFrame(syncMobileMeetingOverlay);
 
+	const collapseMeetingMore = () => {
+		container.querySelectorAll(".meeting-control-bar").forEach((bar) => bar.classList.remove("meeting-control-bar--more-open"));
+		container.querySelectorAll('[data-action="toggle-meeting-more"]').forEach((b) => b.setAttribute("aria-expanded", "false"));
+	};
 	const toggleSidebar = () => {
+		collapseMeetingMore();
 		if (participantsFloatingWindow) {
 			callbacks.onFloatingParticipantsToggle?.();
 		} else {
@@ -1223,6 +1261,7 @@ export function attachRoomViewListeners(container, callbacks) {
 		}
 	};
 	const toggleChatPanel = () => {
+		collapseMeetingMore();
 		if (chatFloatingWindow) {
 			callbacks.onFloatingChatToggle?.();
 		} else {
@@ -1241,7 +1280,7 @@ export function attachRoomViewListeners(container, callbacks) {
 		overlay?.setAttribute("hidden", "");
 	};
 
-	container.querySelector('[data-action="toggle-sidebar"]')?.addEventListener("click", toggleSidebar);
+	container.querySelectorAll('[data-action="toggle-sidebar"]').forEach((el) => el.addEventListener("click", toggleSidebar));
 	container.querySelectorAll('[data-action="close-sidebar"]').forEach((el) =>
 		el.addEventListener("click", () => {
 			if (participantsFloatingWindow) callbacks.onFloatingParticipantsClose?.();
@@ -1256,7 +1295,7 @@ export function attachRoomViewListeners(container, callbacks) {
 			callbacks.onFloatingChatMouseDown?.();
 		});
 	}
-	container.querySelector('[data-action="toggle-chat-panel"]')?.addEventListener("click", toggleChatPanel);
+	container.querySelectorAll('[data-action="toggle-chat-panel"]').forEach((el) => el.addEventListener("click", toggleChatPanel));
 	container.querySelector('[data-action="close-chat-panel"]')?.addEventListener("click", () => {
 		if (chatFloatingWindow) callbacks.onFloatingChatClose?.();
 		else {

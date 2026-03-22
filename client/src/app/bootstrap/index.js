@@ -1,6 +1,6 @@
 /**
- * App Bootstrap – Composition Root.
- * Orchestriert Module unter ./bootstrap/* (Navigation, Storage, Raum-Lebenszyklus, Subscriptions).
+ * App Bootstrap – Orchestrierung (Navigation, Storage, Raum-Lebenszyklus, Subscriptions).
+ * Öffentlicher Einstieg: ../index.js (bootstrap exportieren).
  */
 
 import { installAudioUnlockOnUserGesture } from "../../audio.js";

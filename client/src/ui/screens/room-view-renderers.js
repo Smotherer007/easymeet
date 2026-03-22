@@ -127,6 +127,52 @@ export function getWindowPositions(defaults, windowPositions) {
 	return pos;
 }
 
+export function renderLeaveRoomModal() {
+	return `
+    <div class="leave-room-modal" id="leave-room-modal" hidden role="dialog" aria-modal="true" aria-labelledby="leave-room-modal-title">
+      <div class="leave-room-modal__backdrop" data-action="leave-cancel"></div>
+      <div class="leave-room-modal__panel">
+        <h2 class="leave-room-modal__title" id="leave-room-modal-title">${escapeHtml(t("leaveRoomTitle"))}</h2>
+        <p class="leave-room-modal__body">${escapeHtml(t("leaveRoomBody"))}</p>
+        <div class="leave-room-modal__actions">
+          <button type="button" class="btn btn--secondary" data-action="leave-cancel">${escapeHtml(t("leaveRoomStay"))}</button>
+          <button type="button" class="btn btn--danger" data-action="leave-confirm">${escapeHtml(t("leaveRoomConfirmLeave"))}</button>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+/**
+ * Gemeinsame Steuerleiste: Desktop eine Reihe; mobil Primär (Stumm/Kamera/Verlassen) + „Mehr“.
+ */
+function renderMeetingControlBarInner(state) {
+	const { isMuted, isVideoEnabled, hostStream, hasScreenShareSupport, unreadChatCount, roomId, videoLayoutMode = "grid" } = state;
+	const screenSlot = hasScreenShareSupport
+		? `<span class="meeting-control-bar__screen-slot">${renderMeetingScreenShareSlotInner({ hasScreenShareSupport, hostStream })}</span>`
+		: "";
+	const moreLabel = escapeHtml(t("moreControls"));
+	const inFree = videoLayoutMode === "free";
+	const layoutTitle = inFree ? t("layoutGrid") : t("layoutFree");
+	const layoutIcon = inFree ? iconLayoutGrid() : iconGrip();
+	return `
+    <div class="meeting-control-bar__primary">
+      <button class="meeting-control-btn chat__mute-btn--${isMuted ? "muted" : "unmuted"}" data-action="toggle-mute" title="${isMuted ? t("unmute") : t("mute")}">${isMuted ? iconMicOff() : iconMic()}</button>
+      <button class="meeting-control-btn video-btn--${isVideoEnabled ? "on" : "off"}" data-action="toggle-video" title="${isVideoEnabled ? t("cameraOn") : t("cameraOff")}">${isVideoEnabled ? iconVideo() : iconVideoOff()}</button>
+      <button class="meeting-control-btn meeting-control-btn--leave" data-action="leave" title="${t("leaveRoom")}">${iconPhoneOff()}</button>
+    </div>
+    <button type="button" class="meeting-control-btn meeting-control-btn--more" data-action="toggle-meeting-more" aria-label="${moreLabel}" aria-expanded="false" title="${moreLabel}">${iconMoreHorizontal()}</button>
+    <div class="meeting-control-bar__secondary">
+      ${screenSlot}
+      <button class="meeting-control-btn meeting-control-btn--chat" data-action="toggle-chat-panel" title="${t("tabChat")}"><span class="meeting-control-btn__icon-wrap">${iconMessageSquare()}<span class="chat-badge" id="chat-badge" ${unreadChatCount > 0 ? "" : "hidden"}>${unreadChatCount > 99 ? "99+" : unreadChatCount}</span></span></button>
+      <button class="meeting-control-btn" data-action="toggle-video-layout" title="${layoutTitle}">${layoutIcon}</button>
+      <button class="meeting-control-btn" data-action="toggle-sidebar" title="${t("participants")}">${iconUsers()}</button>
+      ${roomId ? `<button class="meeting-control-btn" data-action="share" title="${t("shareRoom")}">${iconShare2()}</button>` : ""}
+      <button class="meeting-control-btn meeting-control-btn--settings" data-action="toggle-settings" title="${t("settings")}">${iconMoreHorizontal()}</button>
+    </div>
+  `;
+}
+
 /** Screen-share control in bar — slot hot-swappable without full re-render. */
 export function renderMeetingScreenShareSlotInner({ hasScreenShareSupport, hostStream }) {
 	if (!hasScreenShareSupport) return "";
@@ -150,18 +196,7 @@ export function renderStreamModalHostActionsInner({ isHost, hostStream, audioEna
 }
 
 export function renderMeetingControlBarFloating(state) {
-	const { isMuted, isVideoEnabled, hostStream, hasScreenShareSupport, unreadChatCount, roomId } = state;
-	return `
-    <button class="meeting-control-btn chat__mute-btn--${isMuted ? "muted" : "unmuted"}" data-action="toggle-mute" title="${isMuted ? t("unmute") : t("mute")}">${isMuted ? iconMicOff() : iconMic()}</button>
-    <button class="meeting-control-btn video-btn--${isVideoEnabled ? "on" : "off"}" data-action="toggle-video" title="${isVideoEnabled ? t("cameraOn") : t("cameraOff")}">${isVideoEnabled ? iconVideo() : iconVideoOff()}</button>
-${hasScreenShareSupport ? `<span class="meeting-control-bar__screen-slot">${renderMeetingScreenShareSlotInner({ hasScreenShareSupport, hostStream })}</span>` : ""}
-      <button class="meeting-control-btn meeting-control-btn--chat" data-action="toggle-chat-panel" title="${t("tabChat")}"><span class="meeting-control-btn__icon-wrap">${iconMessageSquare()}<span class="chat-badge" id="chat-badge" ${unreadChatCount > 0 ? "" : "hidden"}>${unreadChatCount > 99 ? "99+" : unreadChatCount}</span></span></button>
-      <button class="meeting-control-btn" data-action="toggle-video-layout" title="${t("layoutGrid")}">${iconLayoutGrid()}</button>
-    <button class="meeting-control-btn" data-action="toggle-sidebar" title="${t("participants")}">${iconUsers()}</button>
-    ${roomId ? `<button class="meeting-control-btn" data-action="share" title="${t("shareRoom")}">${iconShare2()}</button>` : ""}
-    <button class="meeting-control-btn" data-action="toggle-settings" title="${t("settings")}">${iconMoreHorizontal()}</button>
-    <button class="meeting-control-btn meeting-control-btn--leave" data-action="leave" title="${t("leaveRoom")}">${iconPhoneOff()}</button>
-  `;
+	return renderMeetingControlBarInner(state);
 }
 
 export function renderFloatingWindowVideos(pos, isOpen = true) {
@@ -345,20 +380,7 @@ export function renderShareModalContent(roomId, formattedRoomId, joinUrl, render
 }
 
 export function renderMeetingControlBarGrid(state) {
-	const { isMuted, isVideoEnabled, hostStream, hasScreenShareSupport, unreadChatCount, roomId } = state;
-	return `
-    <div class="meeting-control-bar">
-      <button class="meeting-control-btn chat__mute-btn--${isMuted ? "muted" : "unmuted"}" data-action="toggle-mute" title="${isMuted ? t("unmute") : t("mute")}">${isMuted ? iconMicOff() : iconMic()}</button>
-      <button class="meeting-control-btn video-btn--${isVideoEnabled ? "on" : "off"}" data-action="toggle-video" title="${isVideoEnabled ? t("cameraOn") : t("cameraOff")}">${isVideoEnabled ? iconVideo() : iconVideoOff()}</button>
-      ${hasScreenShareSupport ? `<span class="meeting-control-bar__screen-slot">${renderMeetingScreenShareSlotInner({ hasScreenShareSupport, hostStream })}</span>` : ""}
-      <button class="meeting-control-btn meeting-control-btn--chat" data-action="toggle-chat-panel" title="${t("tabChat")}"><span class="meeting-control-btn__icon-wrap">${iconMessageSquare()}<span class="chat-badge" id="chat-badge" ${unreadChatCount > 0 ? "" : "hidden"}>${unreadChatCount > 99 ? "99+" : unreadChatCount}</span></span></button>
-      <button class="meeting-control-btn" data-action="toggle-video-layout" title="${t("layoutFree")}">${iconGrip()}</button>
-      <button class="meeting-control-btn" data-action="toggle-sidebar" title="${t("participants")}">${iconUsers()}</button>
-      ${roomId ? `<button class="meeting-control-btn" data-action="share" title="${t("shareRoom")}">${iconShare2()}</button>` : ""}
-      <button class="meeting-control-btn" data-action="toggle-settings" title="${t("settings")}">${iconMoreHorizontal()}</button>
-      <button class="meeting-control-btn meeting-control-btn--leave" data-action="leave" title="${t("leaveRoom")}">${iconPhoneOff()}</button>
-    </div>
-  `;
+	return `<div class="meeting-control-bar" id="meeting-control-bar">${renderMeetingControlBarInner(state)}</div>`;
 }
 
 export function renderChatPanelContent(messagesHtml, voipParticipantsHtml, voipMembersLength) {

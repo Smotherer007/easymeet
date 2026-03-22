@@ -44,7 +44,20 @@ export function renderLanding() {
         <p class="landing__active-hint">${t("activeRoomsHint")}</p>
         <p class="landing__active-loading" id="active-rooms-loading">${t("activeRoomsLoading")}</p>
         <p class="landing__active-error" id="active-rooms-error" hidden></p>
-        <p class="landing__active-empty" id="active-rooms-empty" hidden>${t("activeRoomsEmpty")}</p>
+        <div class="landing__active-empty-wrap" id="active-rooms-empty" hidden>
+          <div class="landing__empty-illustration" aria-hidden="true">
+            <svg class="landing__empty-svg" viewBox="0 0 120 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <ellipse cx="60" cy="88" rx="40" ry="6" fill="currentColor" opacity="0.12"/>
+              <rect x="28" y="28" width="64" height="48" rx="10" stroke="currentColor" stroke-width="2" opacity="0.35"/>
+              <circle cx="48" cy="48" r="6" fill="currentColor" opacity="0.45"/>
+              <path d="M58 52 L72 40 L88 56" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" opacity="0.5"/>
+              <circle cx="78" cy="42" r="4" fill="currentColor" opacity="0.35"/>
+            </svg>
+          </div>
+          <p class="landing__empty-headline">${t("activeRoomsEmptyHeadline")}</p>
+          <p class="landing__empty-copy">${t("activeRoomsEmpty")}</p>
+          <button type="button" class="btn btn--secondary btn--sm" data-action="join-empty-cta">${t("activeRoomsEmptyCta")}</button>
+        </div>
         <ul class="landing__active-list" id="active-rooms-list" role="list"></ul>
       </section>
       <footer class="landing__footer">
@@ -237,6 +250,23 @@ export function attachLandingListeners(container, handlers) {
 		await refreshActiveRoomsPanel(container, onPickActiveRoom);
 	};
 	container.querySelector('[data-action="refresh-active-rooms"]')?.addEventListener("click", () => void runRefresh());
+	container.querySelector('[data-action="join-empty-cta"]')?.addEventListener("click", onJoinRoom);
 	void runRefresh();
 	container._easymeetActiveRoomsInterval = window.setInterval(() => void runRefresh(), 30000);
+
+	if (!window._easymeetOrbParallax) {
+		window._easymeetOrbParallax = true;
+		const orbs = document.querySelector(".bg-orbs");
+		if (orbs) {
+			let raf = 0;
+			document.addEventListener("pointermove", (e) => {
+				cancelAnimationFrame(raf);
+				raf = requestAnimationFrame(() => {
+					const x = (e.clientX / window.innerWidth - 0.5) * 24;
+					const y = (e.clientY / window.innerHeight - 0.5) * 24;
+					orbs.style.transform = `translate3d(${x}px, ${y}px, 0)`;
+				});
+			});
+		}
+	}
 }
