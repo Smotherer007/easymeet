@@ -886,7 +886,7 @@ export async function setupRoomParticipant(peerObj, nick, localStream, callbacks
 		/** Like initialState.isMuted (false): without callback do not falsely signal muted */
 		const muted = getMuted?.() ?? false;
 
-		const { peers, easymeetPolls } = await protoo.request("join", {
+		const { peers, easymeetPolls, easymeetChatHistory } = await protoo.request("join", {
 			displayName: nick,
 			device: { flag: "easymeet", name: "Easymeet" },
 			rtpCapabilities: device.rtpCapabilities,
@@ -901,6 +901,9 @@ export async function setupRoomParticipant(peerObj, nick, localStream, callbacks
 		dispatch?.({ type: "voip/membersUpdated", payload: { members: [...membersRef] } });
 		if (Array.isArray(easymeetPolls) && easymeetPolls.length) {
 			dispatch?.({ type: "room/pollsSet", payload: { polls: easymeetPolls } });
+		}
+		if (Array.isArray(easymeetChatHistory) && easymeetChatHistory.length) {
+			dispatch?.({ type: "chat/historyRestored", payload: { messages: easymeetChatHistory } });
 		}
 		dispatch?.({
 			type: "chat/membersUpdated",

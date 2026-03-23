@@ -59,6 +59,12 @@ function reduceChatMessageReceived(state, payload) {
 	return { ...state, messages };
 }
 
+function reduceChatHistoryRestored(state, payload) {
+	const list = payload?.messages;
+	if (!Array.isArray(list) || !list.length) return state;
+	return { ...state, messages: list };
+}
+
 function reduceChatMembersUpdated(state, payload) {
 	const list = payload?.list ?? [];
 	return { ...state, members: list };
@@ -412,6 +418,7 @@ const HANDLERS = {
 	"room/joinAttemptAborted": reduceCallSetupAborted,
 	"room/createAttemptAborted": reduceCallSetupAborted,
 	"chat/messageReceived": reduceChatMessageReceived,
+	"chat/historyRestored": reduceChatHistoryRestored,
 	"chat/membersUpdated": reduceChatMembersUpdated,
 	"voip/membersUpdated": reduceVoipMembersUpdated,
 	"voip/muteReceived": reduceVoipMuteReceived,

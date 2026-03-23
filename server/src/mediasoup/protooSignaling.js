@@ -8,7 +8,16 @@
 import { createRequire } from "module";
 import { randomUUID } from "node:crypto";
 import { normalizeRoomCode } from "../roomCode.js";
-import { getOrCreateRoom, getRoom, closePeer, createPeerState, createWebRtcTransport, cleanupMediasoupPeerResources } from "./rooms.js";
+import {
+	getOrCreateRoom,
+	getRoom,
+	closePeer,
+	createPeerState,
+	createWebRtcTransport,
+	cleanupMediasoupPeerResources,
+	appendRoomChatEntry,
+	getChatHistorySnapshot
+} from "./rooms.js";
 import { logProtooInfo, logProtooWarn, logProtooError, runWithLogContextAsync } from "../logger.js";
 import { consumeHandshakeToken } from "../wsJoinTokens.js";
 import { EasymeetErrorCode, protooErrorReason } from "../easymeetErrors.js";
@@ -34,6 +43,44 @@ function sanitizeReactionEmoji(raw) {
 	const s = raw.trim().slice(0, 16);
 	if (!s || /[<>]/.test(s) || /[{}\u0000-\u001f]/.test(s)) return "";
 	return s;
+}
+
+function sanitizeGiphyUrls(raw) {
+	if (!Array.isArray(raw)) return [];
+	const out = [];
+	for (const u of raw) {
+		if (typeof u !== "string") continue;
+		const s = u.trim().slice(0, 2048);
+		if (!s || !/^https?:\/\//i.test(s)) continue;
+		out.push(s);
+		if (out.length >= 10) break;
+	}
+	return out;
+}
+
+/**
+ * Client-/History-Form (ohne peerId), wie der Client in `chat/messageReceived` erwartet.
+ * @returns {{ type: 'chat'; nick: string; text: string; ts: number; giphyUrls: string[] } | null}
+ */
+function buildSanitizedChatClientEntry(msg, msPeer) {
+	const nick = typeof msg.nick === "string" ? msg.nick.trim().slice(0, 128) : msPeer.nick || "?";
+	const text = typeof msg.text === "string" ? msg.text.slice(0, 4000) : "";
+	const ts = Number(msg.ts) || Date.now();
+	const giphyUrls = sanitizeGiphyUrls(msg.giphyUrls);
+	if (!text.trim() && !giphyUrls.length) return null;
+	return { type: "chat", nick, text, ts, giphyUrls };
+}
+
+/**
+ * @returns {{ type: 'file_share'; nick: string; filename: string; ts: number; fileId: string } | null}
+ */
+function buildSanitizedFileShareClientEntry(msg, msPeer) {
+	const nick = typeof msg.nick === "string" ? msg.nick.trim().slice(0, 128) : msPeer.nick || "?";
+	const filename = typeof msg.filename === "string" ? msg.filename.trim().slice(0, 256) : "";
+	const fileId = typeof msg.fileId === "string" ? msg.fileId.trim().slice(0, 128) : "";
+	const ts = Number(msg.ts) || Date.now();
+	if (!filename || !fileId) return null;
+	return { type: "file_share", nick, filename, ts, fileId };
 }
 
 function serializePollPublic(poll) {
@@ -290,7 +337,11 @@ async function handleProtooRequest(roomId, room, msPeer, request, accept, reject
 			);
 
 			const peersPayload = otherPeers.map((p) => serializeProtoPeer(p));
-			accept({ peers: peersPayload, easymeetPolls: getPollsSnapshot(room) });
+			accept({
+				peers: peersPayload,
+				easymeetPolls: getPollsSnapshot(room),
+				easymeetChatHistory: getChatHistorySnapshot(room)
+			});
 
 			await notifyExistingProducersToNewPeer(room, msPeer);
 
@@ -456,35 +507,21 @@ async function handleProtooNotification(roomId, room, msPeer, notification) {
 			if (!msg?.type) return;
 
 			switch (msg.type) {
-				case "chat":
-					broadcastEasymeet(
-						roomId,
-						{
-							type: "chat",
-							nick: msg.nick,
-							text: msg.text,
-							ts: msg.ts,
-							giphyUrls: msg.giphyUrls || [],
-							peerId: msPeer.peerId
-						},
-						msPeer.peerId
-					);
+				case "chat": {
+					const chatEntry = buildSanitizedChatClientEntry(msg, msPeer);
+					if (!chatEntry) break;
+					appendRoomChatEntry(room, chatEntry);
+					broadcastEasymeet(roomId, { ...chatEntry, peerId: msPeer.peerId }, msPeer.peerId);
 					break;
+				}
 
-				case "file_share":
-					broadcastEasymeet(
-						roomId,
-						{
-							type: "file_share",
-							nick: msg.nick,
-							filename: msg.filename,
-							ts: msg.ts,
-							fileId: msg.fileId,
-							peerId: msPeer.peerId
-						},
-						msPeer.peerId
-					);
+				case "file_share": {
+					const fileEntry = buildSanitizedFileShareClientEntry(msg, msPeer);
+					if (!fileEntry) break;
+					appendRoomChatEntry(room, fileEntry);
+					broadcastEasymeet(roomId, { ...fileEntry, peerId: msPeer.peerId }, msPeer.peerId);
 					break;
+				}
 
 				case "mute":
 					msPeer.muted = msg.muted ?? msPeer.muted;

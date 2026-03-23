@@ -223,7 +223,16 @@ export function syncCameraOffElement(tile, hasVideo) {
 }
 
 function ensureVideoTileMediaWrap(tile) {
-	if (tile.querySelector(":scope > .video-tile__media-wrap")) return;
+	const existing = tile.querySelector(":scope > .video-tile__media-wrap");
+	if (existing) {
+		const mirror = existing.querySelector(":scope > .video-tile__media-mirror");
+		if (mirror) {
+			const vid = mirror.querySelector("video");
+			if (vid) existing.insertBefore(vid, mirror);
+			mirror.remove();
+		}
+		return;
+	}
 	const directVideo = tile.querySelector(":scope > video");
 	if (!directVideo) return;
 	directVideo.disablePictureInPicture = true;

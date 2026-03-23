@@ -15,6 +15,7 @@
 /** @typedef {{ type: 'room/leaveRequested' }} LeaveRequestedEvent */
 /** @typedef {{ type: 'chat/sendRequested'; payload: { text: string; giphyUrls: string[] } }} ChatSendRequestedEvent */
 /** @typedef {{ type: 'chat/messageReceived'; payload: import('../../protocol/messages.js').ChatMessage|{type:'join'|'leave';nick:string}|import('../../protocol/messages.js').FileShareMessage }} ChatMessageReceivedEvent */
+/** @typedef {{ type: 'chat/historyRestored'; payload: { messages: unknown[] } }} ChatHistoryRestoredEvent */
 /** @typedef {{ type: 'chat/membersUpdated'; payload: { list: string[] } }} ChatMembersUpdatedEvent */
 /** @typedef {{ type: 'voip/membersUpdated'; payload: Array<{peerId:string;nick:string}> }} VoipMembersUpdatedEvent */
 /** @typedef {{ type: 'voip/muteReceived'; payload: { peerId: string; muted: boolean } }} VoipMuteReceivedEvent */
@@ -44,6 +45,6 @@
 /** @typedef {{ type: 'effects/deviceChangeHandler'; payload: { handler: (() => void) | null } }} EffectsDeviceChangeHandlerEvent */
 /** @typedef {{ type: 'effects/previewEffectStop'; payload: { stop: (() => void) | null } }} EffectsPreviewEffectStopEvent */
 
-/** @typedef {NavScreenEvent|CreateRoomRequestedEvent|JoinRoomRequestedEvent|RoomCreatedEvent|RoomJoinedEvent|LeaveRequestedEvent|ChatSendRequestedEvent|ChatMessageReceivedEvent|ChatMembersUpdatedEvent|VoipMembersUpdatedEvent|VoipMuteReceivedEvent|VoipMuteToggledEvent|ScreenStreamStartedEvent|ScreenStreamStoppedEvent|RemoteStreamAddedEvent|RemoteStreamEndedEvent|VideoStateUpdatedEvent|BackgroundEffectUpdatedEvent|FileReceivedEvent|FileProgressEvent|FileProgressClearedEvent|HostLeavingEvent|PeerVolumeChangedEvent|CleanupFinishedEvent|SessionClearedEvent|RoomJoinAttemptAbortedEvent|RoomCreateAttemptAbortedEvent|StorageDevicesRestoredEvent|StorageVideoLayoutRestoredEvent|StorageWindowPositionsRestoredEvent|StorageAudioSettingsRestoredEvent|PeerVolumesMergedEvent|UnreadChatIncrementedEvent|EffectsCallDeviceChangeHandlerEvent|EffectsDeviceChangeHandlerEvent|EffectsPreviewEffectStopEvent} AppEvent */
+/** @typedef {NavScreenEvent|CreateRoomRequestedEvent|JoinRoomRequestedEvent|RoomCreatedEvent|RoomJoinedEvent|LeaveRequestedEvent|ChatSendRequestedEvent|ChatMessageReceivedEvent|ChatHistoryRestoredEvent|ChatMembersUpdatedEvent|VoipMembersUpdatedEvent|VoipMuteReceivedEvent|VoipMuteToggledEvent|ScreenStreamStartedEvent|ScreenStreamStoppedEvent|RemoteStreamAddedEvent|RemoteStreamEndedEvent|VideoStateUpdatedEvent|BackgroundEffectUpdatedEvent|FileReceivedEvent|FileProgressEvent|FileProgressClearedEvent|HostLeavingEvent|PeerVolumeChangedEvent|CleanupFinishedEvent|SessionClearedEvent|RoomJoinAttemptAbortedEvent|RoomCreateAttemptAbortedEvent|StorageDevicesRestoredEvent|StorageVideoLayoutRestoredEvent|StorageWindowPositionsRestoredEvent|StorageAudioSettingsRestoredEvent|PeerVolumesMergedEvent|UnreadChatIncrementedEvent|EffectsCallDeviceChangeHandlerEvent|EffectsDeviceChangeHandlerEvent|EffectsPreviewEffectStopEvent} AppEvent */
 
 export {};

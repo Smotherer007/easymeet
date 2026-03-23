@@ -45,7 +45,31 @@ const msRooms = new Map();
  * @property {number} createdAt
  * @property {Map<string, object>} polls
  * @property {number} pollSeq
+ * @property {object[]} chatHistory serialisierte Chat-/Datei-Zeilen (wie Client-messages), begrenzt durch MAX_ROOM_CHAT_HISTORY
  */
+
+/** Max. Einträge pro Raum (Text + geteilte Dateien); bei Überschreitung älteste verwerfen. */
+const MAX_ROOM_CHAT_HISTORY = 400;
+
+/**
+ * @param {Object} room
+ * @param {object} entry
+ */
+export function appendRoomChatEntry(room, entry) {
+	if (!room.chatHistory) room.chatHistory = [];
+	room.chatHistory.push(entry);
+	if (room.chatHistory.length > MAX_ROOM_CHAT_HISTORY) {
+		room.chatHistory.splice(0, room.chatHistory.length - MAX_ROOM_CHAT_HISTORY);
+	}
+}
+
+/**
+ * @param {Object} room
+ * @returns {object[]}
+ */
+export function getChatHistorySnapshot(room) {
+	return room.chatHistory?.length ? [...room.chatHistory] : [];
+}
 
 export async function createWorkers() {
 	for (let i = 0; i < numWorkers; i++) {
@@ -84,7 +108,8 @@ export async function getOrCreateRoom(roomId) {
 		protooRoom: new ProtooRoom(),
 		createdAt: Date.now(),
 		polls: new Map(),
-		pollSeq: 0
+		pollSeq: 0,
+		chatHistory: []
 	};
 	room.canonicalRoomId = id;
 	msRooms.set(id, room);
