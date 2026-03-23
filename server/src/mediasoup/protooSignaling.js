@@ -21,6 +21,7 @@ import {
 import { logProtooInfo, logProtooWarn, logProtooError, runWithLogContextAsync } from "../logger.js";
 import { consumeHandshakeToken } from "../wsJoinTokens.js";
 import { EasymeetErrorCode, protooErrorReason } from "../easymeetErrors.js";
+import { REACTION_EFFECT_IDS } from "../shared/reactionEffectIds.js";
 
 const require = createRequire(import.meta.url);
 const { WebSocketServer: ProtooWebSocketServer } = require("protoo-server");
@@ -43,6 +44,14 @@ function sanitizeReactionEmoji(raw) {
 	const s = raw.trim().slice(0, 16);
 	if (!s || /[<>]/.test(s) || /[{}\u0000-\u001f]/.test(s)) return "";
 	return s;
+}
+
+const REACTION_EFFECT_ID_SET = new Set(REACTION_EFFECT_IDS);
+
+function sanitizeReactionEffect(raw) {
+	if (typeof raw !== "string") return "";
+	const s = raw.trim();
+	return REACTION_EFFECT_ID_SET.has(s) ? s : "";
 }
 
 function sanitizeGiphyUrls(raw) {
@@ -574,6 +583,19 @@ async function handleProtooNotification(roomId, room, msPeer, notification) {
 					const emoji = sanitizeReactionEmoji(msg.emoji);
 					if (!emoji) break;
 					broadcastEasymeet(roomId, { type: "reaction", peerId: msPeer.peerId, emoji, ts: Date.now() }, null);
+					break;
+				}
+
+				case "reaction_effect": {
+					const effect = sanitizeReactionEffect(msg.effect);
+					if (!effect) {
+						logProtooWarn("reaction_effect ignored (unknown or invalid effect)", {
+							peerId: msPeer.peerId,
+							raw: typeof msg.effect === "string" ? msg.effect.slice(0, 64) : msg.effect
+						});
+						break;
+					}
+					broadcastEasymeet(roomId, { type: "reaction_effect", peerId: msPeer.peerId, effect, ts: Date.now() }, null);
 					break;
 				}
 

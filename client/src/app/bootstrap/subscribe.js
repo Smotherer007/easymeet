@@ -9,6 +9,7 @@ import { appendMessage, updateVoipParticipants, updateChatBadge, updateFileShare
 import { attachRemoteAudio, detachRemoteAudio, getStreamForVideoTile, getStreamForPeerId, getStreamForScreenShare } from "../../effects/media/tiles.js";
 import { patchMeetingScreenSharePresentation } from "../../effects/ui/roomView.js";
 import { spawnFloatingReaction } from "../../effects/ui/floatingReactions.js";
+import { playReactionEffect } from "../../effects/ui/reactionEffects.js";
 import { syncHandRaisedOnVideoTiles } from "../../effects/media/tiles.js";
 import { refreshPollsDock, updateHandRaiseMeetingBar } from "../../ui/screens/room-view-renderers.js";
 import * as selectors from "../../domain/selectors/index.js";
@@ -197,6 +198,9 @@ export function createSubscriptionHandler(appEl, getState, dispatch) {
 		const p = event.payload;
 		if (evt === "room/reaction" && p?.peerId && p?.emoji && selectors.selectScreen(state) === "room-view") {
 			spawnFloatingReaction(appEl, p.peerId, p.emoji);
+		}
+		if (evt === "room/reactionEffect" && p?.effect && selectors.selectScreen(state) === "room-view") {
+			playReactionEffect(appEl, p.effect);
 		}
 		if (evt === "room/handRaisedSelf" && selectors.selectScreen(state) === "room-view") {
 			updateHandRaiseMeetingBar(appEl, !!p?.raised);

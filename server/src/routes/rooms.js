@@ -1,7 +1,12 @@
 import { Router } from "express";
 import { validateCreateRoomPayload, validateRegisterHostPayload } from "../validate.js";
 import { hashPassword } from "../password.js";
-import { listActiveRoomsPublic, getRoom as getMediasoupRoom, listRoomParticipantNicks } from "../mediasoup/rooms.js";
+import {
+	listActiveRoomsPublic,
+	getRoom as getMediasoupRoom,
+	listRoomParticipantNicks,
+	countJoinedPeers
+} from "../mediasoup/rooms.js";
 import { logInfo, logWarn } from "../logger.js";
 import { EasymeetErrorCode, sendJsonError, sendValidationJsonError } from "../easymeetErrors.js";
 
@@ -70,7 +75,7 @@ export function createRoomsRouter(deps) {
 		const byId = new Map(fromMs.map((r) => [r.roomId, r]));
 		for (const httpId of rooms.keys()) {
 			const ms = getMediasoupRoom(httpId);
-			const n = ms?.peers?.size ?? 0;
+			const n = ms ? countJoinedPeers(ms) : 0;
 			if (n < 1) continue;
 			if (!byId.has(httpId)) {
 				byId.set(httpId, {

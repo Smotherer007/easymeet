@@ -12,6 +12,12 @@ import {
 } from "../../icons.js";
 import { fetchActiveRooms, fetchPinnedRooms } from "../../effects/network/api.js";
 
+/**
+ * Nur eine Landing-Aktualisierung gleichzeitig (pinned + active nacheinander).
+ * Sonst kann eine schnelle leere Antwort „gewinnen“, während eine langsamere mit Räumen verworfen wird (Gen-Zähler).
+ */
+let landingRoomPanelsRefreshChain = Promise.resolve();
+
 export function renderLanding() {
 	return `
     <div class="screen landing">
@@ -175,6 +181,7 @@ export async function refreshPinnedRoomsPanel(container, onPickRoom) {
 	if (emptyEl) emptyEl.setAttribute("hidden", "");
 
 	const result = await fetchPinnedRooms();
+
 	if (!result.success) {
 		if (errEl) {
 			errEl.textContent = t("pinnedRoomsError");
@@ -189,6 +196,7 @@ export async function refreshPinnedRoomsPanel(container, onPickRoom) {
 		return;
 	}
 
+	if (emptyEl) emptyEl.setAttribute("hidden", "");
 	for (const r of rooms) {
 		appendRoomListItem(listEl, r, t("pinnedRoomsMeta"), onPickRoom, { showJumpIcon: true });
 	}
@@ -213,6 +221,7 @@ export async function refreshActiveRoomsPanel(container, onPickRoom) {
 	loadingEl?.removeAttribute("hidden");
 
 	const result = await fetchActiveRooms();
+
 	loadingEl?.setAttribute("hidden", "");
 
 	if (!result.success) {
@@ -229,6 +238,7 @@ export async function refreshActiveRoomsPanel(container, onPickRoom) {
 		return;
 	}
 
+	if (emptyEl) emptyEl.setAttribute("hidden", "");
 	for (const r of rooms) {
 		appendRoomListItem(listEl, r, peopleLabel(r.participantCount), onPickRoom);
 	}
@@ -241,15 +251,21 @@ export async function refreshActiveRoomsPanel(container, onPickRoom) {
 export function attachLandingListeners(container, handlers) {
 	const { onCreateRoom, onJoinRoom, onPickActiveRoom } = handlers;
 	clearInterval(container._easymeetActiveRoomsInterval);
+	landingRoomPanelsRefreshChain = Promise.resolve();
 
 	container.querySelector('[data-action="create"]')?.addEventListener("click", onCreateRoom);
 	container.querySelectorAll('[data-action="join"]').forEach((el) => {
 		el.addEventListener("click", onJoinRoom);
 	});
 
-	const runRefresh = async () => {
-		await refreshPinnedRoomsPanel(container, onPickActiveRoom);
-		await refreshActiveRoomsPanel(container, onPickActiveRoom);
+	const runRefresh = () => {
+		landingRoomPanelsRefreshChain = landingRoomPanelsRefreshChain
+			.catch(() => {})
+			.then(async () => {
+				await refreshPinnedRoomsPanel(container, onPickActiveRoom);
+				await refreshActiveRoomsPanel(container, onPickActiveRoom);
+			});
+		return landingRoomPanelsRefreshChain;
 	};
 	container.querySelector('[data-action="refresh-active-rooms"]')?.addEventListener("click", () => void runRefresh());
 	container.querySelector('[data-action="join-empty-cta"]')?.addEventListener("click", onJoinRoom);

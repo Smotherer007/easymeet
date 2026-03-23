@@ -104,7 +104,11 @@ export async function fetchJoinRoom(identifier, password) {
  */
 export async function fetchActiveRooms() {
 	try {
-		const res = await fetchJson(`${API_BASE}/rooms/active`);
+		// Kein Browser-/Proxy-Caching: sonst leere Antwort „kleben“ lassen während der Server schon Räume liefert
+		const res = await fetchJson(`${API_BASE}/rooms/active?_=${Date.now()}`, {
+			cache: "no-store",
+			headers: { "Cache-Control": "no-cache" }
+		});
 		const data = /** @type {Record<string, unknown>} */ (res.data || {});
 		if (!res.ok) {
 			return err("API", apiFailureMessage(data, "Could not load active rooms"));
@@ -121,7 +125,10 @@ export async function fetchActiveRooms() {
  */
 export async function fetchPinnedRooms() {
 	try {
-		const res = await fetchJson(`${API_BASE}/rooms/pinned`);
+		const res = await fetchJson(`${API_BASE}/rooms/pinned?_=${Date.now()}`, {
+			cache: "no-store",
+			headers: { "Cache-Control": "no-cache" }
+		});
 		const data = /** @type {Record<string, unknown>} */ (res.data || {});
 		if (!res.ok) {
 			return err("API", apiFailureMessage(data, "Could not load pinned rooms"));

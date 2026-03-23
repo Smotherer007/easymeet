@@ -607,6 +607,9 @@ export async function setupRoomParticipant(peerObj, nick, localStream, callbacks
 			case "reaction":
 				dispatch?.({ type: "room/reaction", payload: { peerId: msg.peerId, emoji: msg.emoji } });
 				break;
+			case "reaction_effect":
+				dispatch?.({ type: "room/reactionEffect", payload: { peerId: msg.peerId, effect: msg.effect } });
+				break;
 			case "hand_raise": {
 				const row = membersRef.find((m) => m.peerId === msg.peerId);
 				if (row) row.handRaised = !!msg.raised;
@@ -1229,7 +1232,9 @@ export async function setupRoomParticipant(peerObj, nick, localStream, callbacks
 				return protoo.connected && !protoo.closed;
 			},
 			send: (msg) => {
-				if (msg?.type) notifyEasymeet(protoo, msg);
+				if (msg?.type) {
+					void notifyEasymeet(protoo, msg).catch((e) => logMsWarn("easymeet notify failed", msg?.type, e?.message || e));
+				}
 			},
 			close: () => close(),
 			on: () => {}
@@ -1243,7 +1248,9 @@ export async function setupRoomParticipant(peerObj, nick, localStream, callbacks
 		peerId,
 		protoo,
 		sendWs: (data) => {
-			if (data?.type) notifyEasymeet(protoo, data);
+			if (data?.type) {
+				void notifyEasymeet(protoo, data).catch((e) => logMsWarn("easymeet notify failed", data?.type, e?.message || e));
+			}
 		},
 		sendFileToRoom: (file, onProgress, fromNick, fileId) => sendFileToViewers(protoo, file, onProgress, roomId, password, fromNick, fileId),
 

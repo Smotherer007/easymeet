@@ -269,6 +269,20 @@ export function getRoomPeers(roomId) {
 }
 
 /**
+ * Nur Peers, die den mediasoup-„join“ abgeschlossen haben (VoIP/Sitzung aktiv).
+ * @param {RoomState|null} room
+ * @returns {number}
+ */
+export function countJoinedPeers(room) {
+	if (!room?.peers) return 0;
+	let n = 0;
+	for (const p of room.peers.values()) {
+		if (p.joined) n += 1;
+	}
+	return n;
+}
+
+/**
  * Display names of VoIP peers in a room (sorted, empty nicks omitted).
  * @param {RoomState|null} room
  * @returns {string[]}
@@ -276,17 +290,18 @@ export function getRoomPeers(roomId) {
 export function listRoomParticipantNicks(room) {
 	if (!room?.peers) return [];
 	const nicks = Array.from(room.peers.values())
+		.filter((p) => p.joined)
 		.map((p) => String(p.nick || "").trim())
 		.filter((n) => n.length > 0);
 	nicks.sort((a, b) => a.localeCompare(b, undefined, { sensitivity: "base" }));
 	return nicks;
 }
 
-/** Rooms with at least one connected peer (for public landing list). */
+/** Räume mit mindestens einem beigetretenen VoIP-Peer (Landing-Liste). */
 export function listActiveRoomsPublic() {
 	const out = [];
 	for (const [roomId, room] of msRooms.entries()) {
-		const participantCount = room.peers.size;
+		const participantCount = countJoinedPeers(room);
 		if (participantCount < 1) continue;
 		out.push({
 			roomId,

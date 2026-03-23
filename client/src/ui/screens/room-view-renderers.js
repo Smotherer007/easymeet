@@ -39,6 +39,7 @@ import { replaceEmojiShortcodes } from "../../utils/emojiShortcodes.js";
 import { renderChatContent } from "../../link-embed.js";
 import { EMOJI_DATA } from "../../emoji-data.js";
 import { escapeHtml } from "../../shared/escape.js";
+import { REACTION_EFFECT_IDS } from "../../shared/reactionEffectIds.js";
 import { mergeAndClampWindowRect } from "../utils/viewportWindowClamp.js";
 export { escapeHtml };
 
@@ -150,6 +151,39 @@ export function renderLeaveRoomModal() {
   `;
 }
 
+/** Symbole + i18n-Keys — Reihenfolge kommt aus `REACTION_EFFECT_IDS`. */
+const REACTION_EFFECT_POPOVER_META = {
+	confetti: { sym: "🎊", key: "reactionEffectConfetti" },
+	fireworks: { sym: "🎆", key: "reactionEffectFireworks" },
+	sparkles: { sym: "✨", key: "reactionEffectSparkles" },
+	hearts: { sym: "💕", key: "reactionEffectHearts" },
+	bubbles: { sym: "🫧", key: "reactionEffectBubbles" },
+	meteors: { sym: "💫", key: "reactionEffectMeteors" }
+};
+
+function renderReactionPopoverBody() {
+	const reactionEmojis = ["👍", "👏", "😂", "😮", "❤️", "🎉"];
+	const reactionBtns = reactionEmojis
+		.map(
+			(e) =>
+				`<button type="button" class="reaction-popover__btn" data-action="send-reaction" data-emoji="${e}" title="${e}">${e}</button>`
+		)
+		.join("");
+	const effects = REACTION_EFFECT_IDS.map((id) => ({ id, ...REACTION_EFFECT_POPOVER_META[id] }));
+	const effectBtns = effects
+		.map(
+			(f) =>
+				`<button type="button" class="reaction-popover__btn" data-action="send-reaction-effect" data-effect="${f.id}" title="${escapeHtml(t(f.key))}" aria-label="${escapeHtml(t(f.key))}">${f.sym}</button>`
+		)
+		.join("");
+	return `
+    <div class="reaction-popover__section reaction-popover__section--emoji">${reactionBtns}</div>
+    <div class="reaction-popover__divider" role="separator" aria-hidden="true"></div>
+    <div class="reaction-popover__effects-label">${escapeHtml(t("reactionEffectsLabel"))}</div>
+    <div class="reaction-popover__section reaction-popover__section--effects">${effectBtns}</div>
+  `;
+}
+
 /**
  * Gemeinsame Steuerleiste: Desktop eine Reihe; Smartphone bis 768px Grid mit 6 Icons pro Reihe (alle sichtbar).
  */
@@ -172,13 +206,7 @@ function renderMeetingControlBarInner(state) {
 	const layoutTitle = inFree ? t("layoutGrid") : t("layoutFree");
 	const layoutIcon = inFree ? iconLayoutGrid() : iconGrip();
 	const handTitle = myHandRaised ? t("lowerHand") : t("raiseHand");
-	const reactionEmojis = ["👍", "👏", "😂", "😮", "❤️", "🎉"];
-	const reactionBtns = reactionEmojis
-		.map(
-			(e) =>
-				`<button type="button" class="reaction-popover__btn" data-action="send-reaction" data-emoji="${e}" title="${e}">${e}</button>`
-		)
-		.join("");
+	const reactionPopoverInner = renderReactionPopoverBody();
 	return `
     <div class="meeting-control-bar__primary">
       <button class="meeting-control-btn chat__mute-btn--${isMuted ? "muted" : "unmuted"}" data-action="toggle-mute" title="${isMuted ? t("unmute") : t("mute")}">${isMuted ? iconMicOff() : iconMic()}</button>
@@ -191,7 +219,7 @@ function renderMeetingControlBarInner(state) {
     <div class="meeting-control-bar__secondary">
       <div class="reaction-popover-wrap">
         <button type="button" class="meeting-control-btn" data-action="toggle-reaction-popover" aria-expanded="false" aria-haspopup="true" title="${escapeHtml(t("reactionsTitle"))}">${iconSmile()}</button>
-        <div class="reaction-popover" id="reaction-popover" hidden role="menu">${reactionBtns}</div>
+        <div class="reaction-popover" id="reaction-popover" hidden role="menu">${reactionPopoverInner}</div>
       </div>
       <button type="button" class="meeting-control-btn meeting-control-btn--hand${myHandRaised ? " meeting-control-btn--active" : ""}" data-action="toggle-hand" title="${escapeHtml(handTitle)}" aria-pressed="${myHandRaised ? "true" : "false"}">${iconHand()}</button>
       <button type="button" class="meeting-control-btn" data-action="toggle-polls-panel" title="${escapeHtml(t("pollsToggle"))}">${iconBarChart2()}</button>

@@ -1170,10 +1170,16 @@ export function attachRoomViewListeners(container, callbacks) {
 		"click",
 		(e) => {
 			const sr = e.target.closest('[data-action="send-reaction"]');
-			if (!sr?.dataset?.emoji) return;
-			e.preventDefault();
-			callbacks.onSendReaction?.(sr.dataset.emoji);
-			closeReactionPopover();
+			if (sr?.dataset?.emoji) {
+				e.preventDefault();
+				callbacks.onSendReaction?.(sr.dataset.emoji);
+				return;
+			}
+			const sfx = e.target.closest('[data-action="send-reaction-effect"]');
+			if (sfx?.dataset?.effect) {
+				e.preventDefault();
+				callbacks.onSendReactionEffect?.(sfx.dataset.effect);
+			}
 		},
 		{ signal: vSignal }
 	);

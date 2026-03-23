@@ -897,6 +897,12 @@ function buildRoomViewConfigPart2(app, deps) {
 			const p = selectors.selectHostPeer(s) || selectors.selectViewerConn(s);
 			p?.sendWs?.({ type: "reaction", emoji });
 		},
+		onSendReactionEffect: (effect) => {
+			if (!effect) return;
+			const s = getState();
+			const p = selectors.selectHostPeer(s) || selectors.selectViewerConn(s);
+			p?.sendWs?.({ type: "reaction_effect", effect: String(effect).trim() });
+		},
 		onPollVote: (pollId, optionIndex) => {
 			const p = selectors.selectHostPeer(getState()) || selectors.selectViewerConn(getState());
 			p?.sendWs?.({ type: "poll_vote", pollId, optionIndex });
