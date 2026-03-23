@@ -1,4 +1,5 @@
 import { t } from "../../i18n.js";
+import { speakingThresholdToSensitivityPercent } from "../../effects/storage/audioSettingsStorage.js";
 import { renderShareContent } from "./create-room.js";
 import {
 	escapeHtml,
@@ -1359,9 +1360,13 @@ export function attachRoomViewListeners(container, callbacks) {
 	const audioTh = container.querySelector("#audio-speaking-threshold");
 	const audioThVal = container.querySelector("#audio-speaking-threshold-value");
 	audioTh?.addEventListener("input", () => {
-		if (audioThVal) audioThVal.textContent = audioTh.value;
 		const v = parseInt(audioTh.value, 10);
-		if (!Number.isNaN(v)) callbacks.onAudioSettingsChange?.({ speakingThreshold: v });
+		if (Number.isNaN(v)) return;
+		const pct = speakingThresholdToSensitivityPercent(v);
+		if (audioThVal) audioThVal.textContent = `${pct}%`;
+		audioTh.setAttribute("aria-valuenow", String(v));
+		audioTh.setAttribute("aria-valuetext", `${pct}%`);
+		callbacks.onAudioSettingsChange?.({ speakingThreshold: v });
 	});
 	container.querySelector("#audio-noise-suppression")?.addEventListener("change", (e) => {
 		callbacks.onAudioSettingsChange?.({ noiseSuppression: e.target.checked });

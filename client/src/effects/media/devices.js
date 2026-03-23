@@ -31,6 +31,7 @@ import { getCustomBackgrounds } from "../storage/customBackgroundStorage.js";
 import { readDeviceIds, writeDeviceId } from "../storage/deviceStorage.js";
 import { DEVICE_STORAGE } from "../../shared/constants.js";
 import * as peer from "../network/mediasoupClient.js";
+import { prepareRoomLocalStream } from "../audio/micNoiseGate.js";
 import { startSpeakingIndicator, stopSpeakingIndicator } from "../../speaking-indicator.js";
 import { mediaDebugLog, mediaDebugStreamInfo, mediaDebugTrackInfo } from "../../utils/mediaDebug.js";
 
@@ -103,18 +104,19 @@ async function ensureCameraTrackWhenVideoEnabled() {
 
 		const audios = [...(selectLocalStream(st)?.getAudioTracks?.() ?? [])].filter((t) => t && t.readyState !== "ended");
 		const repaired = new MediaStream([...audios, vt]);
+		const forRoom = prepareRoomLocalStream(repaired);
 		vt.enabled = selectIsVideoEnabled(st) ?? true;
 		const vDev = vt.getSettings?.()?.deviceId || videoId || null;
 		patchState({
 			baseLocalStream: new MediaStream([vt]),
-			localStream: repaired,
+			localStream: forRoom,
 			...(vDev ? { videoDeviceId: vDev } : {})
 		});
 		if (vDev) writeDeviceId(DEVICE_STORAGE.video, vDev);
 
 		const participant = selectHostPeer(getState()) || selectViewerConn(getState());
 		try {
-			await participant?.updateLocalStream?.(repaired);
+			await participant?.updateLocalStream?.(forRoom);
 		} catch (e) {
 			console.warn("[easymeet] updateLocalStream after camera re-acquire:", e?.message || e);
 		}
@@ -191,13 +193,14 @@ async function applyEffectToCallStreamInternal(
 		if (device && device.readyState === "live") {
 			const audios = [...(selectLocalStream(stRep)?.getAudioTracks?.() ?? [])].filter((t) => t && t.readyState !== "ended");
 			const repaired = new MediaStream([...audios, device]);
+			const forRoom = prepareRoomLocalStream(repaired);
 			patchState({
 				baseLocalStream: new MediaStream([device]),
-				localStream: repaired
+				localStream: forRoom
 			});
 			const participant = selectHostPeer(getState()) || selectViewerConn(getState());
 			try {
-				await participant?.updateLocalStream?.(repaired);
+				await participant?.updateLocalStream?.(forRoom);
 			} catch (e) {
 				console.warn("[easymeet] updateLocalStream after effect stop/repair:", e?.message || e);
 			}
@@ -272,13 +275,13 @@ async function applyEffectToCallStreamInternal(
 
 		if (baseIsOnlyRaw) {
 			patchState({
-				localStream: new MediaStream([...audioTracksSnapshot, ...genTracks]),
+				localStream: prepareRoomLocalStream(new MediaStream([...audioTracksSnapshot, ...genTracks])),
 				backgroundEffectStop: stop
 			});
 		} else {
 			patchState({
 				baseLocalStream: new MediaStream([rawCanonical]),
-				localStream: new MediaStream([...audioTracksSnapshot, ...genTracks]),
+				localStream: prepareRoomLocalStream(new MediaStream([...audioTracksSnapshot, ...genTracks])),
 				backgroundEffectStop: stop
 			});
 		}
@@ -330,8 +333,9 @@ async function applyEffectToCallStreamInternal(
 			} else {
 				const merged = buildMergedStreamAfterEffectOff();
 				mediaDebugLog("effect:patch:merged", { branch: "unknown-bg-id", merged: mediaDebugStreamInfo(merged) });
+				const m = merged ?? selectLocalStream(getState());
 				patchState({
-					localStream: merged ?? selectLocalStream(getState()),
+					localStream: m ? prepareRoomLocalStream(m) : m,
 					baseLocalStream: merged ?? selectBaseLocalStream(getState()),
 					backgroundEffectStop: null
 				});
@@ -345,8 +349,9 @@ async function applyEffectToCallStreamInternal(
 				merged = buildMergedStreamAfterEffectOff();
 			}
 			mediaDebugLog("effect:patch:merged", { branch: "effect-off", merged: mediaDebugStreamInfo(merged) });
+			const mOff = merged ?? selectLocalStream(getState());
 			patchState({
-				localStream: merged ?? selectLocalStream(getState()),
+				localStream: mOff ? prepareRoomLocalStream(mOff) : mOff,
 				baseLocalStream: merged ?? selectBaseLocalStream(getState()),
 				backgroundEffectStop: null
 			});
@@ -364,9 +369,10 @@ async function applyEffectToCallStreamInternal(
 			await ensureCameraTrackWhenVideoEnabled();
 			merged = buildMergedStreamAfterEffectOff();
 		}
+		const mErr = merged ?? selectBaseLocalStream(getState());
 		patchState({
 			backgroundEffect: "none",
-			localStream: merged ?? selectBaseLocalStream(getState()),
+			localStream: mErr ? prepareRoomLocalStream(mErr) : mErr,
 			baseLocalStream: merged ?? selectBaseLocalStream(getState()),
 			backgroundEffectStop: null
 		});
@@ -501,19 +507,20 @@ export async function reacquireAudioStreamIfNeeded(app, attachRemoteAudio, setup
 			t.enabled = !selectIsMuted(s);
 		});
 		const savedInputDeviceId = newAudioTrack.getSettings?.()?.deviceId || newDeviceId || null;
-		patchState({ localStream: newLocalStream, baseLocalStream: newLocalStream, inputDeviceId: savedInputDeviceId });
+		const forRoom = prepareRoomLocalStream(newLocalStream);
+		patchState({ localStream: forRoom, baseLocalStream: newLocalStream, inputDeviceId: savedInputDeviceId });
 		if (savedInputDeviceId) writeDeviceId(DEVICE_STORAGE.input, savedInputDeviceId);
 		oldStream.getTracks().forEach((t) => {
 			if (t === videoTrack && !newVideoTrack) return;
 			t.stop();
 		});
-		selectHostPeer(s)?.updateLocalStream?.(newLocalStream);
-		selectViewerConn(s)?.updateLocalStream?.(newLocalStream);
+		selectHostPeer(s)?.updateLocalStream?.(forRoom);
+		selectViewerConn(s)?.updateLocalStream?.(forRoom);
 		const peerId = selectMyPeerId(s);
-		if (peerId) attachRemoteAudio(peerId, newLocalStream);
+		if (peerId) attachRemoteAudio(peerId, forRoom);
 		if (selectScreen(s) === "room-view" && peerId) {
 			stopSpeakingIndicator(peerId);
-			startSpeakingIndicator(peerId, newLocalStream, app);
+			startSpeakingIndicator(peerId, forRoom, app);
 		}
 		setupAudioTrackEndedHandler(newAudioTrack);
 	} catch (err) {

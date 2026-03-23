@@ -170,10 +170,20 @@ const translations = {
 		audioAdvancedTitle: "Mikrofon & Sprache",
 		audioAdvancedHint: "Sprech-Erkennung (wer gerade spricht) und Browser-Rausch-/Echo-Filter. Werte werden lokal gespeichert.",
 		speakingThresholdLabel: "Sprech-Erkennung (Empfindlichkeit)",
-		speakingThresholdHint: "Niedriger Wert = empfindlicher (leises Sprechen reicht), höher = weniger Fehltrigger bei Hintergrundgeräuschen.",
+		speakingThresholdScaleLeft: "Auch leises Sprechen",
+		speakingThresholdScaleRight: "Nur lauteres Sprechen",
+		speakingThresholdValueTitle: "Empfindlichkeit in Prozent: höher = leisere Stimme und Hintergrund reichen noch mit",
+		speakingThresholdHint:
+			"Der Prozentwert beschreibt die Empfindlichkeit. Nach links: mehr wird übertragen und der grüne Rand leuchtet eher; nach rechts: leises Hintergrundgeräusch und Flüstern werden stärker unterdrückt.",
 		noiseSuppressionLabel: "Rauschunterdrückung (Browser)",
+		noiseSuppressionHelp:
+			"Reduziert stetiges Hintergrundrauschen (Lüfter, Straße). Wird vom Browser umgesetzt; Qualität hängt vom Gerät und Chromium/Safari ab.",
 		echoCancellationLabel: "Echounterdrückung (Browser)",
+		echoCancellationHelp:
+			"Verhindert, dass der andere Teilnehmer seinen eigenen Ton aus deinen Lautsprechern wieder hört (Akustik-Echo). Besonders sinnvoll ohne Kopfhörer.",
 		autoGainControlLabel: "Automatische Verstärkung (AGC)",
+		autoGainControlHelp:
+			"Hebt leise Stimmen an und dämpft sehr laute Passagen automatisch. Kann mit manueller Mikro-Lautstärke kollidieren; ausprobieren, was natürlicher klingt.",
 		browserAudioConstraintsHint:
 			"Die drei Optionen gelten für neue Mikrofon-Zugriffe und werden bei laufendem Mikro versucht per applyConstraints zu setzen (Browser-abhängig).",
 		defaultDevice: "Standard",
@@ -422,10 +432,20 @@ const translations = {
 		audioAdvancedTitle: "Microphone & voice",
 		audioAdvancedHint: "Speaking detection (who is talking) and browser noise/echo filters. Values are stored locally.",
 		speakingThresholdLabel: "Speaking detection (sensitivity)",
-		speakingThresholdHint: "Lower = more sensitive (quieter speech counts); higher = fewer false triggers from background noise.",
+		speakingThresholdScaleLeft: "Quiet speech OK",
+		speakingThresholdScaleRight: "Louder speech only",
+		speakingThresholdValueTitle: "Sensitivity percent: higher means quieter voice and background still count",
+		speakingThresholdHint:
+			"The percentage is sensitivity. Left: more audio is sent and the green highlight triggers more easily; right: quiet background and whispers are dampened more strongly.",
 		noiseSuppressionLabel: "Noise suppression (browser)",
+		noiseSuppressionHelp:
+			"Attenuates steady background noise (fans, traffic). Implemented by the browser; quality depends on device and Chromium/Safari.",
 		echoCancellationLabel: "Echo cancellation (browser)",
+		echoCancellationHelp:
+			"Reduces acoustic echo so others do not hear themselves through your speakers. Especially useful without headphones.",
 		autoGainControlLabel: "Automatic gain control (AGC)",
+		autoGainControlHelp:
+			"Boosts quiet speech and lowers loud peaks automatically. May interact with your mic level; try on/off for the most natural sound.",
 		browserAudioConstraintsHint: "These three apply to new microphone access; on an active mic the app tries applyConstraints (browser-dependent).",
 		defaultDevice: "Default",
 		devicePermissionDenied: "Device access denied",

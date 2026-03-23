@@ -3,6 +3,7 @@
  */
 
 import { cleanupAllSpeakingIndicators } from "../../speaking-indicator.js";
+import { disposeMicNoiseGate } from "../../effects/audio/micNoiseGate.js";
 import { patchMeetingScreenSharePresentation, stopRoomMediaLatencyDisplay } from "../../effects/ui/roomView.js";
 import { reacquireAudioStreamIfNeeded } from "../../effects/media/devices.js";
 import { refreshDeviceSelects } from "../../effects/ui/devices.js";
@@ -89,6 +90,7 @@ export function cleanupAndNavigate(ctx, appEl, screen) {
  * @param {import('../../store/index.js').getState} getState
  */
 function stopAllStreamsAndConnections(getState) {
+	disposeMicNoiseGate();
 	const s = getState();
 	selectors
 		.selectLocalStream(s)
@@ -185,6 +187,7 @@ export function setupBeforeUnload(ctx) {
 		try {
 			s.backgroundEffectStop?.();
 		} catch (_) {}
+		disposeMicNoiseGate();
 		selectors
 			.selectLocalStream(s)
 			?.getTracks?.()

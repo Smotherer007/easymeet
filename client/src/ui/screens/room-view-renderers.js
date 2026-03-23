@@ -2,7 +2,7 @@
  * Render helpers for room-view (rule: ≤20 lines per function)
  */
 import { t } from "../../i18n.js";
-import { DEFAULT_AUDIO_SETTINGS } from "../../effects/storage/audioSettingsStorage.js";
+import { DEFAULT_AUDIO_SETTINGS, speakingThresholdToSensitivityPercent } from "../../effects/storage/audioSettingsStorage.js";
 import {
 	iconDownload,
 	iconLoader2,
@@ -672,6 +672,7 @@ export function renderSettingsModalContent(state) {
 	const { settingsStyle, isVideoEnabled, hasBackgroundBlur, backgroundEffect, backgroundImages } = state;
 	const audioSettings = state.audioSettings && typeof state.audioSettings === "object" ? { ...DEFAULT_AUDIO_SETTINGS, ...state.audioSettings } : { ...DEFAULT_AUDIO_SETTINGS };
 	const st = audioSettings.speakingThreshold;
+	const stSensitivityPct = speakingThresholdToSensitivityPercent(st);
 	const effectTiles = hasBackgroundBlur
 		? `<div class="effect-tiles" id="effect-tiles"><button type="button" class="effect-tile ${backgroundEffect === "none" ? "effect-tile--selected" : ""}" data-effect="none" title="${t("backgroundNone")}"><span class="effect-tile__preview effect-tile__preview--none">${iconVideo()}</span><span class="effect-tile__label">${t("backgroundNone")}</span></button><button type="button" class="effect-tile ${backgroundEffect === "blur" ? "effect-tile--selected" : ""}" data-effect="blur" title="${t("backgroundBlur")}"><span class="effect-tile__preview effect-tile__preview--blur"></span><span class="effect-tile__label">${t("backgroundBlur")}</span></button>${renderEffectTilesFirst(backgroundImages, backgroundEffect)}</div>${renderEffectTilesMore(backgroundImages, backgroundEffect)}<input type="file" id="background-upload-input" accept="image/*" hidden /><button type="button" class="effect-tiles-upload-btn" id="effect-tiles-upload-btn" title="${t("uploadCustomBackground")}">${iconUpload()} ${t("uploadCustomBackground")}</button>`
 		: `<p class="effect-preview-unsupported" id="effect-preview-unsupported">${t("backgroundEffectsNotSupported")}</p>`;
@@ -705,14 +706,27 @@ export function renderSettingsModalContent(state) {
             <div class="settings-modal__range-row">
               <label class="settings-modal__range-label" for="audio-speaking-threshold">${t("speakingThresholdLabel")}</label>
               <div class="settings-modal__range-controls">
-                <input type="range" id="audio-speaking-threshold" min="5" max="45" step="1" value="${st}" />
-                <span class="settings-modal__range-value" id="audio-speaking-threshold-value">${st}</span>
+                <input type="range" id="audio-speaking-threshold" min="5" max="50" step="1" value="${st}" aria-valuemin="5" aria-valuemax="50" aria-valuenow="${st}" aria-valuetext="${stSensitivityPct}%" />
+                <span class="settings-modal__range-value settings-modal__range-value--pct" id="audio-speaking-threshold-value" title="${escapeHtml(t("speakingThresholdValueTitle"))}">${stSensitivityPct}%</span>
+              </div>
+              <div class="settings-modal__range-scale" aria-hidden="true">
+                <span>${escapeHtml(t("speakingThresholdScaleLeft"))}</span>
+                <span>${escapeHtml(t("speakingThresholdScaleRight"))}</span>
               </div>
             </div>
             <p class="settings-modal__hint settings-modal__hint--sm">${t("speakingThresholdHint")}</p>
-            <label class="settings-modal__check-row"><input type="checkbox" id="audio-noise-suppression" ${audioSettings.noiseSuppression ? "checked" : ""} /> <span>${t("noiseSuppressionLabel")}</span></label>
-            <label class="settings-modal__check-row"><input type="checkbox" id="audio-echo-cancellation" ${audioSettings.echoCancellation ? "checked" : ""} /> <span>${t("echoCancellationLabel")}</span></label>
-            <label class="settings-modal__check-row"><input type="checkbox" id="audio-auto-gain" ${audioSettings.autoGainControl ? "checked" : ""} /> <span>${t("autoGainControlLabel")}</span></label>
+            <div class="settings-modal__check-row settings-modal__check-row--with-help">
+              <label class="settings-modal__check-row-label" for="audio-noise-suppression"><input type="checkbox" id="audio-noise-suppression" ${audioSettings.noiseSuppression ? "checked" : ""} /><span>${t("noiseSuppressionLabel")}</span></label>
+              <span class="settings-modal__field-help" role="img" aria-label="${escapeHtml(t("noiseSuppressionHelp"))}" title="${escapeHtml(t("noiseSuppressionHelp"))}">?</span>
+            </div>
+            <div class="settings-modal__check-row settings-modal__check-row--with-help">
+              <label class="settings-modal__check-row-label" for="audio-echo-cancellation"><input type="checkbox" id="audio-echo-cancellation" ${audioSettings.echoCancellation ? "checked" : ""} /><span>${t("echoCancellationLabel")}</span></label>
+              <span class="settings-modal__field-help" role="img" aria-label="${escapeHtml(t("echoCancellationHelp"))}" title="${escapeHtml(t("echoCancellationHelp"))}">?</span>
+            </div>
+            <div class="settings-modal__check-row settings-modal__check-row--with-help">
+              <label class="settings-modal__check-row-label" for="audio-auto-gain"><input type="checkbox" id="audio-auto-gain" ${audioSettings.autoGainControl ? "checked" : ""} /><span>${t("autoGainControlLabel")}</span></label>
+              <span class="settings-modal__field-help" role="img" aria-label="${escapeHtml(t("autoGainControlHelp"))}" title="${escapeHtml(t("autoGainControlHelp"))}">?</span>
+            </div>
             <p class="settings-modal__hint settings-modal__hint--sm">${t("browserAudioConstraintsHint")}</p>
           </div>
           <div class="settings-modal__section">

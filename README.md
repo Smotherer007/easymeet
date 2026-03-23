@@ -357,18 +357,6 @@ The production image:
 - Falls back to `index.html` for SPA routing
 - **Keine `EXPOSE`** im Dockerfile; lauscht intern auf `PORT` (Standard 3001)
 
-### Desktop (Electron)
-
-Ordner **`electron/`**: schlanke **Electron-App**, die die Web-UI per URL lädt (Standard: öffentliche Demo, Dev: `http://localhost:5173`). **Server-Adresse** lässt sich im App-Menü setzen und wird persistent gespeichert (siehe `electron/README.md`).
-
-```bash
-cd electron && npm install
-npm run electron:dev # aus Repo-Root, vorher: npm run dev:all
-# oder aus electron/: npm run start:dev
-```
-
-Details: **[electron/README.md](electron/README.md)**.
-
 ---
 
 ## Documentation

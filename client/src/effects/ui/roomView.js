@@ -28,6 +28,7 @@ import {
 } from "../../ui/screens/index.js";
 import { attachRemoteAudio, updateVideoGalleryColumns, getStreamForVideoTile, getStreamForScreenShare, getStreamForPeerId, applyOutputDeviceToAllAudios } from "../media/tiles.js";
 import { applyEffectToCallStream, recoverCameraAfterEffectLoss } from "../media/devices.js";
+import { prepareRoomLocalStream, disposeMicNoiseGate, getMicGateRawInputTrack } from "../audio/micNoiseGate.js";
 import { refreshDeviceSelects } from "./devices.js";
 import { startSpeakingIndicator, stopSpeakingIndicator } from "../../speaking-indicator.js";
 import { mediaDebugLog, mediaDebugStreamInfo, mediaDebugTrackInfo } from "../../utils/mediaDebug.js";
@@ -347,7 +348,7 @@ async function ensureInitialCallMedia(app, deps) {
 						t.enabled = isVideoEnabled;
 					});
 					patchState({
-						localStream: mergedLocal,
+						localStream: prepareRoomLocalStream(mergedLocal),
 						baseLocalStream: mergedBase,
 						hasVideoSupport: isVideoEnabled || mergedLocal.getVideoTracks().length > 0
 					});
@@ -391,7 +392,7 @@ async function ensureInitialCallMedia(app, deps) {
 	});
 
 	patchState({
-		localStream: newStream,
+		localStream: prepareRoomLocalStream(newStream),
 		baseLocalStream: newStream,
 		hasVideoSupport: isVideoEnabled || newStream.getVideoTracks().length > 0
 	});
@@ -449,7 +450,11 @@ export function stopRoomMediaLatencyDisplay(app) {
 
 function runInitialRoomSetup(app, deps) {
 	const state = getState();
-	const localStream = selectors.selectLocalStream(state);
+	let localStream = selectors.selectLocalStream(state);
+	if (localStream?.getAudioTracks?.()?.some((t) => t && t.readyState === "live")) {
+		localStream = prepareRoomLocalStream(localStream);
+		patchState({ localStream });
+	}
 	const myPeerId = selectors.selectMyPeerId(state);
 	/* Sprech-Indikator nur in attachRemoteAudio (bei live Audio) — kein zweiter Aufruf mit leerem localStream */
 	if (localStream && myPeerId) attachRemoteAudio(myPeerId, localStream, app);
@@ -931,6 +936,7 @@ export function attachRoomViewAndHandlers(app, deps) {
 }
 
 function doMuteLocalStream(s) {
+	disposeMicNoiseGate();
 	selectors
 		.selectLocalStream(s)
 		?.getAudioTracks?.()
@@ -977,7 +983,7 @@ async function acquireNewAudioStream(s, setupAudioTrackEndedHandler) {
 	const localStream = new MediaStream(lv ? [newAudioTrack, lv] : [newAudioTrack]);
 	const baseStream = new MediaStream(baseVideo ? [newAudioTrack, baseVideo] : [newAudioTrack]);
 	const inputDeviceId = newAudioTrack.getSettings?.()?.deviceId || selectors.selectInputDeviceId(s);
-	patchState({ localStream, baseLocalStream: baseStream, inputDeviceId });
+	patchState({ localStream: prepareRoomLocalStream(localStream), baseLocalStream: baseStream, inputDeviceId });
 	if (inputDeviceId) writeDeviceId(DEVICE_STORAGE.input, inputDeviceId);
 	setupAudioTrackEndedHandler(newAudioTrack);
 	return true;
@@ -998,32 +1004,38 @@ async function doUnmuteLocalStream(s, setupAudioTrackEndedHandler) {
 
 function syncMuteToPeers(app) {
 	const state = getState();
-	const localStream = selectors.selectLocalStream(state);
-	const myPeerId = selectors.selectMyPeerId(state);
-	selectors.selectHostPeer(state)?.updateLocalStream?.(localStream);
-	selectors.selectViewerConn(state)?.updateLocalStream?.(localStream);
-	if (selectors.selectHostPeer(state)) selectors.selectHostPeer(state).broadcastMute?.(myPeerId, selectors.selectIsMuted(state));
-	else selectors.selectViewerConn(state)?.sendMute?.(selectors.selectIsMuted(state));
-	const nextMute = new Map(selectors.selectPeerMuteState(state));
-	nextMute.set(myPeerId, selectors.selectIsMuted(state));
+	let localStream = selectors.selectLocalStream(state);
+	if (localStream?.getAudioTracks?.()?.some((t) => t && t.readyState === "live")) {
+		localStream = prepareRoomLocalStream(localStream);
+		patchState({ localStream });
+	}
+	const stAfter = getState();
+	localStream = selectors.selectLocalStream(stAfter);
+	const myPeerId = selectors.selectMyPeerId(stAfter);
+	selectors.selectHostPeer(stAfter)?.updateLocalStream?.(localStream);
+	selectors.selectViewerConn(stAfter)?.updateLocalStream?.(localStream);
+	if (selectors.selectHostPeer(stAfter)) selectors.selectHostPeer(stAfter).broadcastMute?.(myPeerId, selectors.selectIsMuted(stAfter));
+	else selectors.selectViewerConn(stAfter)?.sendMute?.(selectors.selectIsMuted(stAfter));
+	const nextMute = new Map(selectors.selectPeerMuteState(stAfter));
+	nextMute.set(myPeerId, selectors.selectIsMuted(stAfter));
 	patchState({ peerMuteState: nextMute });
 	if (myPeerId) attachRemoteAudio(myPeerId, localStream, app);
 	updateVoipParticipants(
 		app,
-		selectors.selectVoipMembers(state),
+		selectors.selectVoipMembers(stAfter),
 		myPeerId,
-		selectors.selectIsMuted(state),
-		selectors.selectScreenStreams(state),
+		selectors.selectIsMuted(stAfter),
+		selectors.selectScreenStreams(stAfter),
 		getStreamForPeerId,
 		getStreamForScreenShare,
-		selectors.selectPeerMuteState(state),
-		selectors.selectPeerVolume(state),
-		selectors.selectBackgroundEffect(state),
-		selectors.selectPeerVideoState(state),
-		selectors.selectIsVideoEnabled(state),
-		selectors.selectPeerBackgroundEffect(state)
+		selectors.selectPeerMuteState(stAfter),
+		selectors.selectPeerVolume(stAfter),
+		selectors.selectBackgroundEffect(stAfter),
+		selectors.selectPeerVideoState(stAfter),
+		selectors.selectIsVideoEnabled(stAfter),
+		selectors.selectPeerBackgroundEffect(stAfter)
 	);
-	updateMuteButton(app, selectors.selectIsMuted(state));
+	updateMuteButton(app, selectors.selectIsMuted(stAfter));
 }
 
 async function handleToggleMute(app, setupAudioTrackEndedHandler, navigate) {
@@ -1058,7 +1070,8 @@ function turnOffVideoStream(s) {
 		newStream.getAudioTracks().forEach((t) => {
 			t.enabled = !selectors.selectIsMuted(s);
 		});
-	patchState({ localStream: newStream, baseLocalStream: newStream });
+	const forRoom = audioTrack ? prepareRoomLocalStream(newStream) : newStream;
+	patchState({ localStream: forRoom, baseLocalStream: newStream });
 }
 
 async function setupPreviewWhenVideoOff(app, s, applyEffectToPreview) {
@@ -1132,7 +1145,13 @@ async function acquireNewVideoStream(s, setupAudioTrackEndedHandler) {
 		setupAudioTrackEndedHandler(audioTrackToUse);
 	}
 	const videoDeviceId = videoTrack.getSettings?.()?.deviceId || selectors.selectVideoDeviceId(s);
-	patchState({ localStream, baseLocalStream: localStream, hasVideoSupport: true, videoDeviceId, isVideoEnabled: true });
+	patchState({
+		localStream: prepareRoomLocalStream(localStream),
+		baseLocalStream: localStream,
+		hasVideoSupport: true,
+		videoDeviceId,
+		isVideoEnabled: true
+	});
 	if (videoDeviceId) writeDeviceId(DEVICE_STORAGE.video, videoDeviceId);
 	return true;
 }
@@ -1344,18 +1363,23 @@ function syncPeersAndSpeakingAfterInputChange(app, localStream, inputDeviceId, v
 	if (inputDeviceId) writeDeviceId(DEVICE_STORAGE.input, inputDeviceId);
 	else localStorage.removeItem(DEVICE_STORAGE.input);
 	if (videoDeviceId) writeDeviceId(DEVICE_STORAGE.video, videoDeviceId);
-	setupAudioTrackEndedHandler(localStream.getAudioTracks()[0]);
-	selectors.selectHostPeer(getState())?.updateLocalStream?.(localStream);
-	selectors.selectViewerConn(getState())?.updateLocalStream?.(localStream);
-	const myPeerId = selectors.selectMyPeerId(getState());
+	const gated = prepareRoomLocalStream(localStream);
+	patchState({ localStream: gated });
+	const rawMic = getMicGateRawInputTrack() || localStream.getAudioTracks?.()?.[0];
+	if (rawMic) setupAudioTrackEndedHandler(rawMic);
+	const st = getState();
+	const out = selectors.selectLocalStream(st);
+	selectors.selectHostPeer(st)?.updateLocalStream?.(out);
+	selectors.selectViewerConn(st)?.updateLocalStream?.(out);
+	const myPeerId = selectors.selectMyPeerId(st);
 	if (myPeerId) {
-		attachRemoteAudio(myPeerId, localStream, app);
-		if (selectors.selectScreen(getState()) === "room-view") {
+		attachRemoteAudio(myPeerId, out, app);
+		if (selectors.selectScreen(st) === "room-view") {
 			stopSpeakingIndicator(myPeerId);
-			startSpeakingIndicator(myPeerId, localStream, app);
+			startSpeakingIndicator(myPeerId, out, app);
 		}
 	}
-	if (selectors.selectScreen(getState()) === "room-view") updateVideoButton(app, selectors.selectIsVideoEnabled(getState()));
+	if (selectors.selectScreen(st) === "room-view") updateVideoButton(app, selectors.selectIsVideoEnabled(st));
 }
 
 async function applyPreviousEffectAfterDeviceChange(app, previousEffect, navigate) {
@@ -1438,14 +1462,19 @@ function swapVideoDeviceAndSync(app, s, deviceId, newStream) {
 	const newVideoTrack = newStream.getVideoTracks?.()[0];
 	if (!newVideoTrack) return false;
 	const audioTrack = selectors.selectLocalStream(s)?.getAudioTracks?.()[0];
-	const localStream = buildLocalStreamWithNewVideo(s, newVideoTrack, audioTrack);
-	patchState({ localStream, baseLocalStream: localStream, videoDeviceId: newVideoTrack.getSettings?.()?.deviceId || deviceId || null });
+	const built = buildLocalStreamWithNewVideo(s, newVideoTrack, audioTrack);
+	const gated = prepareRoomLocalStream(built);
+	patchState({
+		localStream: gated,
+		baseLocalStream: built,
+		videoDeviceId: newVideoTrack.getSettings?.()?.deviceId || deviceId || null
+	});
 	selectors
 		.selectLocalStream(s)
 		.getVideoTracks()
 		.forEach((t) => t.stop());
 	newStream.getAudioTracks().forEach((t) => t.stop());
-	syncPeersAndPreviewAfterVideoChange(app, localStream, deviceId);
+	syncPeersAndPreviewAfterVideoChange(app, selectors.selectLocalStream(getState()), deviceId);
 	return true;
 }
 
