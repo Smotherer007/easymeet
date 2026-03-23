@@ -73,7 +73,35 @@ function reduceChatMembersUpdated(state, payload) {
 function reduceVoipMembersUpdated(state, payload) {
 	const raw = payload;
 	const list = Array.isArray(raw) ? raw : Array.isArray(raw?.members) ? raw.members : [];
-	return { ...state, voipMembers: list };
+	const ids = new Set(list.map((m) => m.peerId).filter(Boolean));
+
+	const nextMute = new Map(state.peerMuteState ?? new Map());
+	const nextVideo = new Map(state.peerVideoState ?? new Map());
+	const nextBg = new Map(state.peerBackgroundEffect ?? new Map());
+
+	for (const m of list) {
+		if (!m.peerId) continue;
+		if (m.muted !== undefined) nextMute.set(m.peerId, !!m.muted);
+		if (m.videoEnabled !== undefined) nextVideo.set(m.peerId, !!m.videoEnabled);
+		if (m.backgroundEffect !== undefined) nextBg.set(m.peerId, m.backgroundEffect ?? "none");
+	}
+	for (const k of [...nextMute.keys()]) {
+		if (!ids.has(k)) nextMute.delete(k);
+	}
+	for (const k of [...nextVideo.keys()]) {
+		if (!ids.has(k)) nextVideo.delete(k);
+	}
+	for (const k of [...nextBg.keys()]) {
+		if (!ids.has(k)) nextBg.delete(k);
+	}
+
+	return {
+		...state,
+		voipMembers: list,
+		peerMuteState: nextMute,
+		peerVideoState: nextVideo,
+		peerBackgroundEffect: nextBg
+	};
 }
 
 function reduceRoomLeave(state, payload) {

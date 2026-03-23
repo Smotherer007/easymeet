@@ -559,17 +559,8 @@ export async function setupRoomParticipant(peerObj, nick, localStream, callbacks
 					type: "chat/membersUpdated",
 					payload: { list: membersRef.map((m) => m.nick).filter(Boolean) }
 				});
-				membersRef.forEach((m) => {
-					if (m.videoEnabled !== undefined) {
-						dispatch?.({ type: "voip/videoStateUpdated", payload: { peerId: m.peerId, isVideoEnabled: m.videoEnabled } });
-					}
-					if (m.backgroundEffect !== undefined) {
-						dispatch?.({ type: "voip/backgroundEffectUpdated", payload: { peerId: m.peerId, effect: m.backgroundEffect } });
-					}
-					if (m.muted !== undefined) {
-						dispatch?.({ type: "voip/muteReceived", payload: { peerId: m.peerId, isMuted: m.muted } });
-					}
-				});
+				/* mute/video/bg kommen im Snapshot — reduceVoipMembersUpdated übernimmt Maps.
+				 * Keine N× voip/* Events: sonst attachRemoteAudio-Sturm → Ton weg / Kamera-Flackern (z. B. nach hand_raise). */
 				if (peerId) {
 					const me = membersRef.find((m) => m.peerId === peerId);
 					dispatch?.({ type: "room/handRaisedSelf", payload: { peerId, raised: !!me?.handRaised } });

@@ -293,6 +293,17 @@ export function applyStreamToMedia(mediaEl, stream, hasVideo, vol, outputDeviceI
 
 		if (wantSplit) {
 			const audioEl = ensureRemoteAudioElement(tile);
+			const vt = vTracks[0];
+			const at = aTracks[0];
+			const curVs = mediaEl.srcObject instanceof MediaStream ? mediaEl.srcObject.getVideoTracks?.() ?? [] : [];
+			const curAs = audioEl.srcObject instanceof MediaStream ? audioEl.srcObject.getAudioTracks?.() ?? [] : [];
+			const sameTracks =
+				mediaEl.muted === true && vt && at && curVs[0]?.id === vt.id && curAs[0]?.id === at.id;
+			if (sameTracks) {
+				audioEl.volume = Math.min(1, vol / 100);
+				if (outputDeviceId && audioEl.setSinkId) audioEl.setSinkId(outputDeviceId).catch(() => {});
+				return;
+			}
 			mediaEl.muted = true;
 			mediaEl.srcObject = new MediaStream(vTracks);
 			audioEl.volume = Math.min(1, vol / 100);

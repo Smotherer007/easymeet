@@ -1427,6 +1427,7 @@ async function handleInputDeviceChange(app, deviceId, setupAudioTrackEndedHandle
 		await applyPreviousEffectAfterDeviceChange(app, previousEffect, navigate);
 		/* Nach Effekt-Pipeline: Mute-Status + mediasoup nochmal sauber anbinden (Producer/Peers) */
 		syncMuteToPeers(app);
+		await refreshDeviceSelects(app);
 	} catch (err) {
 		console.error("microphone switch failed:", err);
 	}
@@ -1452,8 +1453,7 @@ function syncPeersAndPreviewAfterVideoChange(app, localStream, deviceId) {
 	const vdId = selectors.selectVideoDeviceId(getState());
 	if (vdId) writeDeviceId(DEVICE_STORAGE.video, vdId);
 	else localStorage.removeItem(DEVICE_STORAGE.video);
-	selectors.selectHostPeer(getState())?.updateLocalStream?.(localStream);
-	selectors.selectViewerConn(getState())?.updateLocalStream?.(localStream);
+	/* Producer-Update nur über applyEffectToCallStream (await) — sonst Race mit _updateLock / doppelter Pfad. */
 	const myPeerId = selectors.selectMyPeerId(getState());
 	if (myPeerId) attachRemoteAudio(myPeerId, localStream, app);
 	const preview = app.querySelector("#effect-preview-video");
@@ -1498,6 +1498,7 @@ async function handleVideoDeviceChange(app, deviceId, refreshDeviceSelects, navi
 		if (!swapVideoDeviceAndSync(app, s, deviceId, newStream)) return;
 		await applyPreviousEffectAfterDeviceChange(app, previousEffect, navigate);
 		syncMuteToPeers(app);
+		await refreshDeviceSelects(app);
 	} catch (err) {
 		console.error("camera switch failed:", err);
 	}
