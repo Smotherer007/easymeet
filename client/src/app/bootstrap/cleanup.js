@@ -3,13 +3,55 @@
  */
 
 import { cleanupAllSpeakingIndicators } from "../../speaking-indicator.js";
-import { disposeMicNoiseGate } from "../../effects/audio/micNoiseGate.js";
+import { disposeMicNoiseGate, getMicGateRawInputTrack } from "../../effects/audio/micNoiseGate.js";
 import { patchMeetingScreenSharePresentation, stopRoomMediaLatencyDisplay } from "../../effects/ui/roomView.js";
-import { reacquireAudioStreamIfNeeded } from "../../effects/media/devices.js";
+import { enqueueDeviceGraphRecovery } from "../../effects/media/devices.js";
 import { refreshDeviceSelects } from "../../effects/ui/devices.js";
 import { attachRemoteAudio } from "../../effects/media/tiles.js";
 import { writePeerVolumes } from "../../effects/storage/deviceStorage.js";
 import * as selectors from "../../domain/selectors/index.js";
+
+/** Room-View: angebundene Listener/Timer für Geräte-Hotplug (Cleanup bei Raum verlassen). */
+let roomViewDeviceChangeTimer = null;
+let roomViewVisibilityTimer = null;
+/** @type {(() => void) | null} */
+let roomViewVisibilityListener = null;
+let roomViewFocusTimer = null;
+let lastWindowFocusRecoveryAt = 0;
+/** @type {(() => void) | null} */
+let roomViewFocusListener = null;
+/** @type {(() => void | Promise<void>) | null} */
+let roomViewRestartSettingsPreview = null;
+/** @type {((app: HTMLElement, setupEnded: (t: MediaStreamTrack) => void) => void | Promise<void>) | null} */
+let roomViewReplayMuteUnmute = null;
+/** @type {((app: HTMLElement, setupEnded: (t: MediaStreamTrack) => void) => void | Promise<void>) | null} */
+let roomViewRebindMicWhileMuted = null;
+
+function clearRoomViewDeviceRecoveryUi() {
+	if (roomViewDeviceChangeTimer != null) {
+		clearTimeout(roomViewDeviceChangeTimer);
+		roomViewDeviceChangeTimer = null;
+	}
+	if (roomViewVisibilityTimer != null) {
+		clearTimeout(roomViewVisibilityTimer);
+		roomViewVisibilityTimer = null;
+	}
+	if (roomViewFocusTimer != null) {
+		clearTimeout(roomViewFocusTimer);
+		roomViewFocusTimer = null;
+	}
+	if (roomViewVisibilityListener) {
+		document.removeEventListener("visibilitychange", roomViewVisibilityListener);
+		roomViewVisibilityListener = null;
+	}
+	if (roomViewFocusListener) {
+		window.removeEventListener("focus", roomViewFocusListener);
+		roomViewFocusListener = null;
+	}
+	roomViewRestartSettingsPreview = null;
+	roomViewReplayMuteUnmute = null;
+	roomViewRebindMicWhileMuted = null;
+}
 
 /**
  * @param {import('../../store/index.js').dispatch} dispatch
@@ -19,7 +61,15 @@ export function setupAudioTrackEndedHandler(dispatch, getState, appEl, audioTrac
 	if (!audioTrack || audioTrack.readyState === "ended") return;
 	const wrapped = () => {
 		audioTrack.removeEventListener?.("ended", wrapped);
-		reacquireAudioStreamIfNeeded(appEl, attachRemoteAudio, (t) => setupAudioTrackEndedHandler(dispatch, getState, appEl, t));
+		enqueueDeviceGraphRecovery(
+			appEl,
+			attachRemoteAudio,
+			(t) => setupAudioTrackEndedHandler(dispatch, getState, appEl, t),
+			() => refreshDeviceSelects(appEl),
+			roomViewRestartSettingsPreview,
+			roomViewReplayMuteUnmute,
+			roomViewRebindMicWhileMuted
+		);
 	};
 	audioTrack.addEventListener?.("ended", wrapped);
 }
@@ -28,17 +78,88 @@ export function setupAudioTrackEndedHandler(dispatch, getState, appEl, audioTrac
  * @param {object} ctx
  */
 export function setupRoomViewDeviceHandlers(ctx) {
-	const { appEl, dispatch, getState } = ctx;
+	const {
+		appEl,
+		dispatch,
+		getState,
+		restartSettingsPreview,
+		replayMuteUnmuteForDeviceRecovery,
+		rebindMicWhileMutedForDeviceRecovery
+	} = ctx;
+	clearRoomViewDeviceRecoveryUi();
+	roomViewRestartSettingsPreview = restartSettingsPreview ?? null;
+	roomViewReplayMuteUnmute = replayMuteUnmuteForDeviceRecovery ?? null;
+	roomViewRebindMicWhileMuted = rebindMicWhileMutedForDeviceRecovery ?? null;
 	const s = getState();
-	const audioTrack = selectors.selectLocalStream(s)?.getAudioTracks?.()[0];
+	const rawMic = getMicGateRawInputTrack();
+	const fallback = selectors.selectLocalStream(s)?.getAudioTracks?.()?.[0];
+	const audioTrack = rawMic && rawMic.readyState !== "ended" ? rawMic : fallback;
 	if (audioTrack && audioTrack.readyState !== "ended") {
 		setupAudioTrackEndedHandler(dispatch, getState, appEl, audioTrack);
 	}
 	const prevHandler = selectors.selectCallDeviceChangeHandler(getState());
 	navigator.mediaDevices?.removeEventListener?.("devicechange", prevHandler);
-	const newHandler = () => reacquireAudioStreamIfNeeded(appEl, attachRemoteAudio, (t) => setupAudioTrackEndedHandler(dispatch, getState, appEl, t));
+	const setupEnded = (t) => setupAudioTrackEndedHandler(dispatch, getState, appEl, t);
+	const flushRecovery = () => {
+		roomViewDeviceChangeTimer = null;
+		enqueueDeviceGraphRecovery(
+			appEl,
+			attachRemoteAudio,
+			setupEnded,
+			() => refreshDeviceSelects(appEl),
+			roomViewRestartSettingsPreview,
+			roomViewReplayMuteUnmute,
+			roomViewRebindMicWhileMuted
+		);
+	};
+	const newHandler = () => {
+		if (roomViewDeviceChangeTimer != null) clearTimeout(roomViewDeviceChangeTimer);
+		roomViewDeviceChangeTimer = setTimeout(flushRecovery, 280);
+	};
 	dispatch({ type: "effects/callDeviceChangeHandler", payload: { handler: newHandler } });
 	navigator.mediaDevices?.addEventListener?.("devicechange", newHandler);
+
+	/* Manche Browser/OS melden kein devicechange zuverlässig; Tab-Fokus triggert erneut Recovery. */
+	roomViewVisibilityListener = () => {
+		if (document.visibilityState !== "visible") return;
+		if (roomViewVisibilityTimer != null) clearTimeout(roomViewVisibilityTimer);
+		roomViewVisibilityTimer = setTimeout(() => {
+			roomViewVisibilityTimer = null;
+			if (selectors.selectScreen(getState()) !== "room-view") return;
+			enqueueDeviceGraphRecovery(
+				appEl,
+				attachRemoteAudio,
+				setupEnded,
+				() => refreshDeviceSelects(appEl),
+				roomViewRestartSettingsPreview,
+				roomViewReplayMuteUnmute,
+				roomViewRebindMicWhileMuted
+			);
+		}, 220);
+	};
+	document.addEventListener("visibilitychange", roomViewVisibilityListener);
+
+	/* Standardgerät in den Systemeinstellungen wechselt oft ohne devicechange — Fokus triggert Recovery (gedrosselt). */
+	roomViewFocusListener = () => {
+		const now = Date.now();
+		if (now - lastWindowFocusRecoveryAt < 4000) return;
+		if (roomViewFocusTimer != null) clearTimeout(roomViewFocusTimer);
+		roomViewFocusTimer = setTimeout(() => {
+			roomViewFocusTimer = null;
+			if (selectors.selectScreen(getState()) !== "room-view") return;
+			lastWindowFocusRecoveryAt = Date.now();
+			enqueueDeviceGraphRecovery(
+				appEl,
+				attachRemoteAudio,
+				setupEnded,
+				() => refreshDeviceSelects(appEl),
+				roomViewRestartSettingsPreview,
+				roomViewReplayMuteUnmute,
+				roomViewRebindMicWhileMuted
+			);
+		}, 350);
+	};
+	window.addEventListener("focus", roomViewFocusListener);
 }
 
 /**
@@ -121,6 +242,7 @@ function removeDeviceChangeHandlers(dispatch, s) {
 		navigator.mediaDevices?.removeEventListener?.("devicechange", callDeviceHandler);
 		dispatch({ type: "effects/callDeviceChangeHandler", payload: { handler: null } });
 	}
+	clearRoomViewDeviceRecoveryUi();
 }
 
 /**

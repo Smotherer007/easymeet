@@ -1,3 +1,4 @@
+import crypto from "crypto";
 import { Router } from "express";
 import { validateCreateRoomPayload, validateRegisterHostPayload } from "../validate.js";
 import { hashPassword } from "../password.js";
@@ -9,6 +10,13 @@ import {
 } from "../mediasoup/rooms.js";
 import { logInfo, logWarn } from "../logger.js";
 import { EasymeetErrorCode, sendJsonError, sendValidationJsonError } from "../easymeetErrors.js";
+
+function hostSetupTokensEqual(a, b) {
+	if (typeof a !== "string" || typeof b !== "string") return false;
+	const ha = crypto.createHash("sha256").update(a, "utf8").digest();
+	const hb = crypto.createHash("sha256").update(b, "utf8").digest();
+	return crypto.timingSafeEqual(ha, hb);
+}
 
 /**
  * @param {{ roomStore: ReturnType<import('../roomStore.js').createRoomStore> }} deps
@@ -29,13 +37,15 @@ export function createRoomsRouter(deps) {
 		const { password, roomCode } = parsed.data;
 		const passwordHash = password ? await hashPassword(password) : null;
 		const roomId = allocateRoomId(roomCode);
+		const hostSetupToken = crypto.randomBytes(32).toString("hex");
 		rooms.set(roomId, {
 			passwordHash,
 			hostPeerId: null,
-			createdAt: Date.now()
+			createdAt: Date.now(),
+			hostSetupToken
 		});
 		logInfo("room created", { roomId, hasPassword: !!passwordHash });
-		res.json({ roomId, hostPeerId: null });
+		res.json({ roomId, hostPeerId: null, hostSetupToken });
 	});
 
 	router.patch("/rooms/:roomId", (req, res) => {
@@ -50,6 +60,21 @@ export function createRoomsRouter(deps) {
 		if (!room) {
 			logWarn("PATCH /api/rooms host register: room not found", roomId);
 			sendJsonError(res, 404, EasymeetErrorCode.ROOM_NOT_FOUND, "Room not found");
+			return;
+		}
+		if (!room.hostSetupToken) {
+			logWarn("PATCH /api/rooms host register: no hostSetupToken on room", roomId);
+			sendJsonError(
+				res,
+				403,
+				EasymeetErrorCode.HOST_REGISTRATION_DISABLED,
+				"Host registration is disabled for this room (configure hostSetupToken for persistent rooms)"
+			);
+			return;
+		}
+		if (!hostSetupTokensEqual(parsed.data.hostSetupToken, room.hostSetupToken)) {
+			logWarn("PATCH /api/rooms host register: invalid hostSetupToken", roomId);
+			sendJsonError(res, 403, EasymeetErrorCode.INVALID_HOST_TOKEN, "Invalid host setup token");
 			return;
 		}
 		room.hostPeerId = parsed.data.hostPeerId;

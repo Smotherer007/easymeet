@@ -872,8 +872,9 @@ function buildRoomViewConfigPart2(app, deps) {
 		onOpenPollsPanel: () => openPollsPanelFromToolbar(app),
 		onMinimizePollsModal: () => minimizePollsModalToToolbar(app),
 		onMinimizeSettingsModal: () => minimizeSettingsModalToToolbar(),
-		onInputDeviceChange: (deviceId) => handleInputDeviceChange(app, deviceId, setupAudioTrackEndedHandler, refreshDeviceSelects, navigate),
-		onVideoDeviceChange: (deviceId) => handleVideoDeviceChange(app, deviceId, refreshDeviceSelects, navigate),
+		onInputDeviceChange: (deviceId) =>
+			handleInputDeviceChange(app, deviceId, setupAudioTrackEndedHandler, refreshDeviceSelects, navigate, applyEffectToPreview),
+		onVideoDeviceChange: (deviceId) => handleVideoDeviceChange(app, deviceId, refreshDeviceSelects, navigate, applyEffectToPreview),
 		onPeerVolumeChange: (peerId, percent) => setPeerVolume(peerId, percent),
 		onBackgroundEffectChange: (effect) => handleBackgroundEffectChange(app, effect, applyEffectToCallStream, applyEffectToPreview, navigate),
 		onOutputDeviceChange: (deviceId) => handleOutputDeviceChange(deviceId),
@@ -1008,7 +1009,12 @@ async function doUnmuteLocalStream(s, setupAudioTrackEndedHandler) {
 	}
 }
 
-function syncMuteToPeers(app) {
+/**
+ * @param {{ forceMicProducer?: boolean }} [options] Nach Geräte-/Gate-Wechsel: Mic-Producer neu erzeugen (sonst gleicher Web-Audio-Destination-Track → Mediasoup denkt „kein Wechsel“).
+ */
+async function syncMuteToPeersAsync(app, options = {}) {
+	const { forceMicProducer = false } = options;
+	const streamOpts = forceMicProducer ? { forceMicProducer: true } : undefined;
 	const state = getState();
 	let localStream = selectors.selectLocalStream(state);
 	if (localStream?.getAudioTracks?.()?.some((t) => t && t.readyState === "live")) {
@@ -1018,10 +1024,13 @@ function syncMuteToPeers(app) {
 	const stAfter = getState();
 	localStream = selectors.selectLocalStream(stAfter);
 	const myPeerId = selectors.selectMyPeerId(stAfter);
-	selectors.selectHostPeer(stAfter)?.updateLocalStream?.(localStream);
-	selectors.selectViewerConn(stAfter)?.updateLocalStream?.(localStream);
-	if (selectors.selectHostPeer(stAfter)) selectors.selectHostPeer(stAfter).broadcastMute?.(myPeerId, selectors.selectIsMuted(stAfter));
-	else selectors.selectViewerConn(stAfter)?.sendMute?.(selectors.selectIsMuted(stAfter));
+	const host = selectors.selectHostPeer(stAfter);
+	const viewer = selectors.selectViewerConn(stAfter);
+	/* Nur ein Participant — parallel host+viewer würde dieselbe Transport-PC doppelt anfassen und queued Updates mit ended-Tracks mischen. */
+	const participant = host || viewer;
+	if (participant?.updateLocalStream) await participant.updateLocalStream(localStream, streamOpts);
+	if (host) host.broadcastMute?.(myPeerId, selectors.selectIsMuted(stAfter));
+	else viewer?.sendMute?.(selectors.selectIsMuted(stAfter));
 	const nextMute = new Map(selectors.selectPeerMuteState(stAfter));
 	nextMute.set(myPeerId, selectors.selectIsMuted(stAfter));
 	patchState({ peerMuteState: nextMute });
@@ -1044,13 +1053,67 @@ function syncMuteToPeers(app) {
 	updateMuteButton(app, selectors.selectIsMuted(stAfter));
 }
 
+function syncMuteToPeers(app) {
+	syncMuteToPeersAsync(app).catch((e) => console.warn("[easymeet] syncMuteToPeers:", e?.message || e));
+}
+
+/**
+ * Stumm bleiben: neues Mikro wie beim Unmute einbinden, aber alle Audio-Spuren deaktiviert + sync (kein isMuted umschalten).
+ */
+export async function rebindMicWhileMutedForDeviceRecovery(app, setupAudioTrackEndedHandler) {
+	const s0 = getState();
+	if (!selectors.selectIsMuted(s0)) return;
+	mediaDebugLog("device:recovery:rebind-mic-while-muted:start", {});
+	try {
+		if (!(await acquireNewAudioStream(s0, setupAudioTrackEndedHandler))) return;
+		const st = getState();
+		const muteAudios = (stream) =>
+			stream?.getAudioTracks?.()?.forEach((t) => {
+				if (t) t.enabled = false;
+			});
+		muteAudios(selectors.selectLocalStream(st));
+		muteAudios(selectors.selectBaseLocalStream(st));
+		await syncMuteToPeersAsync(app, { forceMicProducer: true });
+		mediaDebugLog("device:recovery:rebind-mic-while-muted:done", {});
+	} catch (e) {
+		console.warn("[easymeet] rebind mic while muted (device recovery):", e?.message || e);
+	}
+}
+
+/**
+ * Derselbe Pfad wie Nutzer: Mute → Unmute (lokal + Mediasoup + VoIP-UI).
+ * Nur aufrufen, wenn der Nutzer **nicht** stumm ist (sonst `rebindMicWhileMutedForDeviceRecovery`).
+ */
+export async function replayMuteUnmuteForDeviceRecovery(app, setupAudioTrackEndedHandler) {
+	const s0 = getState();
+	if (selectors.selectIsMuted(s0)) return;
+
+	mediaDebugLog("device:recovery:mute-unmute-cycle:start", {});
+
+	patchState({ isMuted: true });
+	doMuteLocalStream(s0);
+	await syncMuteToPeersAsync(app);
+
+	patchState({ isMuted: false });
+	const s1 = getState();
+	if (!(await doUnmuteLocalStream(s1, setupAudioTrackEndedHandler))) {
+		patchState({ isMuted: true });
+		await syncMuteToPeersAsync(app);
+		return;
+	}
+	/* Kurz warten: Gate/Destination-Track soll live sein, bevor produce läuft (sonst „track ended“ im Log). */
+	await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+	await syncMuteToPeersAsync(app, { forceMicProducer: true });
+	mediaDebugLog("device:recovery:mute-unmute-cycle:done", {});
+}
+
 async function handleToggleMute(app, setupAudioTrackEndedHandler, navigate) {
 	const s = getState();
 	const willBeMuted = !selectors.selectIsMuted(s);
 	patchState({ isMuted: willBeMuted });
 	if (willBeMuted) doMuteLocalStream(s);
 	else if (!(await doUnmuteLocalStream(s, setupAudioTrackEndedHandler))) return;
-	syncMuteToPeers(app);
+	await syncMuteToPeersAsync(app);
 }
 
 function turnOffVideoStream(s) {
@@ -1258,17 +1321,6 @@ async function handleToggleVideo(app, applyEffectToPreview, applyEffectToCallStr
 	syncPreviewVideoIfSettingsOpen(app);
 }
 
-function setupDeviceChangeListener(app, refreshDeviceSelects) {
-	const settingsModal = app.querySelector("#settings-modal");
-	const onDeviceChange = () => {
-		if (settingsModal && !settingsModal.hasAttribute("hidden")) refreshDeviceSelects(app);
-	};
-	const prevHandler = selectors.selectDeviceChangeHandler(getState());
-	navigator.mediaDevices?.removeEventListener?.("devicechange", prevHandler);
-	patchState({ _deviceChangeHandler: onDeviceChange });
-	navigator.mediaDevices?.addEventListener?.("devicechange", onDeviceChange);
-}
-
 function stopPreviewStreams() {
 	try {
 		selectors.selectPreviewEffectStop(getState())?.();
@@ -1323,10 +1375,23 @@ async function setupPreviewVideoWhenOpen(app, applyEffectToPreview) {
 	}
 }
 
+/** Nach Geräte-Hotplug (Vorschau wurde gestoppt, damit der Call die Kamera bekommt). */
+export async function restartEffectPreviewAfterDeviceRecovery(app, applyEffectToPreview) {
+	await new Promise((r) => requestAnimationFrame(r));
+	const st = getState();
+	const modal = app.querySelector("#settings-modal");
+	if (!selectors.selectSettingsPanelOpen(st) || !modal || modal.hasAttribute("hidden")) return;
+	await setupPreviewVideoWhenOpen(app, applyEffectToPreview);
+}
+
 async function handleSettingsOpen(app, isOpen, applyEffectToPreview, refreshDeviceSelects, navigate) {
+	const legacyDevHandler = selectors.selectDeviceChangeHandler(getState());
+	if (legacyDevHandler) {
+		navigator.mediaDevices?.removeEventListener?.("devicechange", legacyDevHandler);
+		patchState({ _deviceChangeHandler: null });
+	}
 	patchState({ settingsPanelOpen: isOpen });
 	await refreshDeviceSelects(app);
-	setupDeviceChangeListener(app, refreshDeviceSelects);
 	const previewVideo = app.querySelector("#effect-preview-video");
 	if (previewVideo) {
 		if (!isOpen) cleanupPreviewVideo(previewVideo);
@@ -1339,7 +1404,8 @@ function stopEffectAndAcquireStream(s, deviceId) {
 		s.backgroundEffectStop?.();
 	} catch (_) {}
 	patchState({ backgroundEffectStop: null });
-	return peer.getUserMediaResilient(deviceId || undefined, selectors.selectHasVideoSupport(s) ?? false, selectors.selectVideoDeviceId(s) || undefined);
+	const wantVideo = Boolean(selectors.selectIsVideoEnabled(s) && (selectors.selectHasVideoSupport(s) ?? false));
+	return peer.getUserMediaResilient(deviceId || undefined, wantVideo, selectors.selectVideoDeviceId(s) || undefined);
 }
 
 function buildLocalStreamFromTracks(audioTrack, videoTrack, s) {
@@ -1365,7 +1431,7 @@ function syncPreviewVideoToLocalStream(app, localStream) {
 	}
 }
 
-function syncPeersAndSpeakingAfterInputChange(app, localStream, inputDeviceId, videoDeviceId, setupAudioTrackEndedHandler) {
+async function syncPeersAndSpeakingAfterInputChange(app, localStream, inputDeviceId, videoDeviceId, setupAudioTrackEndedHandler) {
 	if (inputDeviceId) writeDeviceId(DEVICE_STORAGE.input, inputDeviceId);
 	else localStorage.removeItem(DEVICE_STORAGE.input);
 	if (videoDeviceId) writeDeviceId(DEVICE_STORAGE.video, videoDeviceId);
@@ -1375,8 +1441,12 @@ function syncPeersAndSpeakingAfterInputChange(app, localStream, inputDeviceId, v
 	if (rawMic) setupAudioTrackEndedHandler(rawMic);
 	const st = getState();
 	const out = selectors.selectLocalStream(st);
-	selectors.selectHostPeer(st)?.updateLocalStream?.(out);
-	selectors.selectViewerConn(st)?.updateLocalStream?.(out);
+	const participant = selectors.selectHostPeer(st) || selectors.selectViewerConn(st);
+	try {
+		await participant?.updateLocalStream?.(out, { forceMicProducer: true });
+	} catch (e) {
+		console.warn("[easymeet] updateLocalStream after input device change:", e?.message || e);
+	}
 	const myPeerId = selectors.selectMyPeerId(st);
 	if (myPeerId) {
 		attachRemoteAudio(myPeerId, out, app);
@@ -1397,7 +1467,7 @@ async function applyPreviousEffectAfterDeviceChange(app, previousEffect, navigat
 	await applyEffectToCallStream(eff, app, attachRemoteAudio, updateVoipParticipants, updateEffectTilesSelection, getStreamForPeerId, getStreamForScreenShare, navigate);
 }
 
-function swapInputDeviceAndSync(app, s, deviceId, newStream, setupAudioTrackEndedHandler) {
+async function swapInputDeviceAndSync(app, s, deviceId, newStream, setupAudioTrackEndedHandler) {
 	const audioTrack = newStream.getAudioTracks?.()[0];
 	const videoTrack = newStream.getVideoTracks?.()[0];
 	if (!audioTrack) {
@@ -1410,26 +1480,39 @@ function swapInputDeviceAndSync(app, s, deviceId, newStream, setupAudioTrackEnde
 	const inputDeviceId = deviceId || audioTrack.getSettings?.()?.deviceId || null;
 	const videoDeviceId = videoTrack ? videoTrack.getSettings?.()?.deviceId || selectors.selectVideoDeviceId(getState()) : null;
 	patchState({ inputDeviceId, videoDeviceId });
-	oldStream.getTracks().forEach((t) => t.stop());
 	syncPreviewVideoToLocalStream(app, localStream);
-	syncPeersAndSpeakingAfterInputChange(app, localStream, inputDeviceId, videoDeviceId, setupAudioTrackEndedHandler);
+	await syncPeersAndSpeakingAfterInputChange(app, localStream, inputDeviceId, videoDeviceId, setupAudioTrackEndedHandler);
+	/* Nicht Tracks stoppen, die noch im aktuellen local/base stecken (z. B. Noise-Gate-Destination — sonst endet der Mic-Pfad). */
+	const keep = new Set();
+	for (const stream of [selectors.selectLocalStream(getState()), selectors.selectBaseLocalStream(getState())]) {
+		stream?.getTracks?.()?.forEach((t) => t && keep.add(t));
+	}
+	oldStream?.getTracks?.()?.forEach((t) => {
+		if (!t || t.readyState === "ended" || keep.has(t)) return;
+		try {
+			t.stop();
+		} catch (_) {}
+	});
 	return localStream;
 }
 
-async function handleInputDeviceChange(app, deviceId, setupAudioTrackEndedHandler, refreshDeviceSelects, navigate) {
+async function handleInputDeviceChange(app, deviceId, setupAudioTrackEndedHandler, refreshDeviceSelects, navigate, applyEffectToPreview) {
+	stopPreviewStreams();
 	const s = getState();
 	if (!selectors.selectLocalStream(s)) return;
 	try {
 		const previousEffect = selectors.selectBackgroundEffect(s);
 		const newStream = await stopEffectAndAcquireStream(s, deviceId);
-		if (!swapInputDeviceAndSync(app, s, deviceId, newStream, setupAudioTrackEndedHandler)) return;
+		if (!(await swapInputDeviceAndSync(app, s, deviceId, newStream, setupAudioTrackEndedHandler))) return;
 		refreshDeviceSelects(app);
 		await applyPreviousEffectAfterDeviceChange(app, previousEffect, navigate);
 		/* Nach Effekt-Pipeline: Mute-Status + mediasoup nochmal sauber anbinden (Producer/Peers) */
 		syncMuteToPeers(app);
 		await refreshDeviceSelects(app);
+		if (selectors.selectSettingsPanelOpen(getState())) await setupPreviewVideoWhenOpen(app, applyEffectToPreview);
 	} catch (err) {
 		console.error("microphone switch failed:", err);
+		await refreshDeviceSelects(app);
 	}
 }
 
@@ -1484,7 +1567,8 @@ function swapVideoDeviceAndSync(app, s, deviceId, newStream) {
 	return true;
 }
 
-async function handleVideoDeviceChange(app, deviceId, refreshDeviceSelects, navigate) {
+async function handleVideoDeviceChange(app, deviceId, refreshDeviceSelects, navigate, applyEffectToPreview) {
+	stopPreviewStreams();
 	persistVideoDeviceId(deviceId);
 	const s = getState();
 	if (!selectors.selectLocalStream(s) || !selectors.selectHasVideoSupport(s)) return;
@@ -1494,13 +1578,20 @@ async function handleVideoDeviceChange(app, deviceId, refreshDeviceSelects, navi
 			s.backgroundEffectStop?.();
 		} catch (_) {}
 		patchState({ backgroundEffectStop: null });
-		const newStream = await peer.getUserMediaResilient(selectors.selectInputDeviceId(s) || undefined, true, deviceId || undefined);
+		const wantVideo = Boolean(selectors.selectIsVideoEnabled(s) && (selectors.selectHasVideoSupport(s) ?? false));
+		const newStream = await peer.getUserMediaResilient(
+			selectors.selectInputDeviceId(s) || undefined,
+			wantVideo ? true : "videoOnly",
+			deviceId || undefined
+		);
 		if (!swapVideoDeviceAndSync(app, s, deviceId, newStream)) return;
 		await applyPreviousEffectAfterDeviceChange(app, previousEffect, navigate);
 		syncMuteToPeers(app);
 		await refreshDeviceSelects(app);
+		if (selectors.selectSettingsPanelOpen(getState())) await setupPreviewVideoWhenOpen(app, applyEffectToPreview);
 	} catch (err) {
 		console.error("camera switch failed:", err);
+		await refreshDeviceSelects(app);
 	}
 }
 
@@ -1585,7 +1676,7 @@ function createProgressUpdater(progressArea, fileName) {
 		if (progressArea) {
 			progressArea.hidden = false;
 			const pct = transferProgress.total > 0 ? Math.min(100, (transferProgress.bytes / transferProgress.total) * 100) : 0;
-			progressArea.innerHTML = `<p class="file-progress__filename">${escapeHtml(fileName)}</p><div class="file-progress__bar-wrap"><div class="file-progress__bar" style="width:${pct}%"></div></div><p class="file-progress__stats">${t("sendingFile")}…</p>`;
+			progressArea.innerHTML = `<p class="file-progress__filename">${escapeHtml(fileName)}</p><div class="file-progress__bar-wrap"><div class="file-progress__bar" style="--bar-width-pct:${pct}%"></div></div><p class="file-progress__stats">${t("sendingFile")}…</p>`;
 		}
 	};
 }

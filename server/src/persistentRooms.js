@@ -62,12 +62,18 @@ async function applyRoomListToMap(list, roomsMap, sourceLabel) {
 
 		const plain = readPlainPassword(entry).trim();
 		const passwordHash = plain ? await hashPassword(plain) : null;
+		const rawTok =
+			entry.hostSetupToken != null && typeof entry.hostSetupToken === "string"
+				? entry.hostSetupToken.trim().slice(0, 256)
+				: "";
+		const hostSetupToken = rawTok.length >= 16 ? rawTok : null;
 
 		roomsMap.set(roomId, {
 			passwordHash,
 			hostPeerId: null,
 			createdAt: Date.now(),
-			persistent: true
+			persistent: true,
+			hostSetupToken
 		});
 		count++;
 	}

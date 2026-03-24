@@ -227,6 +227,28 @@ body {
 	margin-bottom: 3rem;
 }
 
+.landing__wordmark {
+	max-width: 320px;
+	margin: 0 auto 1.5rem;
+}
+
+.landing__wordmark .logo-wordmark {
+	display: block;
+	width: 100%;
+	height: auto;
+}
+
+/* Größeres Marken-Icon (falls genutzt) */
+.logo-icon--hero {
+	display: inline-block;
+	margin-bottom: 1rem;
+}
+
+/* Nur für Screenreader / versteckte Audio-Slots */
+.remote-audio-container {
+	display: none;
+}
+
 .landing__title {
 	font-size: 2.5rem;
 	font-weight: 700;
@@ -1019,6 +1041,28 @@ body {
 	overflow: hidden;
 }
 
+/* Verschiebbare Fenster: Position/Größe nur über --draggable-* (siehe draggableRect.js) */
+.floating-window.draggable-rect {
+	left: var(--draggable-x);
+	top: var(--draggable-y);
+	width: var(--draggable-w);
+	height: var(--draggable-h);
+	max-width: min(var(--draggable-w), 90vw);
+	max-height: min(var(--draggable-h), 85vh);
+	transform: var(--draggable-transform, none);
+}
+
+.stream-modal__content.draggable-rect,
+.settings-modal__content.draggable-rect,
+.share-modal__content.draggable-rect,
+.polls-modal__content.draggable-rect {
+	left: var(--draggable-x);
+	top: var(--draggable-y);
+	width: var(--draggable-w);
+	height: var(--draggable-h);
+	transform: var(--draggable-transform, none);
+}
+
 .floating-window__header {
 	display: flex;
 	align-items: center;
@@ -1569,6 +1613,7 @@ body {
 	left: 0;
 	top: 0;
 	bottom: 0;
+	width: var(--progress-pct, 0%);
 	background: linear-gradient(90deg, rgba(0, 212, 170, 0.15) 0%, rgba(99, 102, 241, 0.15) 100%);
 	pointer-events: none;
 	z-index: 0;
@@ -1617,6 +1662,7 @@ body {
 	left: 0;
 	top: 0;
 	bottom: 0;
+	width: var(--progress-pct, 0%);
 	background: rgba(255, 255, 255, 0.05);
 	pointer-events: none;
 	z-index: 0;
@@ -3383,6 +3429,7 @@ body {
 
 .file-progress__bar {
 	height: 100%;
+	width: var(--bar-width-pct, 0%);
 	background: var(--accent);
 	border-radius: 3px;
 	transition: width 0.15s ease;
@@ -3441,6 +3488,7 @@ body {
 
 .chat__transfer-bar {
 	height: 100%;
+	width: var(--bar-width-pct, 0%);
 	background: var(--accent);
 	border-radius: 2px;
 	transition: width 0.15s ease;
@@ -3631,6 +3679,7 @@ body {
 
 .file-receive-toast__bar {
 	height: 100%;
+	width: var(--bar-width-pct, 0%);
 	background: var(--accent);
 	border-radius: 2px;
 	transition: width 0.15s ease;

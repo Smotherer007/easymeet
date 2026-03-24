@@ -10,10 +10,11 @@
 		"dev": "node --watch src/index.js"
 	},
 	"dependencies": {
-		"dotenv": "^16.4.7",
 		"bcrypt": "^6.0.0",
 		"cors": "^2.8.5",
+		"dotenv": "^16.4.7",
 		"express": "^4.21.0",
+		"helmet": "^8.1.0",
 		"mediasoup": "^3.14.16",
 		"protoo-server": "^4.0.7"
 	}

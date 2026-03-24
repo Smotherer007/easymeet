@@ -279,6 +279,10 @@ async function createRecvTransport(protoo, device) {
 
 async function produceDemoMic(sendTransport, track) {
 	if (!track || !sendTransport) return null;
+	if (track.readyState !== "live") {
+		logMsWarn("produceDemoMic skipped: track not live:", track.readyState);
+		return null;
+	}
 	/* No absCaptureTime: Easymeet router uses standard codecs only (see server/mediasoup/config.js). */
 	return sendTransport.produce({
 		track,
@@ -294,6 +298,10 @@ async function produceDemoMic(sendTransport, track) {
 
 async function produceDemoWebcam(sendTransport, track) {
 	if (!track || !sendTransport) return null;
+	if (track.readyState !== "live") {
+		logMsWarn("produceDemoWebcam skipped: track not live:", track.readyState);
+		return null;
+	}
 	return sendTransport.produce({
 		track,
 		codecOptions: { videoGoogleStartBitrate: 1000 },
@@ -503,6 +511,8 @@ export async function setupRoomParticipant(peerObj, nick, localStream, callbacks
 	/** Serialized with produceLocalTracks (retry timer): avoids !cam + live video → second produce/replace race after effect 2 */
 	let _updateLock = false;
 	let _pendingStream = null;
+	/** @type {{ forceMicProducer?: boolean } | null} */
+	let _pendingOptions = null;
 
 	/** Like mediasoup-demo RoomClient: AwaitQueue for newConsumer */
 	const consumingAwaitQueue = new AwaitQueue();
@@ -1047,30 +1057,51 @@ export async function setupRoomParticipant(peerObj, nick, localStream, callbacks
 		dispatch?.({ type: "voip/backgroundEffectUpdated", payload: { peerId: pid, effect: effect || "none" } });
 	}
 
-	async function updateLocalStream(newStream) {
+	/**
+	 * @param {MediaStream} newStream
+	 * @param {{ forceMicProducer?: boolean }} [options]
+	 */
+	async function updateLocalStream(newStream, options = {}) {
 		if (!newStream) return;
 		if (_updateLock) {
-			mediaDebugLog("ms:update-local-stream:queued", { stream: mediaDebugStreamInfo(newStream) });
+			mediaDebugLog("ms:update-local-stream:queued", { stream: mediaDebugStreamInfo(newStream), options });
 			_pendingStream = newStream;
+			_pendingOptions = {
+				forceMicProducer: Boolean(options.forceMicProducer || _pendingOptions?.forceMicProducer)
+			};
 			return;
 		}
 		_updateLock = true;
 		try {
-			await _doUpdateLocalStream(newStream);
+			await _doUpdateLocalStream(newStream, options);
 		} finally {
 			_updateLock = false;
 			if (_pendingStream) {
 				const next = _pendingStream;
+				const nextOpts = _pendingOptions || {};
 				_pendingStream = null;
-				await updateLocalStream(next);
+				_pendingOptions = null;
+				try {
+					await updateLocalStream(next, nextOpts);
+				} catch (e2) {
+					logMsError("updateLocalStream (queued chain):", e2?.message || e2);
+					mediaDebugLog("ms:update-local-stream:queued-failed", { message: e2?.message || String(e2) });
+				}
 			}
 		}
 	}
 
-	async function _doUpdateLocalStream(newStream) {
+	/**
+	 * @param {MediaStream} newStream
+	 * @param {{ forceMicProducer?: boolean }} [options]
+	 */
+	async function _doUpdateLocalStream(newStream, options = {}) {
 		try {
-			const newAudioTrack = newStream.getAudioTracks?.()?.[0] ?? null;
-			const newVideoTrack = newStream.getVideoTracks?.()?.[0] ?? null;
+			/* Erstes *live* Track — sonst nach Producer-Close/Stop bleibt oft ein beendetes Track an Index 0 (Logs: track ended). */
+			const newAudioTrack =
+				(newStream.getAudioTracks?.() ?? []).find((t) => t && t.readyState === "live") ?? null;
+			const newVideoTrack =
+				(newStream.getVideoTracks?.() ?? []).find((t) => t && t.readyState === "live") ?? null;
 			const micProducer = producers.get("mic");
 			const camProducer = producers.get("cam");
 			mediaDebugLog("ms:do-update-local-stream:start", {
@@ -1079,16 +1110,57 @@ export async function setupRoomParticipant(peerObj, nick, localStream, callbacks
 				camProducerTrack: mediaDebugTrackInfo(camProducer?.track),
 				hadCamProducer: Boolean(camProducer)
 			});
+			/* Wie bei der Webcam: replaceTrack allein reicht oft nicht (Web-Audio-Destination / Gerätewechsel). */
 			if (micProducer && newAudioTrack) {
-				try {
-					await micProducer.replaceTrack({ track: newAudioTrack });
-				} catch (re) {
-					logMsWarn("replaceTrack(mic) failed, new producer:", re?.message || re);
-					await closeProducerById(micProducer.id);
-					micProducer.close();
-					producers.delete("mic");
-					const p = await produceDemoMic(sendTransport, newAudioTrack);
-					if (p) producers.set("mic", p);
+				/* micNoiseGate: Ausgang ist immer derselbe destination-Track; Roh-Mikro wird nur in wireInput umgesteckt.
+				 * forceMicProducer + gleiche Track-Referenz → Producer NICHT schließen: close() beendet den Gate-Ausgang. */
+				const sameGateDestinationTrack =
+					micProducer.track === newAudioTrack &&
+					newAudioTrack.readyState === "live" &&
+					micProducer.track.readyState !== "ended";
+				if (sameGateDestinationTrack) {
+					mediaDebugLog("ms:mic-producer:keep-same-destination-track", {
+						forceMicProducer: Boolean(options.forceMicProducer)
+					});
+				} else {
+				const needNewMicProducer =
+					options.forceMicProducer === true ||
+					micProducer.track !== newAudioTrack ||
+					micProducer.track.readyState === "ended";
+				if (needNewMicProducer) {
+					mediaDebugLog("ms:mic-producer:recreate", {
+						reason: micProducer.track?.readyState === "ended" ? "old-ended" : "track-swap",
+						new: mediaDebugTrackInfo(newAudioTrack)
+					});
+					try {
+						await closeProducerById(micProducer.id);
+						micProducer.close();
+						producers.delete("mic");
+						const p = await produceDemoMic(sendTransport, newAudioTrack);
+						if (p) producers.set("mic", p);
+						mediaDebugLog("ms:mic-producer:recreate:done", { ok: Boolean(p) });
+					} catch (re) {
+						logMsWarn("Mic producer recreate failed:", re?.message || re);
+						mediaDebugLog("ms:mic-producer:recreate:done", { ok: false, error: re?.message || String(re) });
+						try {
+							const p = await produceDemoMic(sendTransport, newAudioTrack);
+							if (p) producers.set("mic", p);
+						} catch (re2) {
+							logMsWarn("Mic producer second attempt failed:", re2?.message || re2);
+						}
+					}
+				} else {
+					try {
+						await micProducer.replaceTrack({ track: newAudioTrack });
+					} catch (re) {
+						logMsWarn("replaceTrack(mic) failed, new producer:", re?.message || re);
+						await closeProducerById(micProducer.id);
+						micProducer.close();
+						producers.delete("mic");
+						const p = await produceDemoMic(sendTransport, newAudioTrack);
+						if (p) producers.set("mic", p);
+					}
+				}
 				}
 			} else if (!micProducer && newAudioTrack) {
 				const p = await produceDemoMic(sendTransport, newAudioTrack);
@@ -1144,7 +1216,7 @@ export async function setupRoomParticipant(peerObj, nick, localStream, callbacks
 		} catch (e) {
 			logMsError("updateLocalStream (mediasoup):", e);
 			mediaDebugLog("ms:do-update-local-stream:error", { message: e?.message || String(e) });
-			throw e;
+			/* Nicht erneut werfen: sonst bricht die updateLocalStream-Warteschlange ab und es gibt Uncaught (in promise). */
 		}
 	}
 

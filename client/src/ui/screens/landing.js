@@ -23,7 +23,7 @@ export function renderLanding() {
     <div class="screen landing">
       <div class="landing__hero">
         <h1 class="sr-only">${t("title")}</h1>
-        ${iconLogoWordmark({ width: "100%", style: "max-width: 320px; display: block; margin: 0 auto 1.5rem;" })}
+        <div class="landing__wordmark">${iconLogoWordmark({ width: "100%", height: "auto" })}</div>
         <p class="landing__subtitle">${t("subtitle")}</p>
       </div>
       <div class="landing__cards">

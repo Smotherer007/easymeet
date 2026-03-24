@@ -106,7 +106,12 @@ export function syncHandRaisedOnVideoTiles() {
 	});
 }
 
-export function attachRemoteAudio(peerId, stream, app) {
+/**
+ * @param {HTMLElement} app
+ * @param {{ forceTileMediaRefresh?: boolean }} [options] Nach Hotplug: lokales Video-Element neu an Stream hängen (gleiche MediaStream-Ref, neue Tracks).
+ */
+export function attachRemoteAudio(peerId, stream, app, options) {
+	const forceTileMediaRefresh = Boolean(options?.forceTileMediaRefresh);
 	const container = document.getElementById("video-gallery") || document.getElementById("remote-audio-container") || document.body;
 	let tile = container.querySelector(`.video-tile[data-peer-id="${peerId}"]`);
 	const state = getState();
@@ -127,7 +132,8 @@ export function attachRemoteAudio(peerId, stream, app) {
 	if (!mediaEl) return;
 	applyStreamToMedia(mediaEl, stream, tileState.hasVideo, tileState.vol, selectOutputDeviceId(state), {
 		isLocal: tileState.isLocal,
-		tile
+		tile,
+		forceTileMediaRefresh
 	});
 
 	if (tileState.isLocal && stream) {

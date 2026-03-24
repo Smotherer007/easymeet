@@ -40,7 +40,7 @@ export function validateJoinPayload(payload) {
 /**
  * @param {string} password
  * @param {string} roomCode
- * @returns {Promise<import('../../shared/result.js').Result<{ roomId: string }>>}
+ * @returns {Promise<import('../../shared/result.js').Result<{ roomId: string; hostSetupToken: string }>>}
  */
 export async function fetchCreateRoom(password, roomCode) {
 	try {
@@ -53,8 +53,10 @@ export async function fetchCreateRoom(password, roomCode) {
 		if (!res.ok) {
 			return err("API", apiFailureMessage(data, "Could not create room"));
 		}
+		const hostSetupToken = String(data.hostSetupToken ?? "");
 		return ok({
-			roomId: String(data.roomId ?? "")
+			roomId: String(data.roomId ?? ""),
+			hostSetupToken
 		});
 	} catch (e) {
 		return err("NETWORK", "Connection failed", e);

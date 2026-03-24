@@ -24,19 +24,69 @@ import {
 	selectInputDeviceId,
 	selectVideoDeviceId,
 	selectHasVideoSupport,
-	selectFirstLiveDeviceVideoTrackFromStreams
+	selectFirstLiveDeviceVideoTrackFromStreams,
+	selectPreviewEffectStop,
+	selectPreviewStream
 } from "../../domain/selectors/index.js";
 import { createBlurredStream, createVirtualBackgroundStream, isSupported as isBackgroundEffectsSupported, BACKGROUND_IMAGES } from "../../effects/backgroundEffects.js";
 import { getCustomBackgrounds } from "../storage/customBackgroundStorage.js";
-import { readDeviceIds, writeDeviceId } from "../storage/deviceStorage.js";
+import { writeDeviceId } from "../storage/deviceStorage.js";
 import { DEVICE_STORAGE } from "../../shared/constants.js";
 import * as peer from "../network/mediasoupClient.js";
-import { prepareRoomLocalStream } from "../audio/micNoiseGate.js";
-import { startSpeakingIndicator, stopSpeakingIndicator } from "../../speaking-indicator.js";
+import { prepareRoomLocalStream, disposeMicNoiseGate } from "../audio/micNoiseGate.js";
 import { mediaDebugLog, mediaDebugStreamInfo, mediaDebugTrackInfo } from "../../utils/mediaDebug.js";
+import { getStreamForPeerId, getStreamForScreenShare } from "./tiles.js";
+import { updateVoipParticipants, updateEffectTilesSelection, updateMuteButton } from "../../ui/screens/room-view.js";
 
 /** Serialized execution: fast repeated toggles must not run in parallel (insertable-streams pipe breaks). */
 let _applyEffectTail = Promise.resolve();
+
+/** Serialized: devicechange bursts must not overlap re-acquire / effect re-apply. */
+let _deviceRecoveryTail = Promise.resolve();
+
+function noopNavigate() {}
+
+/**
+ * Einstellungs-Vorschau (eigenes videoOnly-GUM) sonst blockiert oft Kamera/Mikro für den Call.
+ * @param {HTMLElement | null | undefined} app
+ */
+export function tearDownSettingsPreviewForDeviceRecovery(app) {
+	const st = getState();
+	try {
+		selectPreviewEffectStop(st)?.();
+	} catch (_) {}
+	patchState({ _previewEffectStop: null });
+	const prev = selectPreviewStream(getState());
+	if (prev) {
+		prev.getTracks().forEach((t) => {
+			try {
+				t.stop();
+			} catch (_) {}
+		});
+	}
+	patchState({ _previewStream: null });
+	const vid = app?.querySelector?.("#effect-preview-video");
+	if (vid) vid.srcObject = null;
+}
+
+/**
+ * @param {HTMLElement} app
+ * @param {typeof import("./tiles.js").attachRemoteAudio} attachRemoteAudioFn
+ */
+async function reapplyBackgroundEffectIfActive(app, attachRemoteAudioFn) {
+	const eff = selectBackgroundEffect(getState()) || "none";
+	if (eff === "none") return;
+	await applyEffectToCallStream(
+		eff,
+		app,
+		attachRemoteAudioFn,
+		updateVoipParticipants,
+		updateEffectTilesSelection,
+		getStreamForPeerId,
+		getStreamForScreenShare,
+		noopNavigate
+	);
+}
 
 /**
  * Apply background effects and update the local stream.
@@ -88,7 +138,7 @@ export async function recoverCameraAfterEffectLoss(app, attachRemoteAudioFn) {
 	}
 }
 
-async function ensureCameraTrackWhenVideoEnabled() {
+export async function ensureCameraTrackWhenVideoEnabled() {
 	const st = getState();
 	if (!selectIsVideoEnabled(st)) return;
 	const live = selectFirstLiveDeviceVideoTrackFromStreams(selectBaseLocalStream(st), selectLocalStream(st));
@@ -104,7 +154,14 @@ async function ensureCameraTrackWhenVideoEnabled() {
 
 		const audios = [...(selectLocalStream(st)?.getAudioTracks?.() ?? [])].filter((t) => t && t.readyState !== "ended");
 		const repaired = new MediaStream([...audios, vt]);
+		const muted = selectIsMuted(st);
+		repaired.getAudioTracks().forEach((t) => {
+			if (t) t.enabled = !muted;
+		});
 		const forRoom = prepareRoomLocalStream(repaired);
+		forRoom.getAudioTracks().forEach((t) => {
+			if (t) t.enabled = !muted;
+		});
 		vt.enabled = selectIsVideoEnabled(st) ?? true;
 		const vDev = vt.getSettings?.()?.deviceId || videoId || null;
 		patchState({
@@ -467,63 +524,210 @@ async function applyEffectToCallStreamInternal(
 }
 
 /**
- * Re-acquires audio stream when device was switched/removed (e.g. headset change).
+ * Erneuert lokale Aufnahme nach Gerätegraph-Änderung (`devicechange`, Track `ended`).
+ *
+ * - **Mikro (nicht stumm):** Wie Nutzer-Mute/Unmute (`replayMuteUnmuteForDeviceRecovery`), sofern noch nicht stumm.
+ *   War der Nutzer in der Warteschlange stumm geworden → nur stummes Neu-Binden (`rebindMicWhileMutedForDeviceRecovery`).
+ * - **Mikro (stumm):** Neues Mikro ohne `isMuted` zu ändern (`rebindMicWhileMutedForDeviceRecovery`), optional zuvor tote Webcam.
+ * - **Kamera (stumm):** Nur bei totem Video-Track `videoOnly`-GUM wie zuvor.
  * (I/O & Side-Effect Schwer - Layer 4)
  */
-export async function reacquireAudioStreamIfNeeded(app, attachRemoteAudio, setupAudioTrackEndedHandler) {
-	const s = getState();
-	if (selectScreen(s) !== "room-view" || !selectLocalStream(s)) return;
-	if (selectIsMuted(s)) return; // No audio track needed when muted
-
-	const audioTrack = selectLocalStream(s)?.getAudioTracks?.()[0];
-	if (!audioTrack) return;
-	if (audioTrack.readyState !== "ended") {
-		const deviceId = audioTrack.getSettings?.()?.deviceId;
-		if (deviceId) {
-			const { inputs } = await peer.getAudioDevices().catch(() => ({ inputs: [] }));
-			if (inputs.some((d) => d.deviceId === deviceId)) return; // Device still present
-		} else return;
+export async function reacquireAudioStreamIfNeeded(
+	app,
+	attachRemoteAudio,
+	setupAudioTrackEndedHandler,
+	replayMuteUnmuteForDeviceRecovery,
+	rebindMicWhileMutedForDeviceRecovery
+) {
+	const s0 = getState();
+	if (selectScreen(s0) !== "room-view" || !selectLocalStream(s0)) {
+		mediaDebugLog("device:recovery:skip", {
+			reason: selectScreen(s0) !== "room-view" ? "not-room-view" : "no-local-stream"
+		});
+		return;
 	}
+
+	const muted = selectIsMuted(s0);
+	const wantVideo = Boolean(selectIsVideoEnabled(s0) && (selectHasVideoSupport(s0) ?? false));
+
+	mediaDebugLog("device:recovery:reacquire:start", { muted, wantVideo });
 
 	try {
-		const { inputs } = await peer.getAudioDevices().catch(() => ({ inputs: [] }));
-		const inputDeviceId = selectInputDeviceId(s);
-		const newDeviceId = inputDeviceId && inputs.some((d) => d.deviceId === inputDeviceId) ? inputDeviceId : (inputs[0]?.deviceId ?? undefined);
-		const newStream = await peer.getUserMediaResilient(newDeviceId, selectHasVideoSupport(s) ?? false, selectVideoDeviceId(s) || undefined);
-		const newAudioTrack = newStream.getAudioTracks?.()[0];
-		const newVideoTrack = newStream.getVideoTracks?.()[0];
-		if (!newAudioTrack) return;
-		const videoTrack = selectLocalStream(s)?.getVideoTracks?.()[0];
-		const tracks = [newAudioTrack];
-		if (newVideoTrack) {
-			newVideoTrack.enabled = selectIsVideoEnabled(s) ?? false;
-			tracks.push(newVideoTrack);
-		} else if (videoTrack && videoTrack.readyState !== "ended") {
-			tracks.push(videoTrack);
+		let s = getState();
+		const hadEffectStop = typeof s.backgroundEffectStop === "function";
+		if (hadEffectStop) {
+			try {
+				s.backgroundEffectStop();
+			} catch (_) {}
+			patchState({ backgroundEffectStop: null });
+			await sleep(100);
+			s = getState();
 		}
-		const oldStream = selectLocalStream(s);
-		const newLocalStream = new MediaStream(tracks);
-		newLocalStream.getAudioTracks().forEach((t) => {
-			t.enabled = !selectIsMuted(s);
-		});
-		const savedInputDeviceId = newAudioTrack.getSettings?.()?.deviceId || newDeviceId || null;
-		const forRoom = prepareRoomLocalStream(newLocalStream);
-		patchState({ localStream: forRoom, baseLocalStream: newLocalStream, inputDeviceId: savedInputDeviceId });
-		if (savedInputDeviceId) writeDeviceId(DEVICE_STORAGE.input, savedInputDeviceId);
-		oldStream.getTracks().forEach((t) => {
-			if (t === videoTrack && !newVideoTrack) return;
-			t.stop();
-		});
-		selectHostPeer(s)?.updateLocalStream?.(forRoom);
-		selectViewerConn(s)?.updateLocalStream?.(forRoom);
-		const peerId = selectMyPeerId(s);
-		if (peerId) attachRemoteAudio(peerId, forRoom);
-		if (selectScreen(s) === "room-view" && peerId) {
-			stopSpeakingIndicator(peerId);
-			startSpeakingIndicator(peerId, forRoom, app);
+
+		const previousEffect = selectBackgroundEffect(s) || "none";
+		const wantVideoNow = Boolean(selectIsVideoEnabled(s) && (selectHasVideoSupport(s) ?? false));
+		const unmutedNow = !selectIsMuted(s);
+
+		if (unmutedNow) {
+			/* Nochmal prüfen: in der Warteschlange kann der Nutzer zwischenzeitlich stumm geworden sein. */
+			if (!selectIsMuted(getState())) {
+				if (typeof replayMuteUnmuteForDeviceRecovery !== "function") {
+					mediaDebugLog("device:recovery:abort", { reason: "no-replay-mute-unmute" });
+					return;
+				}
+				await replayMuteUnmuteForDeviceRecovery(app, setupAudioTrackEndedHandler);
+			} else {
+				mediaDebugLog("device:recovery:use-muted-rebind", { reason: "user-muted-before-replay" });
+				if (typeof rebindMicWhileMutedForDeviceRecovery !== "function") {
+					mediaDebugLog("device:recovery:abort", { reason: "no-rebind-mic-while-muted" });
+					return;
+				}
+				await rebindMicWhileMutedForDeviceRecovery(app, setupAudioTrackEndedHandler);
+			}
+			if (previousEffect !== "none") {
+				await reapplyBackgroundEffectIfActive(app, attachRemoteAudio);
+			}
+			mediaDebugLog("device:recovery:reacquire:done", { branch: "mic-after-unmuted-or-rebind" });
+		} else {
+			/* Stumm: nie Mute/Unmute-Replay — nur Mikro neu binden, Stumm bleibt. */
+			if (wantVideoNow) {
+				const local = selectLocalStream(s);
+				const lv0 = local?.getVideoTracks?.()?.[0];
+				if (!lv0 || lv0.readyState === "ended") {
+					const videoId = selectVideoDeviceId(s) || undefined;
+					const newStream = await peer.getUserMediaResilient(undefined, "videoOnly", videoId);
+					const newVideoTrack = newStream.getVideoTracks?.()?.[0];
+					newStream.getAudioTracks?.().forEach((t) => t.stop());
+					if (newVideoTrack && newVideoTrack.readyState !== "ended") {
+						const oldStream = selectLocalStream(s);
+						const audiosFromOld = [...(oldStream?.getAudioTracks?.() ?? [])].filter((t) => t && t.readyState !== "ended");
+						newVideoTrack.enabled = selectIsVideoEnabled(s) ?? true;
+						const merged = new MediaStream([...audiosFromOld, newVideoTrack]);
+						merged.getAudioTracks().forEach((t) => {
+							t.enabled = false;
+						});
+						const forRoom = audiosFromOld.length ? prepareRoomLocalStream(merged) : prepareRoomLocalStream(new MediaStream([newVideoTrack]));
+						const vDev = newVideoTrack.getSettings?.()?.deviceId || videoId || null;
+						patchState({
+							localStream: forRoom,
+							baseLocalStream: new MediaStream([newVideoTrack]),
+							...(vDev ? { videoDeviceId: vDev } : {})
+						});
+						if (vDev) writeDeviceId(DEVICE_STORAGE.video, vDev);
+						oldStream?.getVideoTracks?.().forEach((t) => {
+							try {
+								t.stop();
+							} catch (_) {}
+						});
+
+						const s2 = getState();
+						const participant = selectHostPeer(s2) || selectViewerConn(s2);
+						try {
+							await participant?.updateLocalStream?.(forRoom);
+						} catch (e) {
+							console.warn("[easymeet] updateLocalStream after camera hotplug (muted):", e?.message || e);
+						}
+						const peerId = selectMyPeerId(s2);
+						if (peerId) attachRemoteAudio(peerId, forRoom, app);
+						s = getState();
+					} else {
+						mediaDebugLog("device:recovery:camera-reacquire-skipped", { branch: "muted", reason: "no-video-track" });
+					}
+				}
+			}
+			if (typeof rebindMicWhileMutedForDeviceRecovery !== "function") {
+				mediaDebugLog("device:recovery:abort", { reason: "no-rebind-mic-while-muted" });
+				return;
+			}
+			await rebindMicWhileMutedForDeviceRecovery(app, setupAudioTrackEndedHandler);
+			if (previousEffect !== "none") {
+				await reapplyBackgroundEffectIfActive(app, attachRemoteAudio);
+			}
+			mediaDebugLog("device:recovery:reacquire:done", { branch: "muted-mic-rebind" });
 		}
-		setupAudioTrackEndedHandler(newAudioTrack);
 	} catch (err) {
-		console.warn("Audio re-acquisition after device change failed:", err);
+		console.warn("Local media refresh after device change failed:", err);
+		mediaDebugLog("device:recovery:error", { message: err?.message || String(err) });
 	}
+}
+
+/**
+ * Queues device hotplug recovery so bursts of `devicechange` run one after another.
+ * @param {HTMLElement} app
+ * @param {typeof import("./tiles.js").attachRemoteAudio} attachRemoteAudioFn
+ * @param {(t: MediaStreamTrack) => void} setupAudioTrackEndedHandler
+ * @param {() => Promise<void>} refreshDeviceSelects
+ * @param {(() => void | Promise<void>) | null | undefined} restartSettingsPreview Wenn Einstellungen offen: Vorschau neu starten
+ * @param {((app: HTMLElement, setupEnded: (t: MediaStreamTrack) => void) => void | Promise<void>) | null | undefined} replayMuteUnmuteForDeviceRecovery Wie Nutzer Mute→Unmute nach Hotplug (nur wenn nicht stumm)
+ * @param {((app: HTMLElement, setupEnded: (t: MediaStreamTrack) => void) => void | Promise<void>) | null | undefined} rebindMicWhileMutedForDeviceRecovery Mikro neu bei stummem Nutzer
+ */
+export function enqueueDeviceGraphRecovery(
+	app,
+	attachRemoteAudioFn,
+	setupAudioTrackEndedHandler,
+	refreshDeviceSelects,
+	restartSettingsPreview,
+	replayMuteUnmuteForDeviceRecovery,
+	rebindMicWhileMutedForDeviceRecovery
+) {
+	_deviceRecoveryTail = _deviceRecoveryTail
+		.then(async () => {
+			mediaDebugLog("device:recovery:chain:run", {});
+			tearDownSettingsPreviewForDeviceRecovery(app);
+			await refreshDeviceSelects();
+			await reacquireAudioStreamIfNeeded(
+				app,
+				attachRemoteAudioFn,
+				setupAudioTrackEndedHandler,
+				replayMuteUnmuteForDeviceRecovery,
+				rebindMicWhileMutedForDeviceRecovery
+			);
+			await ensureCameraTrackWhenVideoEnabled();
+			let st = getState();
+			const streamForMs = selectLocalStream(st);
+			const participant = selectHostPeer(st) || selectViewerConn(st);
+			/* prepareRoomLocalStream liefert oft denselben Web-Audio-Destination-Track → ohne force kein Producer-Neuaufbau (Hotplug/Hintergrund). */
+			if (
+				participant &&
+				streamForMs &&
+				selectScreen(st) === "room-view" &&
+				streamForMs.getAudioTracks?.()?.some((t) => t?.readyState === "live")
+			) {
+				try {
+					await participant.updateLocalStream(streamForMs, { forceMicProducer: true });
+					mediaDebugLog("device:recovery:post-chain:mic-producer-force", {});
+				} catch (e) {
+					console.warn("[easymeet] post-recovery mediasoup mic producer:", e?.message || e);
+				}
+			}
+			st = getState();
+			const peerId = selectMyPeerId(st);
+			const stream = selectLocalStream(st);
+			if (peerId && stream && selectScreen(st) === "room-view") {
+				/* Wie nach syncMuteToPeers: Kachel + Teilnehmerliste + Mute-Button — sonst wirkt nur manuelles Muten. */
+				attachRemoteAudioFn(peerId, stream, app, { forceTileMediaRefresh: true });
+				updateVoipParticipants(
+					app,
+					selectVoipMembers(st),
+					peerId,
+					selectIsMuted(st),
+					selectScreenStreams(st),
+					getStreamForPeerId,
+					getStreamForScreenShare,
+					selectPeerMuteState(st),
+					selectPeerVolume(st),
+					selectBackgroundEffect(st),
+					selectPeerVideoState(st),
+					selectIsVideoEnabled(st),
+					selectPeerBackgroundEffect(st)
+				);
+				updateMuteButton(app, selectIsMuted(st));
+			}
+			try {
+				await restartSettingsPreview?.();
+			} catch (e) {
+				console.warn("[easymeet] settings preview restart after recovery:", e?.message || e);
+			}
+		})
+		.catch((err) => console.warn("[easymeet] device graph recovery:", err?.message || err));
 }

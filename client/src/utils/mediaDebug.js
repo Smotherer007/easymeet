@@ -8,6 +8,34 @@
  *
  * Logs: **`[easymeet/media-debug]`** as **warn** (visible even when "Info" is filtered).
  * Disable: `localStorage.removeItem('easymeetMediaDebug')` and load without the URL param.
+ *
+ * ---
+ * **B) Geräte-Hotplug / Mikro — Forschungs-Checkliste (Filter in der Konsole)**
+ *
+ * 1. Debug einschalten (siehe oben), Seite neu laden, Problem reproduzieren.
+ * 2. Konsole filtern nach **`device:recovery`** (Recovery-Kette) und optional **`ms:`** (Mediasoup).
+ * 3. Tabelle — Bedeutung der Phasen:
+ *
+ * | Phase / Präfix | Bedeutung |
+ * |----------------|-----------|
+ * | `device:recovery:chain:run` | Warteschlange gestartet (z. B. nach `devicechange`, Tab sichtbar, Fenster-Fokus gedrosselt, Track `ended`). **Wenn die bei Gerätewechsel nie kommt → eher fehlender Trigger (Events/OS), nicht „falscher“ Fix im Reacquire-Code.** |
+ * | `device:recovery:skip` | `payload.reason`: z. B. `not-room-view`, `no-local-stream` |
+ * | `device:recovery:reacquire:start` | Reacquire-Logik läuft; `muted` / `wantVideo` im Payload |
+ * | `device:recovery:abort` | `reason`: fehlende Callbacks (`no-replay-mute-unmute`, `no-rebind-mic-while-muted`) |
+ * | `device:recovery:use-muted-rebind` | Nutzer war vor Replay stumm geworden → stummer Rebind-Pfad |
+ * | `device:recovery:mute-unmute-cycle:*` | Replay wie Mute/Unmute (nur ungemutet) |
+ * | `device:recovery:rebind-mic-while-muted:*` | Mikro neu bei stummem Nutzer |
+ * | `device:recovery:camera-reacquire-skipped` | Webcam in stummem Zweig nicht neu bekommen |
+ * | `device:recovery:post-chain:mic-producer-force` | Abschließender Mediasoup-`updateLocalStream` mit `forceMicProducer` |
+ * | `device:recovery:reacquire:done` | `branch` im Payload: welcher Pfad fertig wurde |
+ * | `device:recovery:error` | Exception im Reacquire-Block |
+ * | `ms:do-update-local-stream:start` | Mediasoup verarbeitet Stream-Update |
+ * | `ms:mic-producer:recreate` | Mic-Producer wird neu erzeugt |
+ * | `ms:update-local-stream:queued` | Update wartet auf Lock (parallel anderer Pfad) |
+ *
+ * 4. **Auswertung:** `chain:run` fehlt trotz erwartetem Hotplug → Trigger-Design prüfen (OS-Standard ohne `devicechange`, Tab immer im Vordergrund, Fokus-Throttle). `chain:run` da, Ton trotzdem kaputt → Browser `chrome://webrtc-internals` (Sender/RTP) + ggf. Mediasoup-Server-Logs.
+ *
+ * Einmal pro Browser-Tab wird beim ersten `device:recovery:chain:run` eine Kurzfassung in die Konsole geschrieben. Manuell: **`window.printEasymeetDeviceRecoveryGuide()`** (nur wenn Debug an).
  */
 
 function urlDebugOn() {
@@ -16,6 +44,43 @@ function urlDebugOn() {
 	} catch {
 		return false;
 	}
+}
+
+const SESSION_GUIDE_KEY = "easymeet_media_debug_recovery_guide_v1";
+
+/**
+ * Gibt die Kurz-Checkliste B) in die Konsole (nützlich nach Reload oder manuell).
+ * Nur sinnvoll mit aktivem Media-Debug (`easymeetMediaDebug`).
+ */
+export function printEasymeetDeviceRecoveryGuide() {
+	if (!mediaDebugEnabled()) {
+		console.warn(
+			"[easymeet/media-debug] Media-Debug ist aus. Einschalten: ?easymeetMediaDebug=1 oder localStorage.setItem('easymeetMediaDebug','1'), dann Seite neu laden."
+		);
+	}
+	const lines = [
+		"[easymeet/media-debug] — Checkliste B) Geräte-Recovery (Kurz)",
+		"Filter: \"device:recovery\" | optional \"ms:\" für Mediasoup",
+		"· chain:run        → Recovery gestartet (fehlt oft = kein Browser-Event / Fokus)",
+		"· reacquire:start/done/error → Kernpfad",
+		"· mute-unmute-cycle / rebind-mic-while-muted → welcher Audio-Zweig",
+		"· post-chain:mic-producer-force → finaler Mediasoup-Push",
+		"· ms:mic-producer:recreate → Producer wirklich neu",
+		"Vollständige Tabelle: Kopfkommentar in client/src/utils/mediaDebug.js"
+	];
+	console.warn(lines.join("\n"));
+}
+
+function maybePrintRecoveryGuideOnce(phase) {
+	if (phase !== "device:recovery:chain:run") return;
+	try {
+		if (typeof sessionStorage === "undefined") return;
+		if (sessionStorage.getItem(SESSION_GUIDE_KEY) === "1") return;
+		sessionStorage.setItem(SESSION_GUIDE_KEY, "1");
+	} catch {
+		return;
+	}
+	printEasymeetDeviceRecoveryGuide();
 }
 
 export function mediaDebugEnabled() {
@@ -43,8 +108,18 @@ export function mediaDebugEnabled() {
  */
 export function mediaDebugLog(phase, data) {
 	if (!mediaDebugEnabled()) return;
+	maybePrintRecoveryGuideOnce(phase);
 	const payload = data !== undefined ? data : {};
 	console.warn("[easymeet/media-debug]", phase, payload);
+}
+
+/* Konsole: printEasymeetDeviceRecoveryGuide() — nur mit aktivem Media-Debug sinnvoll */
+try {
+	if (typeof globalThis !== "undefined") {
+		globalThis.printEasymeetDeviceRecoveryGuide = printEasymeetDeviceRecoveryGuide;
+	}
+} catch {
+	/* ignore */
 }
 
 /** Short summary of a MediaStreamTrack (no large objects). */

@@ -19,7 +19,7 @@ export function parseCreateRoomBody(body) {
 
 /**
  * @param {unknown} body
- * @returns {{ ok: true; data: { hostPeerId: string } } | { ok: false; code: string; message: string }}
+ * @returns {{ ok: true; data: { hostPeerId: string; hostSetupToken: string } } | { ok: false; code: string; message: string }}
  */
 export function parseRegisterHostBody(body) {
 	if (!body || typeof body !== "object") {
@@ -27,10 +27,14 @@ export function parseRegisterHostBody(body) {
 	}
 	const b = /** @type {Record<string, unknown>} */ (body);
 	const hostPeerId = typeof b.hostPeerId === "string" ? b.hostPeerId.trim() : "";
+	const hostSetupToken = typeof b.hostSetupToken === "string" ? b.hostSetupToken.trim() : "";
 	if (!hostPeerId) {
 		return { ok: false, code: "VALIDATION", message: "hostPeerId erforderlich" };
 	}
-	return { ok: true, data: { hostPeerId } };
+	if (!hostSetupToken) {
+		return { ok: false, code: "VALIDATION", message: "hostSetupToken erforderlich" };
+	}
+	return { ok: true, data: { hostPeerId, hostSetupToken } };
 }
 
 /**

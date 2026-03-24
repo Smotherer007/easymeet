@@ -16,7 +16,12 @@ import {
 } from "../../ui/screens/index.js";
 import { isSupported as isBackgroundEffectsSupported, BACKGROUND_IMAGES } from "../../effects/backgroundEffects.js";
 import { getCustomBackgrounds } from "../../effects/storage/customBackgroundStorage.js";
-import { attachRoomViewAndHandlers as attachRoomViewFromModule } from "../../effects/ui/roomView.js";
+import {
+	attachRoomViewAndHandlers as attachRoomViewFromModule,
+	rebindMicWhileMutedForDeviceRecovery,
+	replayMuteUnmuteForDeviceRecovery,
+	restartEffectPreviewAfterDeviceRecovery
+} from "../../effects/ui/roomView.js";
 import { refreshPollsDock } from "../../ui/screens/room-view-renderers.js";
 import { getStreamForPeerId, getStreamForScreenShare } from "../../effects/media/tiles.js";
 import * as selectors from "../../domain/selectors/index.js";
@@ -24,6 +29,7 @@ import { handleCreateRoom, handleJoinRoom } from "./roomJoinCreate.js";
 import { getStreamForViewers } from "./roomJoinCreate.js";
 import { setupRoomViewDeviceHandlers, setupAudioTrackEndedHandler, setPeerVolume, loadPeerVolumes, refreshDeviceSelects, attachRemoteAudio } from "./cleanup.js";
 import { getStreamForVideoTile } from "../../effects/media/tiles.js";
+import { escapeAttr } from "../../shared/escape.js";
 
 /**
  * @param {HTMLElement} appEl
@@ -52,7 +58,7 @@ export function renderLangSwitcher(appEl, ctx) {
 	const lang = getLang();
 	el.innerHTML = `
     <div class="lang-switcher__dropdown">
-      <button type="button" class="lang-switcher__trigger" aria-expanded="false" aria-haspopup="listbox" aria-label="${t("langAriaLabel")}">
+      <button type="button" class="lang-switcher__trigger" aria-expanded="false" aria-haspopup="listbox" aria-label="${escapeAttr(t("langAriaLabel"))}">
         <span class="lang-switcher__flag" aria-hidden="true">${lang === "de" ? "🇩🇪" : "🇬🇧"}</span>
         <span class="lang-switcher__code">${lang === "de" ? "DE" : "EN"}</span>
         <span class="lang-switcher__chevron" aria-hidden="true">▾</span>
@@ -245,7 +251,13 @@ export function setupRoomViewPostRender(appEl, ctx) {
 		if (stream) attachRemoteAudio(m.peerId, stream, appEl);
 	});
 	if (selectors.selectSettingsPanelOpen(s)) refreshDeviceSelects(appEl);
-	setupRoomViewDeviceHandlers({ ...ctx, appEl });
+	setupRoomViewDeviceHandlers({
+		...ctx,
+		appEl,
+		restartSettingsPreview: () => restartEffectPreviewAfterDeviceRecovery(appEl, ctx.applyEffectToPreview),
+		replayMuteUnmuteForDeviceRecovery,
+		rebindMicWhileMutedForDeviceRecovery
+	});
 }
 
 /**

@@ -111,7 +111,7 @@ export const iconBarChart2 = () => createElement(BarChart2, smAttrs).outerHTML;
 export const iconLandingActiveRoomsEmpty = () => createElement(Radio, landingEmptyStateAttrs).outerHTML;
 
 export const iconLogo = () => `
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="4rem" height="4rem" class="icon logo-icon" style="margin-bottom: 1rem; display: inline-block;">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="4rem" height="4rem" class="icon logo-icon logo-icon--hero">
   <defs>
     <linearGradient id="logoPrimary" x1="0%" y1="0%" x2="100%" y2="100%">
       <stop offset="0%" stop-color="#00f0c0" />
@@ -136,8 +136,13 @@ export const iconLogo = () => `
 </svg>
 `;
 
-export const iconLogoWordmark = ({ width = "100%", height = "100%", style = "" } = {}) => `
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 520 150" width="${width}" height="${height}" class="icon logo-wordmark" style="${style}">
+export const iconLogoWordmark = ({ width = "100%", height = "100%", extraClass = "" } = {}) => {
+	const cls = `icon logo-wordmark${extraClass ? ` ${extraClass}` : ""}`;
+	/* SVG height="auto" ist ungültig (Browser-Warnung); Höhe per CSS (z. B. .landing__wordmark .logo-wordmark). */
+	const heightAttr =
+		height === null || height === "" || height === "auto" ? "" : ` height="${height}"`;
+	return `
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 520 150" width="${width}"${heightAttr} class="${cls}">
   <defs>
     <linearGradient id="logoPrimaryM" x1="0%" y1="0%" x2="100%" y2="100%">
       <stop offset="0%" stop-color="#00f0c0" />
@@ -173,3 +178,4 @@ export const iconLogoWordmark = ({ width = "100%", height = "100%", style = "" }
   <circle cx="505" cy="100" r="8" fill="#00d4aa" filter="url(#logoGlowM)" />
 </svg>
 `;
+};

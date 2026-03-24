@@ -16,7 +16,7 @@ export function validateCreateRoomPayload(body) {
 
 /**
  * @param {unknown} body
- * @returns {{ success: true; data: { hostPeerId: string } } | { success: false; error: { code: string; message: string } }}
+ * @returns {{ success: true; data: { hostPeerId: string; hostSetupToken: string } } | { success: false; error: { code: string; message: string } }}
  */
 export function validateRegisterHostPayload(body) {
 	const r = parseRegisterHostBody(body);

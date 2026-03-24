@@ -279,7 +279,7 @@ function ensureRemoteAudioElement(tile) {
 }
 
 export function applyStreamToMedia(mediaEl, stream, hasVideo, vol, outputDeviceId, opts = {}) {
-	const { isLocal = true, tile = null } = opts;
+	const { isLocal = true, tile = null, forceTileMediaRefresh = false } = opts;
 
 	if (!isLocal && tile && stream) {
 		const vTracks = stream.getVideoTracks?.() ?? [];
@@ -333,6 +333,11 @@ export function applyStreamToMedia(mediaEl, stream, hasVideo, vol, outputDeviceI
 	const vCount = stream?.getVideoTracks?.()?.length ?? 0;
 	const showVideo = Boolean(hasVideo || vCount > 0);
 	const targetStream = showVideo ? stream : stream ? new MediaStream(stream.getAudioTracks?.() ?? []) : null;
+
+	/* Gleiche MediaStream-Instanz, aber getauschte Tracks (z. B. Hotplug): Browser aktualisiert sonst oft nicht. */
+	if (forceTileMediaRefresh && isLocal && targetStream && mediaEl.srcObject === targetStream) {
+		mediaEl.srcObject = null;
+	}
 
 	if (mediaEl.srcObject !== targetStream || (showVideo && targetStream)) {
 		if (mediaEl.srcObject === targetStream && showVideo) {

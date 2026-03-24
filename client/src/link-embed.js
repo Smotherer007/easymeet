@@ -1,4 +1,18 @@
+import { escapeAttr } from "./shared/escape.js";
+
 const URL_REGEX = /https?:\/\/[^\s<>"{}|\\^`[\]]+/gi;
+
+/** Nur http(s) für klickbare Links — kein javascript: u. ä. */
+export function safeHrefFromUserUrl(raw) {
+	if (!raw || typeof raw !== "string") return null;
+	try {
+		const u = new URL(raw.trim());
+		if (u.protocol !== "http:" && u.protocol !== "https:") return null;
+		return u.href;
+	} catch {
+		return null;
+	}
+}
 
 /** Sanitize ID for safe use in embed URLs (alphanumeric, hyphen, underscore only) */
 function sanitizeEmbedId(id) {
@@ -17,8 +31,10 @@ const EMBED_RULES = [
 		name: "youtube",
 		test: (url) => {
 			const u = new URL(url);
-			if (u.hostname.includes("youtube.com") && u.searchParams.get("v")) return u.searchParams.get("v");
-			if (u.hostname === "youtu.be" && u.pathname.length > 1) return u.pathname.slice(1);
+			const h = u.hostname.toLowerCase();
+			const onYoutube = h === "youtube.com" || h.endsWith(".youtube.com");
+			if (onYoutube && u.searchParams.get("v")) return u.searchParams.get("v");
+			if (h === "youtu.be" && u.pathname.length > 1) return u.pathname.slice(1);
 			return null;
 		},
 		embed: (id) => {
@@ -54,7 +70,13 @@ const EMBED_RULES = [
 	},
 	{
 		name: "soundcloud",
-		test: (url) => (url.includes("soundcloud.com") ? url : null),
+		test: (url) => {
+			try {
+				const h = new URL(url).hostname.toLowerCase();
+				if (h === "soundcloud.com" || h.endsWith(".soundcloud.com")) return url;
+			} catch {}
+			return null;
+		},
 		embed: (url) =>
 			`<iframe class="chat__embed chat__embed--soundcloud" src="https://w.soundcloud.com/player/?url=${encodeURIComponent(url)}&color=%2300d4aa" frameborder="0" allow="autoplay"></iframe>`
 	}
@@ -98,8 +120,12 @@ export function renderChatContent(text, escapeFn, openLabel = "↗ Open") {
 		seen.add(url);
 		const embedHtml = getEmbedHtml(url);
 		if (embedHtml) {
-			const safeUrl = escapeFn(url);
-			const block = `<span class="chat__link-preview"><span class="chat__link-preview__embed">${embedHtml}</span><a href="${safeUrl}" target="_blank" rel="noopener noreferrer" class="chat__link-preview__open">↗ ${escapeFn(openLabel)}</a></span>`;
+			const href = safeHrefFromUserUrl(url);
+			const openInner = `↗ ${escapeFn(openLabel)}`;
+			const openControl = href
+				? `<a href="${escapeAttr(href)}" target="_blank" rel="noopener noreferrer" class="chat__link-preview__open">${openInner}</a>`
+				: `<span class="chat__link-preview__open chat__link-preview__open--nohref">${openInner}</span>`;
+			const block = `<span class="chat__link-preview"><span class="chat__link-preview__embed">${embedHtml}</span>${openControl}</span>`;
 			html = html.replace(escapeFn(url), block);
 		}
 	}

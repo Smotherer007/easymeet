@@ -38,10 +38,12 @@ import {
 import { replaceEmojiShortcodes } from "../../utils/emojiShortcodes.js";
 import { renderChatContent } from "../../link-embed.js";
 import { EMOJI_DATA } from "../../emoji-data.js";
-import { escapeHtml } from "../../shared/escape.js";
+import { escapeHtml, escapeAttr } from "../../shared/escape.js";
 import { REACTION_EFFECT_IDS } from "../../shared/reactionEffectIds.js";
 import { mergeAndClampWindowRect } from "../utils/viewportWindowClamp.js";
-export { escapeHtml };
+import { draggableRectInlineStyle } from "../utils/draggableRect.js";
+import { WINDOW_POSITION_DEFAULTS } from "../../shared/windowPositionsDefaults.js";
+export { escapeHtml, escapeAttr };
 
 export function formatTime(ts) {
 	if (!ts) return "";
@@ -64,7 +66,7 @@ function renderChatMessage(m, myNick) {
 		parts.push(renderChatContent(expanded, escapeHtml, t("openInNewTab")));
 	}
 	const urls = m.giphyUrls?.length ? m.giphyUrls : m.giphyUrl ? [m.giphyUrl] : [];
-	urls.forEach((u) => parts.push(`<span class="chat__gif-wrap"><img src="${escapeHtml(u)}" alt="GIF" class="chat__gif" loading="lazy" /></span>`));
+	urls.forEach((u) => parts.push(`<span class="chat__gif-wrap"><img src="${escapeAttr(u)}" alt="GIF" class="chat__gif" loading="lazy" /></span>`));
 	const content = parts.length ? parts.join("") : "";
 	const isSelf = m.nick === (myNick ?? "");
 	const selfClass = isSelf ? " chat__msg--self" : "";
@@ -76,7 +78,7 @@ function renderChatMessage(m, myNick) {
 export function renderFileShareBody(fileId, nick, filename, hasBlob) {
 	const label = `${escapeHtml(nick || "?")} ${t("fileShared")}: ${escapeHtml(filename || "?")}`;
 	const iconHtml = hasBlob
-		? `<button type="button" class="chat__file-download-btn" data-action="download-file" data-file-id="${escapeHtml(fileId)}" title="${t("download")}" aria-label="${t("download")}">${iconDownload()}</button>`
+		? `<button type="button" class="chat__file-download-btn" data-action="download-file" data-file-id="${escapeAttr(fileId)}" title="${escapeAttr(t("download"))}" aria-label="${escapeAttr(t("download"))}">${iconDownload()}</button>`
 		: `<span class="chat__file-loading">${iconLoader2()}</span>`;
 	return `<span class="chat__file-share-label">${label}</span>${iconHtml}`;
 }
@@ -87,7 +89,7 @@ function renderFileShareMessage(m, getFileBlob, myNick) {
 	const bodyHtml = renderFileShareBody(fileId, m.nick, m.filename, hasBlob);
 	const isSelf = m.nick === (myNick ?? "");
 	const selfClass = isSelf ? " chat__msg--self" : "";
-	return `<div class="chat__msg chat__msg--file-share${selfClass}" data-file-id="${escapeHtml(fileId)}"><div class="chat__msg-header"><span class="chat__msg-nick">${escapeHtml(m.nick ?? "?")}</span><span class="chat__msg-time">${formatTime(m.ts)}</span></div><div class="chat__msg-body chat__file-share-body">${bodyHtml}</div></div>`;
+	return `<div class="chat__msg chat__msg--file-share${selfClass}" data-file-id="${escapeAttr(fileId)}"><div class="chat__msg-header"><span class="chat__msg-nick">${escapeHtml(m.nick ?? "?")}</span><span class="chat__msg-time">${formatTime(m.ts)}</span></div><div class="chat__msg-body chat__file-share-body">${bodyHtml}</div></div>`;
 }
 
 export function renderMessagesHtml(messages, getFileBlob, myNick) {
@@ -107,19 +109,19 @@ export function renderVoipParticipantHtmlFloating(m, state) {
 	const { muteMap, volumeMap, myPeerId, isMuted } = state;
 	const nick = m.nick ?? "?";
 	const peerId = m.peerId ?? "";
-	const handMark = m.handRaised ? `<span class="voip-view__hand" title="${escapeHtml(t("handRaisedMarker"))}">✋</span>` : "";
+	const handMark = m.handRaised ? `<span class="voip-view__hand" title="${escapeAttr(t("handRaisedMarker"))}">✋</span>` : "";
 	const isSelf = peerId === myPeerId;
 	const memberMuted = isSelf ? isMuted : (muteMap.get(peerId) ?? false);
 	const vol = volumeMap.get(peerId) ?? 100;
 	const streaming = state.screenStreams?.has?.(peerId);
 	const volumeControl =
 		!isSelf && !memberMuted
-			? `<div class="voip-view__volume-wrap" data-peer-id="${escapeHtml(peerId)}" title="${t("volume")}"><button type="button" class="voip-view__participant-status voip-view__volume-trigger" data-action="volume-toggle" aria-label="${t("volume")}" title="${t("volume")}">${iconMic()}</button><div class="voip-view__volume-tooltip"><input type="range" class="voip-view__volume-slider" min="0" max="200" value="${vol}" data-peer-id="${escapeHtml(peerId)}" /></div></div>`
-			: `<div class="voip-view__participant-status" title="${memberMuted ? t("muted") : t("unmuted")}">${memberMuted ? iconMicOff() : iconMic()}</div>`;
+			? `<div class="voip-view__volume-wrap" data-peer-id="${escapeAttr(peerId)}" title="${escapeAttr(t("volume"))}"><button type="button" class="voip-view__participant-status voip-view__volume-trigger" data-action="volume-toggle" aria-label="${escapeAttr(t("volume"))}" title="${escapeAttr(t("volume"))}">${iconMic()}</button><div class="voip-view__volume-tooltip"><input type="range" class="voip-view__volume-slider" min="0" max="200" value="${vol}" data-peer-id="${escapeAttr(peerId)}" /></div></div>`
+			: `<div class="voip-view__participant-status" title="${escapeAttr(memberMuted ? t("muted") : t("unmuted"))}">${memberMuted ? iconMicOff() : iconMic()}</div>`;
 	const streamHtml = streaming
-		? `<div class="voip-view__participant-stream" data-action="open-stream-modal" data-peer-id="${escapeHtml(peerId)}" title="${t("clickToExpand")}"><video class="voip-view__stream-thumb" autoplay playsinline muted disablepictureinpicture></video></div>`
+		? `<div class="voip-view__participant-stream" data-action="open-stream-modal" data-peer-id="${escapeAttr(peerId)}" title="${escapeAttr(t("clickToExpand"))}"><video class="voip-view__stream-thumb" autoplay playsinline muted disablepictureinpicture></video></div>`
 		: "";
-	return `<div class="voip-view__participant" data-peer-id="${escapeHtml(peerId)}" data-self="${isSelf}"><div class="voip-view__participant-info"><div class="voip-view__participant-name">${escapeHtml(nick)}${handMark}</div><div class="voip-view__participant-status-row">${volumeControl}</div></div>${streamHtml}</div>`;
+	return `<div class="voip-view__participant" data-peer-id="${escapeAttr(peerId)}" data-self="${isSelf}"><div class="voip-view__participant-info"><div class="voip-view__participant-name">${escapeHtml(nick)}${handMark}</div><div class="voip-view__participant-status-row">${volumeControl}</div></div>${streamHtml}</div>`;
 }
 
 export function renderVoipParticipantsHtmlFloating(voipMembers, state) {
@@ -166,14 +168,14 @@ function renderReactionPopoverBody() {
 	const reactionBtns = reactionEmojis
 		.map(
 			(e) =>
-				`<button type="button" class="reaction-popover__btn" data-action="send-reaction" data-emoji="${e}" title="${e}">${e}</button>`
+				`<button type="button" class="reaction-popover__btn" data-action="send-reaction" data-emoji="${escapeAttr(e)}" title="${escapeAttr(e)}">${e}</button>`
 		)
 		.join("");
 	const effects = REACTION_EFFECT_IDS.map((id) => ({ id, ...REACTION_EFFECT_POPOVER_META[id] }));
 	const effectBtns = effects
 		.map(
 			(f) =>
-				`<button type="button" class="reaction-popover__btn" data-action="send-reaction-effect" data-effect="${f.id}" title="${escapeHtml(t(f.key))}" aria-label="${escapeHtml(t(f.key))}">${f.sym}</button>`
+				`<button type="button" class="reaction-popover__btn" data-action="send-reaction-effect" data-effect="${escapeAttr(f.id)}" title="${escapeAttr(t(f.key))}" aria-label="${escapeAttr(t(f.key))}">${f.sym}</button>`
 		)
 		.join("");
 	return `
@@ -201,7 +203,7 @@ function renderMeetingControlBarInner(state) {
 	const screenSlot = hasScreenShareSupport
 		? `<span class="meeting-control-bar__screen-slot">${renderMeetingScreenShareSlotInner({ hasScreenShareSupport, hostStream })}</span>`
 		: "";
-	const moreLabel = escapeHtml(t("moreControls"));
+	const moreLabel = escapeAttr(t("moreControls"));
 	const inFree = videoLayoutMode === "free";
 	const layoutTitle = inFree ? t("layoutGrid") : t("layoutFree");
 	const layoutIcon = inFree ? iconLayoutGrid() : iconGrip();
@@ -209,24 +211,24 @@ function renderMeetingControlBarInner(state) {
 	const reactionPopoverInner = renderReactionPopoverBody();
 	return `
     <div class="meeting-control-bar__primary">
-      <button class="meeting-control-btn chat__mute-btn--${isMuted ? "muted" : "unmuted"}" data-action="toggle-mute" title="${isMuted ? t("unmute") : t("mute")}">${isMuted ? iconMicOff() : iconMic()}</button>
-      <button class="meeting-control-btn video-btn--${isVideoEnabled ? "on" : "off"}" data-action="toggle-video" title="${isVideoEnabled ? t("cameraOn") : t("cameraOff")}">${isVideoEnabled ? iconVideo() : iconVideoOff()}</button>
-      <button class="meeting-control-btn meeting-control-btn--leave" data-action="leave" title="${t("leaveRoom")}">${iconPhoneOff()}</button>
-      <button class="meeting-control-btn meeting-control-btn--chat" data-action="toggle-chat-panel" title="${t("tabChat")}"><span class="meeting-control-btn__icon-wrap">${iconMessageSquare()}<span class="chat-badge" id="chat-badge" ${unreadChatCount > 0 ? "" : "hidden"}>${unreadChatCount > 99 ? "99+" : unreadChatCount}</span></span></button>
-      <button class="meeting-control-btn" data-action="toggle-sidebar" title="${t("participants")}">${iconUsers()}</button>
+      <button class="meeting-control-btn chat__mute-btn--${isMuted ? "muted" : "unmuted"}" data-action="toggle-mute" title="${escapeAttr(isMuted ? t("unmute") : t("mute"))}">${isMuted ? iconMicOff() : iconMic()}</button>
+      <button class="meeting-control-btn video-btn--${isVideoEnabled ? "on" : "off"}" data-action="toggle-video" title="${escapeAttr(isVideoEnabled ? t("cameraOn") : t("cameraOff"))}">${isVideoEnabled ? iconVideo() : iconVideoOff()}</button>
+      <button class="meeting-control-btn meeting-control-btn--leave" data-action="leave" title="${escapeAttr(t("leaveRoom"))}">${iconPhoneOff()}</button>
+      <button class="meeting-control-btn meeting-control-btn--chat" data-action="toggle-chat-panel" title="${escapeAttr(t("tabChat"))}"><span class="meeting-control-btn__icon-wrap">${iconMessageSquare()}<span class="chat-badge" id="chat-badge" ${unreadChatCount > 0 ? "" : "hidden"}>${unreadChatCount > 99 ? "99+" : unreadChatCount}</span></span></button>
+      <button class="meeting-control-btn" data-action="toggle-sidebar" title="${escapeAttr(t("participants"))}">${iconUsers()}</button>
     </div>
     <button type="button" class="meeting-control-btn meeting-control-btn--more" data-action="toggle-meeting-more" aria-label="${moreLabel}" aria-expanded="false" title="${moreLabel}">${iconMoreHorizontal()}</button>
     <div class="meeting-control-bar__secondary">
       <div class="reaction-popover-wrap">
-        <button type="button" class="meeting-control-btn" data-action="toggle-reaction-popover" aria-expanded="false" aria-haspopup="true" title="${escapeHtml(t("reactionsTitle"))}">${iconSmile()}</button>
+        <button type="button" class="meeting-control-btn" data-action="toggle-reaction-popover" aria-expanded="false" aria-haspopup="true" title="${escapeAttr(t("reactionsTitle"))}">${iconSmile()}</button>
         <div class="reaction-popover" id="reaction-popover" hidden role="menu">${reactionPopoverInner}</div>
       </div>
-      <button type="button" class="meeting-control-btn meeting-control-btn--hand${myHandRaised ? " meeting-control-btn--active" : ""}" data-action="toggle-hand" title="${escapeHtml(handTitle)}" aria-pressed="${myHandRaised ? "true" : "false"}">${iconHand()}</button>
-      <button type="button" class="meeting-control-btn" data-action="toggle-polls-panel" title="${escapeHtml(t("pollsToggle"))}">${iconBarChart2()}</button>
+      <button type="button" class="meeting-control-btn meeting-control-btn--hand${myHandRaised ? " meeting-control-btn--active" : ""}" data-action="toggle-hand" title="${escapeAttr(handTitle)}" aria-pressed="${myHandRaised ? "true" : "false"}">${iconHand()}</button>
+      <button type="button" class="meeting-control-btn" data-action="toggle-polls-panel" title="${escapeAttr(t("pollsToggle"))}">${iconBarChart2()}</button>
       ${screenSlot}
-      ${roomId ? `<button class="meeting-control-btn" data-action="share" title="${t("shareRoom")}">${iconShare2()}</button>` : ""}
-      <button class="meeting-control-btn meeting-control-btn--layout" data-action="toggle-video-layout" title="${layoutTitle}" aria-label="${escapeHtml(layoutTitle)}">${layoutIcon}</button>
-      <button class="meeting-control-btn meeting-control-btn--settings" data-action="toggle-settings" title="${t("settings")}" aria-label="${escapeHtml(t("settings"))}">${iconSettings()}</button>
+      ${roomId ? `<button class="meeting-control-btn" data-action="share" title="${escapeAttr(t("shareRoom"))}">${iconShare2()}</button>` : ""}
+      <button class="meeting-control-btn meeting-control-btn--layout" data-action="toggle-video-layout" title="${escapeAttr(layoutTitle)}" aria-label="${escapeAttr(layoutTitle)}">${layoutIcon}</button>
+      <button class="meeting-control-btn meeting-control-btn--settings" data-action="toggle-settings" title="${escapeAttr(t("settings"))}" aria-label="${escapeAttr(t("settings"))}">${iconSettings()}</button>
     </div>
   `;
 }
@@ -235,9 +237,9 @@ function renderMeetingControlBarInner(state) {
 export function renderMeetingScreenShareSlotInner({ hasScreenShareSupport, hostStream }) {
 	if (!hasScreenShareSupport) return "";
 	if (hostStream) {
-		return `<button type="button" class="meeting-control-btn meeting-control-btn--danger" id="stop-screen-btn" title="${escapeHtml(t("stopSharingToolbar"))}">${iconMonitorOff()}</button>`;
+		return `<button type="button" class="meeting-control-btn meeting-control-btn--danger" id="stop-screen-btn" title="${escapeAttr(t("stopSharingToolbar"))}">${iconMonitorOff()}</button>`;
 	}
-	return `<button type="button" class="meeting-control-btn" id="start-screen-btn" title="${escapeHtml(t("startSharing"))}">${iconMonitor()}</button>`;
+	return `<button type="button" class="meeting-control-btn" id="start-screen-btn" title="${escapeAttr(t("startSharing"))}">${iconMonitor()}</button>`;
 }
 
 /** Audio (room host) + stop share (when self is sharing, hostStream). */
@@ -248,8 +250,9 @@ export function renderStreamModalHostActionsInner({ isHost, hostStream, audioEna
 		const audioPart = `${audioEnabled ? iconVolume2() : iconVolumeX()} ${escapeHtml(audioEnabled ? t("audioOn") : t("audioOff"))}`;
 		html += `<button type="button" class="btn btn--ghost btn--sm" id="audio-screen-btn">${audioPart}</button>`;
 	}
-	const stopTitle = escapeHtml(t("stopSharing"));
-	html += `<button type="button" class="btn btn--ghost btn--sm stream-modal__stop-share-btn" data-action="stop-screen-share" title="${stopTitle}" aria-label="${stopTitle}">${iconMonitorOff()} ${stopTitle}</button>`;
+	const stopLabel = escapeHtml(t("stopSharing"));
+	const stopTitleAttr = escapeAttr(t("stopSharing"));
+	html += `<button type="button" class="btn btn--ghost btn--sm stream-modal__stop-share-btn" data-action="stop-screen-share" title="${stopTitleAttr}" aria-label="${stopTitleAttr}">${iconMonitorOff()} ${stopLabel}</button>`;
 	return html;
 }
 
@@ -260,10 +263,10 @@ export function renderMeetingControlBarFloating(state) {
 export function renderFloatingWindowVideos(pos, isOpen = true) {
 	const hiddenCls = isOpen ? "" : " floating-window--hidden";
 	return `
-    <div class="floating-window floating-window--videos${hiddenCls}" data-window="videos" data-draggable style="left:${pos.x}px;top:${pos.y}px;width:${pos.w}px;height:${pos.h}px;">
+    <div class="floating-window floating-window--videos draggable-rect${hiddenCls}" data-window="videos" data-draggable style="${draggableRectInlineStyle(pos)}">
       <div class="floating-window__header" data-drag-handle>
         <span class="floating-window__title">${t("videos")}</span>
-        <button type="button" class="btn btn--ghost btn--sm floating-window__minimize" data-action="minimize-floating-videos" title="${escapeHtml(t("minimizeWindow"))}" aria-label="${escapeHtml(t("minimizeWindow"))}">${iconMinus()}</button>
+        <button type="button" class="btn btn--ghost btn--sm floating-window__minimize" data-action="minimize-floating-videos" title="${escapeAttr(t("minimizeWindow"))}" aria-label="${escapeAttr(t("minimizeWindow"))}">${iconMinus()}</button>
       </div>
       <div class="floating-window__body">
         <div class="meeting-videos-stack">
@@ -271,7 +274,7 @@ export function renderFloatingWindowVideos(pos, isOpen = true) {
           <div class="reaction-float-layer" id="reaction-float-layer" aria-hidden="true"></div>
         </div>
       </div>
-      <div class="floating-window__resize-handle" data-resize-handle title="${t("resize")}"></div>
+      <div class="floating-window__resize-handle" data-resize-handle title="${escapeAttr(t("resize"))}"></div>
     </div>
   `;
 }
@@ -279,15 +282,15 @@ export function renderFloatingWindowVideos(pos, isOpen = true) {
 export function renderFloatingWindowChat(pos, messagesHtml, isOpen = false) {
 	const hiddenCls = isOpen ? "" : " floating-window--hidden";
 	return `
-    <div class="floating-window floating-window--chat${hiddenCls}" data-window="chat" data-draggable style="left:${pos.x}px;top:${pos.y}px;width:${pos.w}px;height:${pos.h}px;">
+    <div class="floating-window floating-window--chat draggable-rect${hiddenCls}" data-window="chat" data-draggable style="${draggableRectInlineStyle(pos)}">
       <div class="floating-window__header" data-drag-handle>
         <span class="floating-window__title">${t("tabChat")}</span>
-        <button type="button" class="btn btn--ghost btn--sm floating-window__minimize" data-action="minimize-floating-chat" title="${escapeHtml(t("minimizeWindow"))}" aria-label="${escapeHtml(t("minimizeWindow"))}">${iconMinus()}</button>
+        <button type="button" class="btn btn--ghost btn--sm floating-window__minimize" data-action="minimize-floating-chat" title="${escapeAttr(t("minimizeWindow"))}" aria-label="${escapeAttr(t("minimizeWindow"))}">${iconMinus()}</button>
       </div>
       <div class="floating-window__body">
         <div class="chat__messages-wrap chat__messages-wrap--overlay" id="chat-dropzone">
           <div class="chat__messages" id="chat-messages">${messagesHtml || '<div class="chat__empty">' + t("typeMessage") + "</div>"}</div>
-          <button type="button" class="chat__scroll-to-bottom" id="chat-scroll-to-bottom" hidden title="${t("scrollToBottom")}">${iconChevronDown()}</button>
+          <button type="button" class="chat__scroll-to-bottom" id="chat-scroll-to-bottom" hidden title="${escapeAttr(t("scrollToBottom"))}">${iconChevronDown()}</button>
         </div>
         <div class="chat__input-wrap">
           <div class="chat__gif-preview" id="chat-gif-preview" hidden></div>
@@ -296,7 +299,7 @@ export function renderFloatingWindowChat(pos, messagesHtml, isOpen = false) {
               <div class="emoji-picker__header"><span class="emoji-picker__title">${t("emoji")}</span><button type="button" class="emoji-picker__close" data-action="close-emoji">${iconX()}</button></div>
               <input type="text" class="emoji-picker__search" id="emoji-search" placeholder="${t("emojiSearch")}" />
               <div class="emoji-picker__grid" id="emoji-grid">${EMOJI_DATA.slice(0, 500)
-					.map(([e]) => `<button type="button" class="emoji-picker__btn" data-emoji="${e}">${e}</button>`)
+					.map(([e]) => `<button type="button" class="emoji-picker__btn" data-emoji="${escapeAttr(e)}">${e}</button>`)
 					.join("")}</div>
             </div>
             <div class="giphy-picker" id="giphy-picker" hidden>
@@ -306,7 +309,7 @@ export function renderFloatingWindowChat(pos, messagesHtml, isOpen = false) {
               <p class="giphy-picker__hint" id="giphy-hint"></p>
             </div>
             <div class="chat__more-wrap">
-              <button type="button" class="btn btn--ghost chat__more-btn" data-action="toggle-chat-more" title="${t("more")}">${iconMoreHorizontal()}</button>
+              <button type="button" class="btn btn--ghost chat__more-btn" data-action="toggle-chat-more" title="${escapeAttr(t("more"))}">${iconMoreHorizontal()}</button>
               <div class="chat__more-menu" id="chat-more-menu" hidden>
                 <button type="button" class="chat__more-item" data-action="emoji">${iconSmile()} ${t("emoji")}</button>
                 <button type="button" class="chat__more-item" data-action="giphy">${iconImage()} ${t("giphy")}</button>
@@ -318,7 +321,7 @@ export function renderFloatingWindowChat(pos, messagesHtml, isOpen = false) {
           </div>
         </div>
       </div>
-      <div class="floating-window__resize-handle" data-resize-handle title="${t("resize")}"></div>
+      <div class="floating-window__resize-handle" data-resize-handle title="${escapeAttr(t("resize"))}"></div>
     </div>
   `;
 }
@@ -326,15 +329,15 @@ export function renderFloatingWindowChat(pos, messagesHtml, isOpen = false) {
 export function renderFloatingWindowParticipants(pos, voipParticipantsHtml, voipMembersLength, isOpen = false) {
 	const hiddenCls = isOpen ? "" : " floating-window--hidden";
 	return `
-    <div class="floating-window floating-window--participants${hiddenCls}" data-window="participants" data-draggable style="left:${pos.x}px;top:${pos.y}px;width:${pos.w}px;height:${pos.h}px;">
+    <div class="floating-window floating-window--participants draggable-rect${hiddenCls}" data-window="participants" data-draggable style="${draggableRectInlineStyle(pos)}">
       <div class="floating-window__header" data-drag-handle>
         <span class="floating-window__title">${t("participants")} (<span id="participant-count">${voipMembersLength}</span>)</span>
-        <button type="button" class="btn btn--ghost btn--sm floating-window__minimize chat__sidebar-close" data-action="minimize-floating-participants" title="${escapeHtml(t("minimizeWindow"))}" aria-label="${escapeHtml(t("minimizeWindow"))}">${iconMinus()}</button>
+        <button type="button" class="btn btn--ghost btn--sm floating-window__minimize chat__sidebar-close" data-action="minimize-floating-participants" title="${escapeAttr(t("minimizeWindow"))}" aria-label="${escapeAttr(t("minimizeWindow"))}">${iconMinus()}</button>
       </div>
       <div class="floating-window__body">
         <div class="voip-view__participant-list" id="participant-list">${voipParticipantsHtml || '<p class="voip-view__empty">' + t("participants") + "</p>"}</div>
       </div>
-      <div class="floating-window__resize-handle" data-resize-handle title="${t("resize")}"></div>
+      <div class="floating-window__resize-handle" data-resize-handle title="${escapeAttr(t("resize"))}"></div>
     </div>
   `;
 }
@@ -343,20 +346,20 @@ export function renderStreamModalFloating(pos, state) {
 	const { isHost, hostStream, audioEnabled } = state;
 	return `
     <div class="stream-modal" id="stream-modal" hidden>
-      <div class="stream-modal__content" data-draggable data-window="stream" style="left:${pos.x}px;top:${pos.y}px;width:${pos.w}px;height:${pos.h}px;transform:none">
+      <div class="stream-modal__content draggable-rect" data-draggable data-window="stream" style="${draggableRectInlineStyle(pos)}">
         <div class="stream-modal__header" data-drag-handle>
           <span class="stream-modal__title" id="stream-modal-title">${t("screenStream")}</span>
           <div class="stream-modal__actions">
-            <button class="btn btn--ghost btn--sm" id="stream-fullscreen-btn" title="${t("fullscreen")}">${iconMaximize2()}</button>
-            <button class="btn btn--ghost btn--sm" id="stream-pip-btn" title="${t("pip")}">${iconVideo()}</button>
+            <button class="btn btn--ghost btn--sm" id="stream-fullscreen-btn" title="${escapeAttr(t("fullscreen"))}">${iconMaximize2()}</button>
+            <button class="btn btn--ghost btn--sm" id="stream-pip-btn" title="${escapeAttr(t("pip"))}">${iconVideo()}</button>
             <span class="stream-modal__host-actions-slot">${renderStreamModalHostActionsInner({ isHost, hostStream, audioEnabled })}</span>
-            <button type="button" class="btn btn--ghost btn--sm" data-action="minimize-stream-modal" title="${escapeHtml(t("minimizeWindow"))}" aria-label="${escapeHtml(t("minimizeWindow"))}">${iconMinus()}</button>
+            <button type="button" class="btn btn--ghost btn--sm" data-action="minimize-stream-modal" title="${escapeAttr(t("minimizeWindow"))}" aria-label="${escapeAttr(t("minimizeWindow"))}">${iconMinus()}</button>
           </div>
         </div>
         <div class="stream-modal__video-wrap">
           <video id="stream-modal-video" autoplay playsinline></video>
         </div>
-        <div class="stream-modal__resize-handle" data-resize-handle title="${t("resize")}"></div>
+        <div class="stream-modal__resize-handle" data-resize-handle title="${escapeAttr(t("resize"))}"></div>
       </div>
     </div>
   `;
@@ -381,13 +384,13 @@ export function renderVoipParticipantHtmlGrid(m, ctx) {
 	const showThumb = !!streaming;
 	const volumeControl =
 		!isSelf && !memberMuted
-			? `<div class="voip-view__volume-wrap" data-peer-id="${escapeHtml(peerId)}" title="${t("volume")}"><button type="button" class="voip-view__participant-status voip-view__volume-trigger" data-action="volume-toggle" aria-label="${t("volume")}" title="${t("volume")}">${iconMic()}</button><div class="voip-view__volume-tooltip"><input type="range" class="voip-view__volume-slider" min="0" max="200" value="${vol}" data-peer-id="${escapeHtml(peerId)}" /></div></div>`
-			: `<div class="voip-view__participant-status" title="${memberMuted ? t("muted") : t("unmuted")}">${memberMuted ? iconMicOff() : iconMic()}</div>`;
+			? `<div class="voip-view__volume-wrap" data-peer-id="${escapeAttr(peerId)}" title="${escapeAttr(t("volume"))}"><button type="button" class="voip-view__participant-status voip-view__volume-trigger" data-action="volume-toggle" aria-label="${escapeAttr(t("volume"))}" title="${escapeAttr(t("volume"))}">${iconMic()}</button><div class="voip-view__volume-tooltip"><input type="range" class="voip-view__volume-slider" min="0" max="200" value="${vol}" data-peer-id="${escapeAttr(peerId)}" /></div></div>`
+			: `<div class="voip-view__participant-status" title="${escapeAttr(memberMuted ? t("muted") : t("unmuted"))}">${memberMuted ? iconMicOff() : iconMic()}</div>`;
 	const hasBgEffect = isSelf ? (backgroundEffect || "none") !== "none" : (bgEffectMap.get(peerId) || "none") !== "none";
 	const streamHtml = showThumb
-		? `<div class="voip-view__participant-stream" data-action="open-stream-modal" data-peer-id="${escapeHtml(peerId)}" title="${t("clickToExpand")}"><video class="voip-view__stream-thumb" autoplay playsinline muted disablepictureinpicture></video></div>`
+		? `<div class="voip-view__participant-stream" data-action="open-stream-modal" data-peer-id="${escapeAttr(peerId)}" title="${escapeAttr(t("clickToExpand"))}"><video class="voip-view__stream-thumb" autoplay playsinline muted disablepictureinpicture></video></div>`
 		: "";
-	return `<div class="voip-view__participant" data-peer-id="${escapeHtml(peerId)}" data-self="${isSelf}" data-has-background-effect="${hasBgEffect}"><div class="voip-view__participant-info"><div class="voip-view__participant-name">${escapeHtml(nick)}</div><div class="voip-view__participant-status-row">${volumeControl}</div></div>${streamHtml}</div>`;
+	return `<div class="voip-view__participant" data-peer-id="${escapeAttr(peerId)}" data-self="${isSelf}" data-has-background-effect="${hasBgEffect}"><div class="voip-view__participant-info"><div class="voip-view__participant-name">${escapeHtml(nick)}</div><div class="voip-view__participant-status-row">${volumeControl}</div></div>${streamHtml}</div>`;
 }
 
 export function renderVoipParticipantsHtmlGrid(voipMembers, ctx) {
@@ -398,7 +401,7 @@ export function renderScreenShareBannerHtml(peerId, entry, myPeerId) {
 	const nick = entry?.nick ?? "?";
 	const isSelf = peerId === myPeerId;
 	const label = isSelf ? t("sharingScreenYou") : escapeHtml(nick) + " " + t("sharingScreen");
-	return `<div class="room-view__screen-share-banner" data-action="open-stream-modal" data-peer-id="${escapeHtml(peerId)}" title="${t("clickToExpand")}">${iconMonitor()} <span>${label}</span></div>`;
+	return `<div class="room-view__screen-share-banner" data-action="open-stream-modal" data-peer-id="${escapeAttr(peerId)}" title="${escapeAttr(t("clickToExpand"))}">${iconMonitor()} <span>${label}</span></div>`;
 }
 
 export function renderScreenShareBannersHtml(screenStreams, myPeerId) {
@@ -408,7 +411,7 @@ export function renderScreenShareBannersHtml(screenStreams, myPeerId) {
 }
 
 export function renderRoomViewHeader(meetingTitle) {
-	const latencyTitle = escapeHtml(t("roomMediaLatencyTitle"));
+	const latencyTitle = escapeAttr(t("roomMediaLatencyTitle"));
 	const latencyPlaceholder = escapeHtml(t("roomMediaLatencyNone"));
 	return `
     <div class="room-view__header room-view__header--centered">
@@ -422,19 +425,20 @@ export function renderRoomViewHeader(meetingTitle) {
   `;
 }
 
-export function renderShareModalContent(roomId, formattedRoomId, joinUrl, renderShareContent, shareStyle) {
+/** @param {{ x: number; y: number; w: number; h: number }} positionRect */
+export function renderShareModalContent(roomId, formattedRoomId, joinUrl, renderShareContent, positionRect) {
 	const content = roomId ? renderShareContent(roomId, formattedRoomId, joinUrl, { qrCanvasId: "share-qr-canvas", qrContainerId: "share-qr-container", showOpenLink: false }) : "";
 	return `
     <div class="share-modal" id="share-modal" hidden>
-      <div class="share-modal__content" data-draggable data-window="share" style="${shareStyle}">
+      <div class="share-modal__content draggable-rect" data-draggable data-window="share" style="${draggableRectInlineStyle(positionRect)}">
         <div class="share-modal__header" data-drag-handle>
           <h3 class="share-modal__title">${t("roomCreated")}</h3>
-          <button type="button" class="btn btn--ghost btn--sm" data-action="minimize-share-modal" title="${escapeHtml(t("minimizeWindow"))}" aria-label="${escapeHtml(t("minimizeWindow"))}">${iconMinus()}</button>
+          <button type="button" class="btn btn--ghost btn--sm" data-action="minimize-share-modal" title="${escapeAttr(t("minimizeWindow"))}" aria-label="${escapeAttr(t("minimizeWindow"))}">${iconMinus()}</button>
         </div>
         <div class="share-modal__body">
           ${content}
         </div>
-        <div class="share-modal__resize-handle" data-resize-handle title="${t("resize")}"></div>
+        <div class="share-modal__resize-handle" data-resize-handle title="${escapeAttr(t("resize"))}"></div>
       </div>
     </div>
   `;
@@ -453,7 +457,7 @@ export function renderChatPanelContent(messagesHtml, voipParticipantsHtml, voipM
       </div>
       <div class="voip-view__participant-list" id="participant-list">${voipParticipantsHtml || '<p class="voip-view__empty">' + t("participants") + "</p>"}</div>
     </aside>
-    <div class="chat__resize-handle chat__resize-handle--hidden" id="chat-resize-handle" title="${t("resize")}"></div>
+    <div class="chat__resize-handle chat__resize-handle--hidden" id="chat-resize-handle" title="${escapeAttr(t("resize"))}"></div>
     <div class="chat-panel chat-panel--overlay" id="chat-panel">
       <div class="chat-panel__header">
         <h3 class="chat-panel__title">${t("tabChat")}</h3>
@@ -461,7 +465,7 @@ export function renderChatPanelContent(messagesHtml, voipParticipantsHtml, voipM
       </div>
       <div class="chat__messages-wrap chat__messages-wrap--overlay" id="chat-dropzone">
         <div class="chat__messages" id="chat-messages">${messagesHtml || '<div class="chat__empty">' + t("typeMessage") + "</div>"}</div>
-        <button type="button" class="chat__scroll-to-bottom" id="chat-scroll-to-bottom" hidden title="${t("scrollToBottom")}">${iconChevronDown()}</button>
+        <button type="button" class="chat__scroll-to-bottom" id="chat-scroll-to-bottom" hidden title="${escapeAttr(t("scrollToBottom"))}">${iconChevronDown()}</button>
       </div>
       <div class="chat__input-wrap">
         <div class="chat__gif-preview" id="chat-gif-preview" hidden></div>
@@ -470,7 +474,7 @@ export function renderChatPanelContent(messagesHtml, voipParticipantsHtml, voipM
             <div class="emoji-picker__header"><span class="emoji-picker__title">${t("emoji")}</span><button type="button" class="emoji-picker__close" data-action="close-emoji">${iconX()}</button></div>
             <input type="text" class="emoji-picker__search" id="emoji-search" placeholder="${t("emojiSearch")}" />
             <div class="emoji-picker__grid" id="emoji-grid">${EMOJI_DATA.slice(0, 500)
-				.map(([e]) => `<button type="button" class="emoji-picker__btn" data-emoji="${e}">${e}</button>`)
+				.map(([e]) => `<button type="button" class="emoji-picker__btn" data-emoji="${escapeAttr(e)}">${e}</button>`)
 				.join("")}</div>
           </div>
           <div class="giphy-picker" id="giphy-picker" hidden>
@@ -480,7 +484,7 @@ export function renderChatPanelContent(messagesHtml, voipParticipantsHtml, voipM
             <p class="giphy-picker__hint" id="giphy-hint"></p>
           </div>
           <div class="chat__more-wrap">
-            <button type="button" class="btn btn--ghost chat__more-btn" data-action="toggle-chat-more" title="${t("more")}">${iconMoreHorizontal()}</button>
+            <button type="button" class="btn btn--ghost chat__more-btn" data-action="toggle-chat-more" title="${escapeAttr(t("more"))}">${iconMoreHorizontal()}</button>
             <div class="chat__more-menu" id="chat-more-menu" hidden>
               <button type="button" class="chat__more-item" data-action="emoji">${iconSmile()} ${t("emoji")}</button>
               <button type="button" class="chat__more-item" data-action="giphy">${iconImage()} ${t("giphy")}</button>
@@ -492,7 +496,7 @@ export function renderChatPanelContent(messagesHtml, voipParticipantsHtml, voipM
         </div>
       </div>
     </div>
-    <div class="chat__resize-handle chat__resize-handle--hidden" id="chat-resize-handle-right" title="${t("resize")}"></div>
+    <div class="chat__resize-handle chat__resize-handle--hidden" id="chat-resize-handle-right" title="${escapeAttr(t("resize"))}"></div>
   `;
 }
 
@@ -503,8 +507,8 @@ export const POLL_CREATE_MAX_OPTIONS = 8;
  * @param {number} optionNumber 1-basiert für Platzhalter „Antwort 1“ …
  */
 export function renderPollOptionRowHtml(optionNumber) {
-	const p1 = escapeHtml(t("pollOptionPlaceholder"));
-	const removeLabel = escapeHtml(t("pollRemoveOption"));
+	const p1 = escapeAttr(t("pollOptionPlaceholder"));
+	const removeLabel = escapeAttr(t("pollRemoveOption"));
 	return `<div class="poll-create__option-row">
     <input type="text" class="poll-create__input poll-create__input--option poll-create-option" maxlength="80" placeholder="${p1} ${optionNumber}" autocomplete="off" />
     <button type="button" class="poll-create__row-remove btn btn--ghost btn--sm" data-action="poll-remove-option" hidden aria-label="${removeLabel}">${iconX()}</button>
@@ -515,7 +519,7 @@ function renderPollCreateFormHtml() {
 	return `<div class="poll-create">
     <h4 class="poll-create__title">${escapeHtml(t("pollNew"))}</h4>
     <div class="poll-create__fields">
-      <input type="text" id="poll-create-question" class="poll-create__input poll-create__input--question" maxlength="200" placeholder="${escapeHtml(t("pollQuestionPlaceholder"))}" autocomplete="off" />
+      <input type="text" id="poll-create-question" class="poll-create__input poll-create__input--question" maxlength="200" placeholder="${escapeAttr(t("pollQuestionPlaceholder"))}" autocomplete="off" />
       <div class="poll-create__options" id="poll-create-options">
         ${renderPollOptionRowHtml(1)}
         ${renderPollOptionRowHtml(2)}
@@ -563,14 +567,14 @@ function renderOnePollBlock(poll, myId, participantCount = 0) {
 			const c = tallies[i] ?? 0;
 			const pct = barPct(c);
 			if (!closed) {
-				return `<button type="button" class="poll-option-btn" data-action="poll-vote" data-poll-id="${escapeHtml(poll.id)}" data-option-index="${i}">
-          <div class="poll-option-btn__progress" style="width: ${pct}%"></div>
+				return `<button type="button" class="poll-option-btn" data-action="poll-vote" data-poll-id="${escapeAttr(poll.id)}" data-option-index="${i}">
+          <div class="poll-option-btn__progress" style="--progress-pct: ${pct}%"></div>
           <span class="poll-option-btn__label">${escapeHtml(opt)}</span>
           <span class="poll-option-btn__tally">${c}</span>
         </button>`;
 			}
 			return `<div class="poll-option-result">
-        <div class="poll-option-result__progress" style="width: ${pct}%"></div>
+        <div class="poll-option-result__progress" style="--progress-pct: ${pct}%"></div>
         <span>${escapeHtml(opt)}</span>
         <span>${c}</span>
       </div>`;
@@ -578,10 +582,10 @@ function renderOnePollBlock(poll, myId, participantCount = 0) {
 		.join("");
 	const closeBtn =
 		poll.creatorPeerId === myId && !closed
-			? `<button type="button" class="btn btn--ghost btn--sm poll-card__close" data-action="poll-close" data-poll-id="${escapeHtml(poll.id)}">${escapeHtml(t("pollClose"))}</button>`
+			? `<button type="button" class="btn btn--ghost btn--sm poll-card__close" data-action="poll-close" data-poll-id="${escapeAttr(poll.id)}">${escapeHtml(t("pollClose"))}</button>`
 			: "";
 	const status = closed ? `<span class="poll-badge">${escapeHtml(t("pollClosed"))}</span>` : "";
-	return `<div class="poll-card" data-poll-id="${escapeHtml(poll.id)}">
+	return `<div class="poll-card" data-poll-id="${escapeAttr(poll.id)}">
     <div class="poll-card__head"><strong>${escapeHtml(poll.question)}</strong>${status}</div>
     <div class="poll-card__options">${rows}</div>
     ${closeBtn}
@@ -600,17 +604,17 @@ function renderPollsDockInner(state) {
 	return html;
 }
 
-/** @param {string} pollsStyle inline styles for position/size (like share/settings modals) */
-export function renderPollsDock(pollsStyle) {
+/** @param {{ x: number; y: number; w: number; h: number }} positionRect */
+export function renderPollsDock(positionRect) {
 	return `
     <div class="polls-modal" id="polls-modal" hidden>
-      <div class="polls-dock polls-modal__content" data-draggable data-window="polls" style="${pollsStyle}" aria-label="${escapeHtml(t("pollsTitle"))}">
+      <div class="polls-dock polls-modal__content draggable-rect" data-draggable data-window="polls" style="${draggableRectInlineStyle(positionRect)}" aria-label="${escapeAttr(t("pollsTitle"))}">
         <div class="polls-dock__header" data-drag-handle>
           <h3 class="polls-dock__title">${escapeHtml(t("pollsTitle"))}</h3>
-          <button type="button" class="btn btn--ghost btn--sm" data-action="minimize-polls-modal" title="${escapeHtml(t("minimizeWindow"))}" aria-label="${escapeHtml(t("minimizeWindow"))}">${iconMinus()}</button>
+          <button type="button" class="btn btn--ghost btn--sm" data-action="minimize-polls-modal" title="${escapeAttr(t("minimizeWindow"))}" aria-label="${escapeAttr(t("minimizeWindow"))}">${iconMinus()}</button>
         </div>
         <div class="polls-dock__body" id="polls-dock-body"></div>
-        <div class="polls-modal__resize-handle" data-resize-handle title="${escapeHtml(t("resize"))}"></div>
+        <div class="polls-modal__resize-handle" data-resize-handle title="${escapeAttr(t("resize"))}"></div>
       </div>
     </div>`;
 }
@@ -650,24 +654,25 @@ export function renderGridMeetingSection(state, messagesHtml, voipParticipantsHt
   `;
 }
 
-export function renderStreamModalGrid(streamStyle, state) {
+/** @param {{ x: number; y: number; w: number; h: number }} positionRect */
+export function renderStreamModalGrid(positionRect, state) {
 	const { isHost, hostStream, audioEnabled } = state;
 	return `
     <div class="stream-modal" id="stream-modal" hidden>
-      <div class="stream-modal__content" data-draggable data-window="stream" style="${streamStyle}">
+      <div class="stream-modal__content draggable-rect" data-draggable data-window="stream" style="${draggableRectInlineStyle(positionRect)}">
         <div class="stream-modal__header" data-drag-handle>
           <span class="stream-modal__title" id="stream-modal-title">${t("screenStream")}</span>
           <div class="stream-modal__actions">
-            <button class="btn btn--ghost btn--sm" id="stream-fullscreen-btn" title="${t("fullscreen")}">${iconMaximize2()}</button>
-            <button class="btn btn--ghost btn--sm" id="stream-pip-btn" title="${t("pip")}">${iconVideo()}</button>
+            <button class="btn btn--ghost btn--sm" id="stream-fullscreen-btn" title="${escapeAttr(t("fullscreen"))}">${iconMaximize2()}</button>
+            <button class="btn btn--ghost btn--sm" id="stream-pip-btn" title="${escapeAttr(t("pip"))}">${iconVideo()}</button>
             <span class="stream-modal__host-actions-slot">${renderStreamModalHostActionsInner({ isHost, hostStream, audioEnabled })}</span>
-            <button type="button" class="btn btn--ghost btn--sm" data-action="minimize-stream-modal" title="${escapeHtml(t("minimizeWindow"))}" aria-label="${escapeHtml(t("minimizeWindow"))}">${iconMinus()}</button>
+            <button type="button" class="btn btn--ghost btn--sm" data-action="minimize-stream-modal" title="${escapeAttr(t("minimizeWindow"))}" aria-label="${escapeAttr(t("minimizeWindow"))}">${iconMinus()}</button>
           </div>
         </div>
         <div class="stream-modal__video-wrap">
           <video id="stream-modal-video" autoplay playsinline></video>
         </div>
-        <div class="stream-modal__resize-handle" data-resize-handle title="${t("resize")}"></div>
+        <div class="stream-modal__resize-handle" data-resize-handle title="${escapeAttr(t("resize"))}"></div>
       </div>
     </div>
   `;
@@ -677,8 +682,8 @@ function renderEffectTile(bg, backgroundEffect) {
 	const fullUrl = bg.url.startsWith("/") ? new URL(bg.url, window.location.origin).href : bg.url;
 	const label = bg.label || (bg.labelKey ? t(bg.labelKey) : t("backgroundCustomLabel"));
 	const isCustom = bg.id?.startsWith("custom-");
-	return `<button type="button" class="effect-tile effect-tile--bg ${backgroundEffect === bg.id ? "effect-tile--selected" : ""}" data-effect="${escapeHtml(bg.id)}" data-custom="${isCustom ? "true" : ""}" title="${escapeHtml(label)}">
-    <span class="effect-tile__preview">${isCustom ? `<span role="button" tabindex="0" class="effect-tile__remove" data-action="remove-custom-bg" data-effect-id="${escapeHtml(bg.id)}" title="${t("removeCustomBackground")}" aria-label="${t("removeCustomBackground")}">${iconX()}</span>` : ""}<img src="${escapeHtml(fullUrl)}" alt="" loading="lazy" /></span>
+	return `<button type="button" class="effect-tile effect-tile--bg ${backgroundEffect === bg.id ? "effect-tile--selected" : ""}" data-effect="${escapeAttr(bg.id)}" data-custom="${isCustom ? "true" : ""}" title="${escapeAttr(label)}">
+    <span class="effect-tile__preview">${isCustom ? `<span role="button" tabindex="0" class="effect-tile__remove" data-action="remove-custom-bg" data-effect-id="${escapeAttr(bg.id)}" title="${escapeAttr(t("removeCustomBackground"))}" aria-label="${escapeAttr(t("removeCustomBackground"))}">${iconX()}</span>` : ""}<img src="${escapeAttr(fullUrl)}" alt="" loading="lazy" /></span>
     <span class="effect-tile__label">${escapeHtml(label)}</span>
   </button>`;
 }
@@ -697,19 +702,25 @@ export function renderEffectTilesMore(backgroundImages, backgroundEffect) {
 }
 
 export function renderSettingsModalContent(state) {
-	const { settingsStyle, isVideoEnabled, hasBackgroundBlur, backgroundEffect, backgroundImages } = state;
+	const {
+		settingsPositionRect = WINDOW_POSITION_DEFAULTS.settings,
+		isVideoEnabled,
+		hasBackgroundBlur,
+		backgroundEffect,
+		backgroundImages
+	} = state;
 	const audioSettings = state.audioSettings && typeof state.audioSettings === "object" ? { ...DEFAULT_AUDIO_SETTINGS, ...state.audioSettings } : { ...DEFAULT_AUDIO_SETTINGS };
 	const st = audioSettings.speakingThreshold;
 	const stSensitivityPct = speakingThresholdToSensitivityPercent(st);
 	const effectTiles = hasBackgroundBlur
-		? `<div class="effect-tiles" id="effect-tiles"><button type="button" class="effect-tile ${backgroundEffect === "none" ? "effect-tile--selected" : ""}" data-effect="none" title="${t("backgroundNone")}"><span class="effect-tile__preview effect-tile__preview--none">${iconVideo()}</span><span class="effect-tile__label">${t("backgroundNone")}</span></button><button type="button" class="effect-tile ${backgroundEffect === "blur" ? "effect-tile--selected" : ""}" data-effect="blur" title="${t("backgroundBlur")}"><span class="effect-tile__preview effect-tile__preview--blur"></span><span class="effect-tile__label">${t("backgroundBlur")}</span></button>${renderEffectTilesFirst(backgroundImages, backgroundEffect)}</div>${renderEffectTilesMore(backgroundImages, backgroundEffect)}<input type="file" id="background-upload-input" accept="image/*" hidden /><button type="button" class="effect-tiles-upload-btn" id="effect-tiles-upload-btn" title="${t("uploadCustomBackground")}">${iconUpload()} ${t("uploadCustomBackground")}</button>`
+		? `<div class="effect-tiles" id="effect-tiles"><button type="button" class="effect-tile ${backgroundEffect === "none" ? "effect-tile--selected" : ""}" data-effect="none" title="${escapeAttr(t("backgroundNone"))}"><span class="effect-tile__preview effect-tile__preview--none">${iconVideo()}</span><span class="effect-tile__label">${t("backgroundNone")}</span></button><button type="button" class="effect-tile ${backgroundEffect === "blur" ? "effect-tile--selected" : ""}" data-effect="blur" title="${escapeAttr(t("backgroundBlur"))}"><span class="effect-tile__preview effect-tile__preview--blur"></span><span class="effect-tile__label">${t("backgroundBlur")}</span></button>${renderEffectTilesFirst(backgroundImages, backgroundEffect)}</div>${renderEffectTilesMore(backgroundImages, backgroundEffect)}<input type="file" id="background-upload-input" accept="image/*" hidden /><button type="button" class="effect-tiles-upload-btn" id="effect-tiles-upload-btn" title="${escapeAttr(t("uploadCustomBackground"))}">${iconUpload()} ${t("uploadCustomBackground")}</button>`
 		: `<p class="effect-preview-unsupported" id="effect-preview-unsupported">${t("backgroundEffectsNotSupported")}</p>`;
 	return `
     <div class="settings-modal" id="settings-modal" ${state.settingsPanelOpen ? "" : "hidden"}>
-      <div class="settings-modal__content" data-draggable data-window="settings" style="${settingsStyle}">
+      <div class="settings-modal__content draggable-rect" data-draggable data-window="settings" style="${draggableRectInlineStyle(settingsPositionRect)}">
         <div class="settings-modal__header" data-drag-handle>
           <h3 class="settings-modal__title">${t("settings")}</h3>
-          <button type="button" class="btn btn--ghost btn--sm" data-action="minimize-settings-modal" title="${escapeHtml(t("minimizeWindow"))}" aria-label="${escapeHtml(t("minimizeWindow"))}">${iconMinus()}</button>
+          <button type="button" class="btn btn--ghost btn--sm" data-action="minimize-settings-modal" title="${escapeAttr(t("minimizeWindow"))}" aria-label="${escapeAttr(t("minimizeWindow"))}">${iconMinus()}</button>
         </div>
         <div class="settings-modal__body" id="settings-panel">
           <div class="settings-modal__section">
@@ -735,7 +746,7 @@ export function renderSettingsModalContent(state) {
               <label class="settings-modal__range-label" for="audio-speaking-threshold">${t("speakingThresholdLabel")}</label>
               <div class="settings-modal__range-controls">
                 <input type="range" id="audio-speaking-threshold" min="5" max="50" step="1" value="${st}" aria-valuemin="5" aria-valuemax="50" aria-valuenow="${st}" aria-valuetext="${stSensitivityPct}%" />
-                <span class="settings-modal__range-value settings-modal__range-value--pct" id="audio-speaking-threshold-value" title="${escapeHtml(t("speakingThresholdValueTitle"))}">${stSensitivityPct}%</span>
+                <span class="settings-modal__range-value settings-modal__range-value--pct" id="audio-speaking-threshold-value" title="${escapeAttr(t("speakingThresholdValueTitle"))}">${stSensitivityPct}%</span>
               </div>
               <div class="settings-modal__range-scale" aria-hidden="true">
                 <span>${escapeHtml(t("speakingThresholdScaleLeft"))}</span>
@@ -745,15 +756,15 @@ export function renderSettingsModalContent(state) {
             <p class="settings-modal__hint settings-modal__hint--sm">${t("speakingThresholdHint")}</p>
             <div class="settings-modal__check-row settings-modal__check-row--with-help">
               <label class="settings-modal__check-row-label" for="audio-noise-suppression"><input type="checkbox" id="audio-noise-suppression" ${audioSettings.noiseSuppression ? "checked" : ""} /><span>${t("noiseSuppressionLabel")}</span></label>
-              <span class="settings-modal__field-help" role="img" aria-label="${escapeHtml(t("noiseSuppressionHelp"))}" title="${escapeHtml(t("noiseSuppressionHelp"))}">?</span>
+              <span class="settings-modal__field-help" role="img" aria-label="${escapeAttr(t("noiseSuppressionHelp"))}" title="${escapeAttr(t("noiseSuppressionHelp"))}">?</span>
             </div>
             <div class="settings-modal__check-row settings-modal__check-row--with-help">
               <label class="settings-modal__check-row-label" for="audio-echo-cancellation"><input type="checkbox" id="audio-echo-cancellation" ${audioSettings.echoCancellation ? "checked" : ""} /><span>${t("echoCancellationLabel")}</span></label>
-              <span class="settings-modal__field-help" role="img" aria-label="${escapeHtml(t("echoCancellationHelp"))}" title="${escapeHtml(t("echoCancellationHelp"))}">?</span>
+              <span class="settings-modal__field-help" role="img" aria-label="${escapeAttr(t("echoCancellationHelp"))}" title="${escapeAttr(t("echoCancellationHelp"))}">?</span>
             </div>
             <div class="settings-modal__check-row settings-modal__check-row--with-help">
               <label class="settings-modal__check-row-label" for="audio-auto-gain"><input type="checkbox" id="audio-auto-gain" ${audioSettings.autoGainControl ? "checked" : ""} /><span>${t("autoGainControlLabel")}</span></label>
-              <span class="settings-modal__field-help" role="img" aria-label="${escapeHtml(t("autoGainControlHelp"))}" title="${escapeHtml(t("autoGainControlHelp"))}">?</span>
+              <span class="settings-modal__field-help" role="img" aria-label="${escapeAttr(t("autoGainControlHelp"))}" title="${escapeAttr(t("autoGainControlHelp"))}">?</span>
             </div>
             <p class="settings-modal__hint settings-modal__hint--sm">${t("browserAudioConstraintsHint")}</p>
           </div>
@@ -762,7 +773,7 @@ export function renderSettingsModalContent(state) {
             <div class="input-group"><select id="output-device"></select></div>
           </div>
         </div>
-        <div class="settings-modal__resize-handle" data-resize-handle title="${t("resize")}"></div>
+        <div class="settings-modal__resize-handle" data-resize-handle title="${escapeAttr(t("resize"))}"></div>
       </div>
     </div>
   `;

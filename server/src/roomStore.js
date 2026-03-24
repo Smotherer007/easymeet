@@ -16,7 +16,7 @@ function generateRoomId() {
  */
 export function createRoomStore(options = {}) {
 	const roomTtlMs = options.roomTtlMs ?? DEFAULT_ROOM_TTL_MS;
-	/** @type {Map<string, { passwordHash: string | null; hostPeerId: string | null; createdAt: number; persistent?: boolean }>} */
+	/** @type {Map<string, { passwordHash: string | null; hostPeerId: string | null; createdAt: number; persistent?: boolean; hostSetupToken?: string | null }>} */
 	const rooms = new Map();
 
 	function findRoomByIdentifier(identifier) {

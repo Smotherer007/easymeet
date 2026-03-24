@@ -54,17 +54,86 @@ function sanitizeReactionEffect(raw) {
 	return REACTION_EFFECT_ID_SET.has(s) ? s : "";
 }
 
+/** Tenor / Giphy CDNs only — verhindert beliebige Tracking- oder XSS-Hilfs-URLs in Chat-GIFs. */
+function isAllowedGiphyMediaUrl(raw) {
+	try {
+		const u = new URL(raw);
+		if (u.protocol !== "http:" && u.protocol !== "https:") return false;
+		const h = u.hostname.toLowerCase();
+		return (
+			h === "media.tenor.com" ||
+			h.endsWith(".tenor.com") ||
+			h === "c.tenor.com" ||
+			h.endsWith(".giphy.com") ||
+			h === "media.giphy.com" ||
+			h === "i.giphy.com"
+		);
+	} catch {
+		return false;
+	}
+}
+
 function sanitizeGiphyUrls(raw) {
 	if (!Array.isArray(raw)) return [];
 	const out = [];
 	for (const u of raw) {
 		if (typeof u !== "string") continue;
 		const s = u.trim().slice(0, 2048);
-		if (!s || !/^https?:\/\//i.test(s)) continue;
+		if (!s || !isAllowedGiphyMediaUrl(s)) continue;
 		out.push(s);
 		if (out.length >= 10) break;
 	}
 	return out;
+}
+
+const FILE_TRANSFER_MAX_BYTES = 250 * 1024 * 1024;
+const FILE_CHUNK_B64_MAX = 900_000;
+
+function sanitizeMimeType(raw) {
+	if (typeof raw !== "string") return "application/octet-stream";
+	const s = raw.trim().slice(0, 128);
+	return /^[\w.+/=-]+$/i.test(s) ? s : "application/octet-stream";
+}
+
+/**
+ * @param {object} msg
+ * @param {{ nick: string }} msPeer
+ */
+function sanitizeFileStartNotification(msg, msPeer) {
+	const fileId = typeof msg.fileId === "string" ? msg.fileId.trim().slice(0, 128) : "";
+	const filename = typeof msg.filename === "string" ? msg.filename.trim().slice(0, 256) : "";
+	let size = typeof msg.size === "number" && Number.isFinite(msg.size) ? Math.floor(msg.size) : 0;
+	if (size < 0) size = 0;
+	if (size > FILE_TRANSFER_MAX_BYTES) size = FILE_TRANSFER_MAX_BYTES;
+	const mimeType = sanitizeMimeType(typeof msg.mimeType === "string" ? msg.mimeType : "");
+	const encrypted = Boolean(msg.encrypted);
+	const nick = typeof msPeer.nick === "string" ? msPeer.nick.trim().slice(0, 128) : "?";
+	const fromNick = nick || "?";
+	if (!filename) return null;
+	return {
+		type: "file_start",
+		fileId,
+		filename,
+		size,
+		mimeType,
+		encrypted,
+		fromNick
+	};
+}
+
+/** @param {object} msg */
+function sanitizeFileEndNotification(msg) {
+	const filename = typeof msg.filename === "string" ? msg.filename.trim().slice(0, 256) : "";
+	if (!filename) return null;
+	return { type: "file_end", filename };
+}
+
+/** @param {object} msg */
+function sanitizeFileChunkNotification(msg) {
+	if (typeof msg.chunk !== "string") return null;
+	const chunk = msg.chunk.slice(0, FILE_CHUNK_B64_MAX);
+	if (!chunk) return null;
+	return { type: "file_chunk", chunk };
 }
 
 /**
@@ -313,7 +382,8 @@ async function handleProtooRequest(roomId, room, msPeer, request, accept, reject
 			}
 			const { displayName, device: _device, rtpCapabilities, sctpCapabilities, easymeet } = data;
 
-			msPeer.nick = displayName || msPeer.nick || "?";
+			const dn = typeof displayName === "string" ? displayName.trim().slice(0, 128) : "";
+			msPeer.nick = dn || msPeer.nick || "?";
 			msPeer.rtpCapabilities = rtpCapabilities ?? null;
 			msPeer.sctpCapabilities = sctpCapabilities ?? null;
 			msPeer.joined = true;
@@ -563,7 +633,7 @@ async function handleProtooNotification(roomId, room, msPeer, notification) {
 						{
 							type: "screen_stream",
 							peerId: msPeer.peerId,
-							nick: msg.nick ?? msPeer.nick
+							nick: msPeer.nick
 						},
 						msPeer.peerId
 					);
@@ -573,11 +643,21 @@ async function handleProtooNotification(roomId, room, msPeer, notification) {
 					broadcastEasymeet(roomId, { type: "screen_sharing_stopped", peerId: msPeer.peerId }, msPeer.peerId);
 					break;
 
-				case "file_start":
-				case "file_end":
-				case "file_chunk":
-					broadcastEasymeet(roomId, msg, msPeer.peerId);
+				case "file_start": {
+					const sanitized = sanitizeFileStartNotification(msg, msPeer);
+					if (sanitized) broadcastEasymeet(roomId, sanitized, msPeer.peerId);
 					break;
+				}
+				case "file_end": {
+					const sanitized = sanitizeFileEndNotification(msg);
+					if (sanitized) broadcastEasymeet(roomId, sanitized, msPeer.peerId);
+					break;
+				}
+				case "file_chunk": {
+					const sanitized = sanitizeFileChunkNotification(msg);
+					if (sanitized) broadcastEasymeet(roomId, sanitized, msPeer.peerId);
+					break;
+				}
 
 				case "reaction": {
 					const emoji = sanitizeReactionEmoji(msg.emoji);

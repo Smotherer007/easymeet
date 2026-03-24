@@ -3,6 +3,7 @@ import { speakingThresholdToSensitivityPercent } from "../../effects/storage/aud
 import { renderShareContent } from "./create-room.js";
 import {
 	escapeHtml,
+	escapeAttr,
 	formatTime,
 	renderMessagesHtml,
 	renderFileShareBody,
@@ -64,6 +65,7 @@ import { renderChatContent } from "../../link-embed.js";
 import { replaceEmojiShortcodes } from "../../utils/emojiShortcodes.js";
 import { WINDOW_POSITION_DEFAULTS } from "../../shared/windowPositionsDefaults.js";
 import { mergeAndClampWindowRect, clampWindowRectById, clampDraggablePosition } from "../utils/viewportWindowClamp.js";
+import { applyDraggableRect } from "../utils/draggableRect.js";
 
 function renderFloatingWindows(state) {
 	const {
@@ -143,13 +145,9 @@ export function renderRoomView(state) {
 	} = state;
 
 	const streamRect = mergeAndClampWindowRect("stream", WINDOW_POSITION_DEFAULTS.stream, windowPositions.stream);
-	const streamStyle = `left:${streamRect.x}px;top:${streamRect.y}px;width:${streamRect.w}px;height:${streamRect.h}px;transform:none`;
 	const settingsRect = mergeAndClampWindowRect("settings", WINDOW_POSITION_DEFAULTS.settings, windowPositions.settings);
-	const settingsStyle = `left:${settingsRect.x}px;top:${settingsRect.y}px;width:${settingsRect.w}px;height:${settingsRect.h}px;transform:none`;
 	const shareRect = mergeAndClampWindowRect("share", WINDOW_POSITION_DEFAULTS.share, windowPositions.share);
-	const shareStyle = `left:${shareRect.x}px;top:${shareRect.y}px;width:${shareRect.w}px;height:${shareRect.h}px;transform:none`;
 	const pollsRect = mergeAndClampWindowRect("polls", WINDOW_POSITION_DEFAULTS.polls, windowPositions.polls);
-	const pollsStyle = `left:${pollsRect.x}px;top:${pollsRect.y}px;width:${pollsRect.w}px;height:${pollsRect.h}px;transform:none`;
 
 	const joinUrl = roomId && getJoinUrl ? getJoinUrl(roomId) : "";
 	const formattedRoomId = roomId ? roomId.replace(/(.{3})/g, "$1-").replace(/-$/, "") : "";
@@ -172,8 +170,8 @@ export function renderRoomView(state) {
 	const screenShareBannerHtml = renderScreenShareBannersHtml(screenStreams, myPeerId);
 	const gridState = { ...state, voipMembers };
 	const gridContent = videoLayoutMode !== "free" ? renderGridMeetingSection(gridState, messagesHtml, voipParticipantsHtml) : "";
-	const shareModalHtml = renderShareModalContent(roomId, formattedRoomId, joinUrl || "", renderShareContent, shareStyle);
-	const settingsState = { ...state, settingsStyle, settingsPanelOpen: settingsPanelOpen ?? false };
+	const shareModalHtml = renderShareModalContent(roomId, formattedRoomId, joinUrl || "", renderShareContent, shareRect);
+	const settingsState = { ...state, settingsPositionRect: settingsRect, settingsPanelOpen: settingsPanelOpen ?? false };
 	return `
     <div class="screen room-view room-view--meeting-layout">
       ${renderRoomViewHeader(meetingTitle)}
@@ -185,12 +183,12 @@ export function renderRoomView(state) {
             ${videoLayoutMode === "free" ? renderFloatingWindows(state) : ""}
             ${gridContent}
           </div>
-          ${renderStreamModalGrid(streamStyle, state)}
+          ${renderStreamModalGrid(streamRect, state)}
         </div>
       </div>
       ${renderSettingsModalContent(settingsState)}
       ${renderFileModalContent()}
-      ${renderPollsDock(pollsStyle)}
+      ${renderPollsDock(pollsRect)}
       ${renderLeaveRoomModal()}
     </div>
   `;
@@ -206,7 +204,7 @@ function updateReceivingProgressEl(nameEl, barEl, statsEl, filename, bytesReceiv
 	if (!nameEl || !barEl) return;
 	nameEl.textContent = `${t("receivingFile")} ${filename || "?"}`;
 	const pct = total > 0 ? Math.min(100, (bytesReceived / total) * 100) : 0;
-	barEl.style.width = pct + "%";
+	barEl.style.setProperty("--bar-width-pct", `${pct}%`);
 	if (statsEl) statsEl.textContent = `${formatBytes(bytesReceived)} / ${formatBytes(total)}${speedKbps != null ? ` · ${speedKbps.toFixed(1)} ${t("transferSpeed")}` : ""}`;
 }
 
@@ -251,7 +249,7 @@ function renderFileTransferBody(opts) {
 	parts.push(`<p class="chat__transfer-label">${label} ${escapeHtml(filename || "?")}</p>`);
 	if (done && !isSending && fileId) {
 		parts.push(
-			`<button type="button" class="btn btn--primary btn--sm chat__download-btn" data-action="download-file" data-file-id="${escapeHtml(fileId)}">${t("download")}</button>`
+			`<button type="button" class="btn btn--primary btn--sm chat__download-btn" data-action="download-file" data-file-id="${escapeAttr(fileId)}">${t("download")}</button>`
 		);
 	}
 	if (isSending && peerStatuses && Object.keys(peerStatuses).length) {
@@ -261,7 +259,7 @@ function renderFileTransferBody(opts) {
 				const n = m?.nick ?? pid?.slice(0, 8) ?? "?";
 				let right = "";
 				if (s === "accepted" && pct != null && pct < 100 && !done) {
-					right = `<div class="chat__transfer-row-bar"><div class="chat__transfer-bar-wrap"><div class="chat__transfer-bar" style="width:${pct}%"></div></div><span class="chat__transfer-status">${formatBytes(bytes)} / ${formatBytes(total)}${speedKbps != null ? ` · ${speedKbps.toFixed(1)} ${t("transferSpeed")}` : ""}</span></div>`;
+					right = `<div class="chat__transfer-row-bar"><div class="chat__transfer-bar-wrap"><div class="chat__transfer-bar" style="--bar-width-pct:${pct}%"></div></div><span class="chat__transfer-status">${formatBytes(bytes)} / ${formatBytes(total)}${speedKbps != null ? ` · ${speedKbps.toFixed(1)} ${t("transferSpeed")}` : ""}</span></div>`;
 				} else if (s === "received" || (s === "accepted" && (done || (pct != null && pct >= 100)))) {
 					right = `<span class="chat__transfer-status">${t("received")}</span>`;
 				} else if (s === "rejected") {
@@ -275,7 +273,7 @@ function renderFileTransferBody(opts) {
 		parts.push(`<div class="chat__transfer-peers">${rows}</div>`);
 	} else if (!isSending && pct != null && !done) {
 		const barPct = Math.min(100, Math.max(1, pct));
-		parts.push(`<div class="chat__transfer-bar-wrap"><div class="chat__transfer-bar" style="width:${barPct}%"></div></div>`);
+		parts.push(`<div class="chat__transfer-bar-wrap"><div class="chat__transfer-bar" style="--bar-width-pct:${barPct}%"></div></div>`);
 		const stats = `${formatBytes(bytes)} / ${formatBytes(total)}${speedKbps != null ? ` · ${speedKbps.toFixed(1)} ${t("transferSpeed")}` : ""}`;
 		parts.push(`<p class="chat__transfer-stats">${stats}</p>`);
 	}
@@ -317,7 +315,7 @@ export function appendMessage(container, msg, opts = {}) {
 			parts.push(renderChatContent(expanded, escapeHtml, t("openInNewTab")));
 		}
 		const urls = msg.giphyUrls?.length ? msg.giphyUrls : msg.giphyUrl ? [msg.giphyUrl] : [];
-		urls.forEach((u) => parts.push(`<span class="chat__gif-wrap"><img src="${escapeHtml(u)}" alt="GIF" class="chat__gif" loading="lazy" /></span>`));
+		urls.forEach((u) => parts.push(`<span class="chat__gif-wrap"><img src="${escapeAttr(u)}" alt="GIF" class="chat__gif" loading="lazy" /></span>`));
 		const content = parts.length ? parts.join("") : "";
 		if (!content) return;
 		const isSelf = msg.nick === (opts.myNick ?? "");
@@ -401,16 +399,16 @@ export function updateVoipParticipants(
 			const showThumb = streaming;
 			const volumeControl =
 				!isSelf && !memberMuted
-					? `<div class="voip-view__volume-wrap" data-peer-id="${escapeHtml(peerId)}" title="${t("volume")}"><button type="button" class="voip-view__participant-status voip-view__volume-trigger" data-action="volume-toggle" aria-label="${t("volume")}" title="${t("volume")}">${iconMic()}</button><div class="voip-view__volume-tooltip"><input type="range" class="voip-view__volume-slider" min="0" max="200" value="${vol}" data-peer-id="${escapeHtml(peerId)}" /></div></div>`
-					: `<div class="voip-view__participant-status" title="${memberMuted ? t("muted") : t("unmuted")}">${memberMuted ? iconMicOff() : iconMic()}</div>`;
+					? `<div class="voip-view__volume-wrap" data-peer-id="${escapeAttr(peerId)}" title="${escapeAttr(t("volume"))}"><button type="button" class="voip-view__participant-status voip-view__volume-trigger" data-action="volume-toggle" aria-label="${escapeAttr(t("volume"))}" title="${escapeAttr(t("volume"))}">${iconMic()}</button><div class="voip-view__volume-tooltip"><input type="range" class="voip-view__volume-slider" min="0" max="200" value="${vol}" data-peer-id="${escapeAttr(peerId)}" /></div></div>`
+					: `<div class="voip-view__participant-status" title="${escapeAttr(memberMuted ? t("muted") : t("unmuted"))}">${memberMuted ? iconMicOff() : iconMic()}</div>`;
 			const hasBgEffect = isSelf ? (backgroundEffect || "none") !== "none" : (bgEffectMap.get(peerId) || "none") !== "none";
 			const streamHtml = showThumb
-				? `<div class="voip-view__participant-stream" data-action="open-stream-modal" data-peer-id="${escapeHtml(peerId)}" title="${t("clickToExpand")}"><video class="voip-view__stream-thumb" autoplay playsinline muted disablepictureinpicture></video></div>`
+				? `<div class="voip-view__participant-stream" data-action="open-stream-modal" data-peer-id="${escapeAttr(peerId)}" title="${escapeAttr(t("clickToExpand"))}"><video class="voip-view__stream-thumb" autoplay playsinline muted disablepictureinpicture></video></div>`
 				: "";
 			const handMark = m.handRaised
-				? `<span class="voip-view__hand" title="${escapeHtml(t("handRaisedMarker"))}">✋</span>`
+				? `<span class="voip-view__hand" title="${escapeAttr(t("handRaisedMarker"))}">✋</span>`
 				: "";
-			return `<div class="voip-view__participant" data-peer-id="${escapeHtml(peerId)}" data-self="${isSelf}" data-has-background-effect="${hasBgEffect}"><div class="voip-view__participant-info"><div class="voip-view__participant-name">${escapeHtml(nick)}${handMark}</div><div class="voip-view__participant-status-row">${volumeControl}</div></div>${streamHtml}</div>`;
+			return `<div class="voip-view__participant" data-peer-id="${escapeAttr(peerId)}" data-self="${isSelf}" data-has-background-effect="${hasBgEffect}"><div class="voip-view__participant-info"><div class="voip-view__participant-name">${escapeHtml(nick)}${handMark}</div><div class="voip-view__participant-status-row">${volumeControl}</div></div>${streamHtml}</div>`;
 		})
 		.join("");
 	if (getStreamForScreenShare) {
@@ -579,16 +577,11 @@ function setupSettingsModalResize(container, callbacks = {}) {
 	const onMouseMove = (e) => {
 		const dw = e.clientX - startX;
 		const dh = e.clientY - startY;
-		let w = Math.round(Math.max(SETTINGS_MODAL_MIN.w, Math.min(FLOATING_WINDOW_MAX.w, startW + dw)));
-		let h = Math.round(Math.max(SETTINGS_MODAL_MIN.h, Math.min(FLOATING_WINDOW_MAX.h, startH + dh)));
-		content.style.width = `${w}px`;
-		content.style.height = `${h}px`;
-		const rect = content.getBoundingClientRect();
-		const c = clampWindowRectById("settings", { x: rect.left, y: rect.top, w: rect.width, h: rect.height });
-		content.style.left = `${c.x}px`;
-		content.style.top = `${c.y}px`;
-		content.style.width = `${c.w}px`;
-		content.style.height = `${c.h}px`;
+		const newW = Math.round(Math.max(SETTINGS_MODAL_MIN.w, Math.min(FLOATING_WINDOW_MAX.w, startW + dw)));
+		const newH = Math.round(Math.max(SETTINGS_MODAL_MIN.h, Math.min(FLOATING_WINDOW_MAX.h, startH + dh)));
+		const r = content.getBoundingClientRect();
+		const c = clampWindowRectById("settings", { x: r.left, y: r.top, w: newW, h: newH });
+		applyDraggableRect(content, c);
 		startX = e.clientX;
 		startY = e.clientY;
 		startW = c.w;
@@ -625,16 +618,11 @@ function setupStreamModalResize(container, callbacks = {}) {
 	const onMouseMove = (e) => {
 		const dw = e.clientX - startX;
 		const dh = e.clientY - startY;
-		let w = Math.round(Math.max(STREAM_MODAL_MIN.w, Math.min(FLOATING_WINDOW_MAX.w, startW + dw)));
-		let h = Math.round(Math.max(STREAM_MODAL_MIN.h, Math.min(FLOATING_WINDOW_MAX.h, startH + dh)));
-		content.style.width = `${w}px`;
-		content.style.height = `${h}px`;
-		const rect = content.getBoundingClientRect();
-		const c = clampWindowRectById("stream", { x: rect.left, y: rect.top, w: rect.width, h: rect.height });
-		content.style.left = `${c.x}px`;
-		content.style.top = `${c.y}px`;
-		content.style.width = `${c.w}px`;
-		content.style.height = `${c.h}px`;
+		const newW = Math.round(Math.max(STREAM_MODAL_MIN.w, Math.min(FLOATING_WINDOW_MAX.w, startW + dw)));
+		const newH = Math.round(Math.max(STREAM_MODAL_MIN.h, Math.min(FLOATING_WINDOW_MAX.h, startH + dh)));
+		const r = content.getBoundingClientRect();
+		const c = clampWindowRectById("stream", { x: r.left, y: r.top, w: newW, h: newH });
+		applyDraggableRect(content, c);
 		startX = e.clientX;
 		startY = e.clientY;
 		startW = c.w;
@@ -671,16 +659,11 @@ function setupShareModalResize(container, callbacks = {}) {
 	const onMouseMove = (e) => {
 		const dw = e.clientX - startX;
 		const dh = e.clientY - startY;
-		let w = Math.round(Math.max(SHARE_MODAL_MIN.w, Math.min(FLOATING_WINDOW_MAX.w, startW + dw)));
-		let h = Math.round(Math.max(SHARE_MODAL_MIN.h, Math.min(FLOATING_WINDOW_MAX.h, startH + dh)));
-		content.style.width = `${w}px`;
-		content.style.height = `${h}px`;
-		const rect = content.getBoundingClientRect();
-		const c = clampWindowRectById("share", { x: rect.left, y: rect.top, w: rect.width, h: rect.height });
-		content.style.left = `${c.x}px`;
-		content.style.top = `${c.y}px`;
-		content.style.width = `${c.w}px`;
-		content.style.height = `${c.h}px`;
+		const newW = Math.round(Math.max(SHARE_MODAL_MIN.w, Math.min(FLOATING_WINDOW_MAX.w, startW + dw)));
+		const newH = Math.round(Math.max(SHARE_MODAL_MIN.h, Math.min(FLOATING_WINDOW_MAX.h, startH + dh)));
+		const r = content.getBoundingClientRect();
+		const c = clampWindowRectById("share", { x: r.left, y: r.top, w: newW, h: newH });
+		applyDraggableRect(content, c);
 		startX = e.clientX;
 		startY = e.clientY;
 		startW = c.w;
@@ -717,16 +700,11 @@ function setupPollsModalResize(container, callbacks = {}) {
 	const onMouseMove = (e) => {
 		const dw = e.clientX - startX;
 		const dh = e.clientY - startY;
-		let w = Math.round(Math.max(POLLS_MODAL_MIN.w, Math.min(FLOATING_WINDOW_MAX.w, startW + dw)));
-		let h = Math.round(Math.max(POLLS_MODAL_MIN.h, Math.min(FLOATING_WINDOW_MAX.h, startH + dh)));
-		content.style.width = `${w}px`;
-		content.style.height = `${h}px`;
-		const rect = content.getBoundingClientRect();
-		const c = clampWindowRectById("polls", { x: rect.left, y: rect.top, w: rect.width, h: rect.height });
-		content.style.left = `${c.x}px`;
-		content.style.top = `${c.y}px`;
-		content.style.width = `${c.w}px`;
-		content.style.height = `${c.h}px`;
+		const newW = Math.round(Math.max(POLLS_MODAL_MIN.w, Math.min(FLOATING_WINDOW_MAX.w, startW + dw)));
+		const newH = Math.round(Math.max(POLLS_MODAL_MIN.h, Math.min(FLOATING_WINDOW_MAX.h, startH + dh)));
+		const r = content.getBoundingClientRect();
+		const c = clampWindowRectById("polls", { x: r.left, y: r.top, w: newW, h: newH });
+		applyDraggableRect(content, c);
 		startX = e.clientX;
 		startY = e.clientY;
 		startW = c.w;
@@ -765,16 +743,11 @@ function setupFloatingWindowResize(container, callbacks = {}) {
 		const onMouseMove = (e) => {
 			const dw = e.clientX - startX;
 			const dh = e.clientY - startY;
-			let w = Math.round(Math.max(mins.w, Math.min(FLOATING_WINDOW_MAX.w, startW + dw)));
-			let h = Math.round(Math.max(mins.h, Math.min(FLOATING_WINDOW_MAX.h, startH + dh)));
-			win.style.width = `${w}px`;
-			win.style.height = `${h}px`;
-			const rect = win.getBoundingClientRect();
-			const c = clampWindowRectById(windowId, { x: rect.left, y: rect.top, w: rect.width, h: rect.height });
-			win.style.left = `${c.x}px`;
-			win.style.top = `${c.y}px`;
-			win.style.width = `${c.w}px`;
-			win.style.height = `${c.h}px`;
+			const newW = Math.round(Math.max(mins.w, Math.min(FLOATING_WINDOW_MAX.w, startW + dw)));
+			const newH = Math.round(Math.max(mins.h, Math.min(FLOATING_WINDOW_MAX.h, startH + dh)));
+			const r = win.getBoundingClientRect();
+			const c = clampWindowRectById(windowId, { x: r.left, y: r.top, w: newW, h: newH });
+			applyDraggableRect(win, c);
 			startX = e.clientX;
 			startY = e.clientY;
 			startW = c.w;
@@ -820,9 +793,7 @@ function setupDraggableModals(container, callbacks = {}) {
 			startY = e.clientY;
 			startLeft = rect.left;
 			startTop = rect.top;
-			content.style.transform = "none";
-			content.style.left = `${rect.left}px`;
-			content.style.top = `${rect.top}px`;
+			applyDraggableRect(content, { x: rect.left, y: rect.top, w: rect.width, h: rect.height });
 			document.addEventListener("mousemove", onMouseMove);
 			document.addEventListener("mouseup", onMouseUp);
 		};
@@ -830,8 +801,7 @@ function setupDraggableModals(container, callbacks = {}) {
 			const dx = e.clientX - startX;
 			const dy = e.clientY - startY;
 			const { left, top } = clampDraggablePosition(startLeft + dx, startTop + dy, content.offsetWidth, content.offsetHeight);
-			content.style.left = `${left}px`;
-			content.style.top = `${top}px`;
+			applyDraggableRect(content, { x: left, y: top, w: content.offsetWidth, h: content.offsetHeight });
 			startX = e.clientX;
 			startY = e.clientY;
 			startLeft = left;
@@ -954,7 +924,7 @@ function attachRoomViewEmojiListeners(container, input) {
 		const q = e.target.value.trim();
 		const results = searchEmojis(q, 500);
 		if (emojiGrid)
-			emojiGrid.innerHTML = results.map(([em]) => `<button type="button" class="emoji-picker__btn" data-emoji="${escapeHtml(em)}">${escapeHtml(em)}</button>`).join("");
+			emojiGrid.innerHTML = results.map(([em]) => `<button type="button" class="emoji-picker__btn" data-emoji="${escapeAttr(em)}">${escapeHtml(em)}</button>`).join("");
 	});
 	emojiGrid?.addEventListener("click", (e) => {
 		const btn = e.target.closest(".emoji-picker__btn");
@@ -1055,10 +1025,7 @@ function clampAllDraggableWindows(container, callbacks) {
 		const c = clampWindowRectById(id, { x: rect.left, y: rect.top, w: rect.width, h: rect.height });
 		const moved = Math.abs(c.x - rect.left) > 0.5 || Math.abs(c.y - rect.top) > 0.5 || Math.abs(c.w - rect.width) > 0.5 || Math.abs(c.h - rect.height) > 0.5;
 		if (moved) {
-			el.style.left = `${c.x}px`;
-			el.style.top = `${c.y}px`;
-			el.style.width = `${c.w}px`;
-			el.style.height = `${c.h}px`;
+			applyDraggableRect(el, c);
 			merged = { ...merged, [id]: { ...(merged[id] || {}), x: c.x, y: c.y, w: c.w, h: c.h } };
 			changed = true;
 		}
@@ -1532,7 +1499,7 @@ export function attachRoomViewListeners(container, callbacks) {
 			grid.innerHTML = gifs
 				.map(
 					(g) =>
-						`<button type="button" class="giphy-picker__item" data-url="${escapeHtml(g.url)}" data-preview="${escapeHtml(g.preview || g.url)}"><img src="${escapeHtml(g.preview || g.url)}" alt="" loading="lazy" /></button>`
+						`<button type="button" class="giphy-picker__item" data-url="${escapeAttr(g.url)}" data-preview="${escapeAttr(g.preview || g.url)}"><img src="${escapeAttr(g.preview || g.url)}" alt="" loading="lazy" /></button>`
 				)
 				.join("");
 		},
@@ -1547,7 +1514,7 @@ export function attachRoomViewListeners(container, callbacks) {
 			wrap.innerHTML = gifs
 				.map(
 					(g, i) =>
-						`<div class="chat__gif-preview-item"><img class="chat__gif-preview-img" src="${escapeHtml(g.previewUrl || g.url)}" alt="" /><button type="button" class="chat__gif-preview-remove" data-action="remove-gif" data-index="${i}" aria-label="${t("close")}">${iconX()}</button></div>`
+						`<div class="chat__gif-preview-item"><img class="chat__gif-preview-img" src="${escapeAttr(g.previewUrl || g.url)}" alt="" /><button type="button" class="chat__gif-preview-remove" data-action="remove-gif" data-index="${i}" aria-label="${escapeAttr(t("close"))}">${iconX()}</button></div>`
 				)
 				.join("");
 			wrap.removeAttribute("hidden");

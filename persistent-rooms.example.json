@@ -9,7 +9,8 @@
 		},
 		{
 			"id": "TEAM",
-			"password": "nur-in-vertrauenswürdiger-umgebung"
+			"password": "nur-in-vertrauenswürdiger-umgebung",
+			"hostSetupToken": "mindestens-16-zeichen-geheimer-token-fuer-PATCH-api-rooms-host"
 		}
 	]
 }
