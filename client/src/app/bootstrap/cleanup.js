@@ -17,7 +17,6 @@ let roomViewVisibilityTimer = null;
 /** @type {(() => void) | null} */
 let roomViewVisibilityListener = null;
 let roomViewFocusTimer = null;
-let lastWindowFocusRecoveryAt = 0;
 /** @type {(() => void) | null} */
 let roomViewFocusListener = null;
 /** @type {(() => void | Promise<void>) | null} */
@@ -51,6 +50,51 @@ function clearRoomViewDeviceRecoveryUi() {
 	roomViewRestartSettingsPreview = null;
 	roomViewReplayMuteUnmute = null;
 	roomViewRebindMicWhileMuted = null;
+}
+
+/**
+ * Volle Recovery nur sinnvoll, wenn der lokale Stream wirklich kaputt ist. Sonst nur Gerätelisten aktualisieren.
+ * Verhindert Producer/Consumer-Stürme (SFU + Remote-Peers) bei Spurious-`devicechange` nach enumerate,
+ * Tab-Fokus, Settings öffnen.
+ */
+function needsFullDeviceGraphRecoveryOnResume(getState) {
+	const s = getState();
+	if (selectors.selectScreen(s) !== "room-view") return false;
+	const local = selectors.selectLocalStream(s);
+	if (!local) return true;
+	const muted = selectors.selectIsMuted(s);
+	const wantVideo = Boolean(selectors.selectIsVideoEnabled(s) && (selectors.selectHasVideoSupport(s) ?? false));
+	const hasLiveAudio = local.getAudioTracks?.()?.some((t) => t && t.readyState === "live") ?? false;
+	const hasLiveVideo = local.getVideoTracks?.()?.some((t) => t && t.readyState === "live") ?? false;
+	if (!muted && !hasLiveAudio) return true;
+	if (wantVideo && !hasLiveVideo) return true;
+	return false;
+}
+
+/**
+ * @param {import('../../store/index.js').getState} getState
+ * @param {HTMLElement} appEl
+ * @param {() => void} setupEnded
+ */
+function runDeviceChangeOrBenignResume(getState, appEl, setupEnded) {
+	/* Einstellungen offen + gesunde Spuren: enumerate löst oft `devicechange` aus — keine Mute-Unmute-Kette. */
+	if (selectors.selectSettingsPanelOpen(getState()) && !needsFullDeviceGraphRecoveryOnResume(getState)) {
+		void refreshDeviceSelects(appEl);
+		return;
+	}
+	if (!needsFullDeviceGraphRecoveryOnResume(getState())) {
+		void refreshDeviceSelects(appEl);
+		return;
+	}
+	enqueueDeviceGraphRecovery(
+		appEl,
+		attachRemoteAudio,
+		setupEnded,
+		() => refreshDeviceSelects(appEl),
+		roomViewRestartSettingsPreview,
+		roomViewReplayMuteUnmute,
+		roomViewRebindMicWhileMuted
+	);
 }
 
 /**
@@ -102,15 +146,7 @@ export function setupRoomViewDeviceHandlers(ctx) {
 	const setupEnded = (t) => setupAudioTrackEndedHandler(dispatch, getState, appEl, t);
 	const flushRecovery = () => {
 		roomViewDeviceChangeTimer = null;
-		enqueueDeviceGraphRecovery(
-			appEl,
-			attachRemoteAudio,
-			setupEnded,
-			() => refreshDeviceSelects(appEl),
-			roomViewRestartSettingsPreview,
-			roomViewReplayMuteUnmute,
-			roomViewRebindMicWhileMuted
-		);
+		runDeviceChangeOrBenignResume(getState, appEl, setupEnded);
 	};
 	const newHandler = () => {
 		if (roomViewDeviceChangeTimer != null) clearTimeout(roomViewDeviceChangeTimer);
@@ -119,44 +155,25 @@ export function setupRoomViewDeviceHandlers(ctx) {
 	dispatch({ type: "effects/callDeviceChangeHandler", payload: { handler: newHandler } });
 	navigator.mediaDevices?.addEventListener?.("devicechange", newHandler);
 
-	/* Manche Browser/OS melden kein devicechange zuverlässig; Tab-Fokus triggert erneut Recovery. */
+	/* Tab wieder sichtbar: nie volle Medien-Recovery — nur Dropdowns. Volle Kette nur bei Track-ended / devicechange + kaputtem Stream. */
 	roomViewVisibilityListener = () => {
 		if (document.visibilityState !== "visible") return;
 		if (roomViewVisibilityTimer != null) clearTimeout(roomViewVisibilityTimer);
 		roomViewVisibilityTimer = setTimeout(() => {
 			roomViewVisibilityTimer = null;
 			if (selectors.selectScreen(getState()) !== "room-view") return;
-			enqueueDeviceGraphRecovery(
-				appEl,
-				attachRemoteAudio,
-				setupEnded,
-				() => refreshDeviceSelects(appEl),
-				roomViewRestartSettingsPreview,
-				roomViewReplayMuteUnmute,
-				roomViewRebindMicWhileMuted
-			);
+			void refreshDeviceSelects(appEl);
 		}, 220);
 	};
 	document.addEventListener("visibilitychange", roomViewVisibilityListener);
 
-	/* Standardgerät in den Systemeinstellungen wechselt oft ohne devicechange — Fokus triggert Recovery (gedrosselt). */
+	/* Fensterfokus: ebenfalls nur Gerätelisten (kein Mute-Unmute / keine Producer-Neuaufbauten). */
 	roomViewFocusListener = () => {
-		const now = Date.now();
-		if (now - lastWindowFocusRecoveryAt < 4000) return;
 		if (roomViewFocusTimer != null) clearTimeout(roomViewFocusTimer);
 		roomViewFocusTimer = setTimeout(() => {
 			roomViewFocusTimer = null;
 			if (selectors.selectScreen(getState()) !== "room-view") return;
-			lastWindowFocusRecoveryAt = Date.now();
-			enqueueDeviceGraphRecovery(
-				appEl,
-				attachRemoteAudio,
-				setupEnded,
-				() => refreshDeviceSelects(appEl),
-				roomViewRestartSettingsPreview,
-				roomViewReplayMuteUnmute,
-				roomViewRebindMicWhileMuted
-			);
+			void refreshDeviceSelects(appEl);
 		}, 350);
 	};
 	window.addEventListener("focus", roomViewFocusListener);

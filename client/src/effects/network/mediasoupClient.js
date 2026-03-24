@@ -1059,7 +1059,8 @@ export async function setupRoomParticipant(peerObj, nick, localStream, callbacks
 
 	/**
 	 * @param {MediaStream} newStream
-	 * @param {{ forceMicProducer?: boolean }} [options]
+	 * @param {{ forceMicProducer?: boolean; skipCamProducerChanges?: boolean }} [options]
+	 * `skipCamProducerChanges`: Mic/Gate-Update ohne Cam-Producer anzufassen (Recovery-Mute bei Virtual BG).
 	 */
 	async function updateLocalStream(newStream, options = {}) {
 		if (!newStream) return;
@@ -1067,7 +1068,10 @@ export async function setupRoomParticipant(peerObj, nick, localStream, callbacks
 			mediaDebugLog("ms:update-local-stream:queued", { stream: mediaDebugStreamInfo(newStream), options });
 			_pendingStream = newStream;
 			_pendingOptions = {
-				forceMicProducer: Boolean(options.forceMicProducer || _pendingOptions?.forceMicProducer)
+				forceMicProducer: Boolean(options.forceMicProducer || _pendingOptions?.forceMicProducer),
+				skipCamProducerChanges: Boolean(
+					options.skipCamProducerChanges || _pendingOptions?.skipCamProducerChanges
+				)
 			};
 			return;
 		}
@@ -1097,6 +1101,7 @@ export async function setupRoomParticipant(peerObj, nick, localStream, callbacks
 	 */
 	async function _doUpdateLocalStream(newStream, options = {}) {
 		try {
+			const skipCamProducerChanges = options.skipCamProducerChanges === true;
 			/* Erstes *live* Track — sonst nach Producer-Close/Stop bleibt oft ein beendetes Track an Index 0 (Logs: track ended). */
 			const newAudioTrack =
 				(newStream.getAudioTracks?.() ?? []).find((t) => t && t.readyState === "live") ?? null;
@@ -1108,7 +1113,8 @@ export async function setupRoomParticipant(peerObj, nick, localStream, callbacks
 				in: mediaDebugStreamInfo(newStream),
 				newVideo: mediaDebugTrackInfo(newVideoTrack),
 				camProducerTrack: mediaDebugTrackInfo(camProducer?.track),
-				hadCamProducer: Boolean(camProducer)
+				hadCamProducer: Boolean(camProducer),
+				skipCamProducerChanges
 			});
 			/* Wie bei der Webcam: replaceTrack allein reicht oft nicht (Web-Audio-Destination / Gerätewechsel). */
 			if (micProducer && newAudioTrack) {
@@ -1172,50 +1178,57 @@ export async function setupRoomParticipant(peerObj, nick, localStream, callbacks
 			}
 			/* replaceTrack often insufficient for MediaStreamTrackGenerator / effect pipeline — encoder stays on old track.
 			 * Create new producer (server closes duplicate webcam producers in produce anyway). */
-			if (camProducer && newVideoTrack) {
-				/* Also recreate if producer still references an ended track (effect switch / pipeline stop). */
-				const needNewCamProducer = camProducer.track !== newVideoTrack || camProducer.track.readyState === "ended";
-				if (needNewCamProducer) {
-					mediaDebugLog("ms:cam-producer:recreate", {
-						reason: camProducer.track?.readyState === "ended" ? "old-track-ended" : "track-swap"
-					});
-					try {
+			if (!skipCamProducerChanges) {
+				if (camProducer && newVideoTrack) {
+					/* Also recreate if producer still references an ended track (effect switch / pipeline stop). */
+					const needNewCamProducer = camProducer.track !== newVideoTrack || camProducer.track.readyState === "ended";
+					if (needNewCamProducer) {
+						mediaDebugLog("ms:cam-producer:recreate", {
+							reason: camProducer.track?.readyState === "ended" ? "old-track-ended" : "track-swap"
+						});
+						try {
+							await closeProducerById(camProducer.id);
+							camProducer.close();
+							producers.delete("cam");
+							const p = await produceDemoWebcam(sendTransport, newVideoTrack);
+							if (p) producers.set("cam", p);
+							mediaDebugLog("ms:cam-producer:recreate:done", {
+								ok: Boolean(p),
+								newProducerTrack: mediaDebugTrackInfo(p?.track)
+							});
+						} catch (re) {
+							logMsWarn("Cam producer recreate failed:", re?.message || re);
+							mediaDebugLog("ms:cam-producer:recreate:done", { ok: false, error: re?.message || String(re) });
+						}
+					} else {
+						mediaDebugLog("ms:cam-producer:keep", {
+							trackId: newVideoTrack?.id,
+							readyState: newVideoTrack?.readyState
+						});
+					}
+				} else if (!camProducer && newVideoTrack) {
+					const p = await produceDemoWebcam(sendTransport, newVideoTrack);
+					if (p) producers.set("cam", p);
+					mediaDebugLog("ms:cam-producer:first", { ok: Boolean(p), track: mediaDebugTrackInfo(p?.track) });
+				} else if (camProducer && !newVideoTrack) {
+					/* Kein live-Video im Stream, aber Producer-Track noch live: oft Race (Device-Recovery
+					 * mute-unmute, Effect-Wechsel) — Producer nicht killen. Kamera bewusst aus: Track ist ended. */
+					if (camProducer.track && camProducer.track.readyState === "live") {
+						mediaDebugLog("ms:cam-producer:keep-despite-no-live-video-in-stream", {
+							producerTrack: mediaDebugTrackInfo(camProducer.track)
+						});
+					} else {
 						await closeProducerById(camProducer.id);
 						camProducer.close();
 						producers.delete("cam");
-						const p = await produceDemoWebcam(sendTransport, newVideoTrack);
-						if (p) producers.set("cam", p);
-						mediaDebugLog("ms:cam-producer:recreate:done", {
-							ok: Boolean(p),
-							newProducerTrack: mediaDebugTrackInfo(p?.track)
-						});
-					} catch (re) {
-						logMsWarn("Cam producer recreate failed:", re?.message || re);
-						mediaDebugLog("ms:cam-producer:recreate:done", { ok: false, error: re?.message || String(re) });
+						mediaDebugLog("ms:cam-producer:removed", { reason: "no-video-in-stream" });
 					}
-				} else {
-					mediaDebugLog("ms:cam-producer:keep", {
-						trackId: newVideoTrack?.id,
-						readyState: newVideoTrack?.readyState
-					});
 				}
-			} else if (!camProducer && newVideoTrack) {
-				const p = await produceDemoWebcam(sendTransport, newVideoTrack);
-				if (p) producers.set("cam", p);
-				mediaDebugLog("ms:cam-producer:first", { ok: Boolean(p), track: mediaDebugTrackInfo(p?.track) });
-			} else if (camProducer && !newVideoTrack) {
-				/* Kein live-Video im Stream, aber Producer-Track noch live: oft Race (Device-Recovery
-				 * mute-unmute, Effect-Wechsel) — Producer nicht killen. Kamera bewusst aus: Track ist ended. */
-				if (camProducer.track && camProducer.track.readyState === "live") {
-					mediaDebugLog("ms:cam-producer:keep-despite-no-live-video-in-stream", {
-						producerTrack: mediaDebugTrackInfo(camProducer.track)
-					});
-				} else {
-					await closeProducerById(camProducer.id);
-					camProducer.close();
-					producers.delete("cam");
-					mediaDebugLog("ms:cam-producer:removed", { reason: "no-video-in-stream" });
-				}
+			} else {
+				mediaDebugLog("ms:cam-producer:skip-changes", {
+					reason: "device-recovery-mute-sync",
+					hadCamProducer: Boolean(camProducer)
+				});
 			}
 			mediaDebugLog("ms:do-update-local-stream:done", {
 				hasCam: producers.has("cam"),

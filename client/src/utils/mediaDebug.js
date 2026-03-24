@@ -18,7 +18,7 @@
  *
  * | Phase / Präfix | Bedeutung |
  * |----------------|-----------|
- * | `device:recovery:chain:run` | Warteschlange gestartet (z. B. nach `devicechange`, Tab sichtbar, Fenster-Fokus gedrosselt, Track `ended`). **Wenn die bei Gerätewechsel nie kommt → eher fehlender Trigger (Events/OS), nicht „falscher“ Fix im Reacquire-Code.** |
+ * | `device:recovery:chain:run` | Warteschlange gestartet nach **Track `ended`**, oder nach `devicechange` **nur wenn** der lokale Stream wirklich keine live Audio-/Video-Spur mehr hat (nicht bei Tab-Fokus/Sichtbarkeit; bei offenen Settings oft unterdrückt, wenn der Stream noch gesund ist). |
  * | `device:recovery:skip` | `payload.reason`: z. B. `not-room-view`, `no-local-stream` |
  * | `device:recovery:reacquire:start` | Reacquire-Logik läuft; `muted` / `wantVideo` im Payload |
  * | `device:recovery:abort` | `reason`: fehlende Callbacks (`no-replay-mute-unmute`, `no-rebind-mic-while-muted`) |
@@ -33,7 +33,7 @@
  * | `ms:mic-producer:recreate` | Mic-Producer wird neu erzeugt |
  * | `ms:update-local-stream:queued` | Update wartet auf Lock (parallel anderer Pfad) |
  *
- * 4. **Auswertung:** `chain:run` fehlt trotz erwartetem Hotplug → Trigger-Design prüfen (OS-Standard ohne `devicechange`, Tab immer im Vordergrund, Fokus-Throttle). `chain:run` da, Ton trotzdem kaputt → Browser `chrome://webrtc-internals` (Sender/RTP) + ggf. Mediasoup-Server-Logs.
+ * 4. **Auswertung:** `chain:run` fehlt trotz echtem Hotplug (Spur wirklich weg) → `devicechange`/Track-`ended` prüfen. Tab/Fokus triggern **keine** `chain:run` mehr. `chain:run` da, Ton trotzdem kaputt → `chrome://webrtc-internals` / Mediasoup-Logs.
  *
  * Einmal pro Browser-Tab wird beim ersten `device:recovery:chain:run` eine Kurzfassung in die Konsole geschrieben. Manuell: **`window.printEasymeetDeviceRecoveryGuide()`** (nur wenn Debug an).
  */

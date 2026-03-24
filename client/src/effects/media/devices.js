@@ -48,6 +48,11 @@ function sleep(ms) {
 	return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+function localStreamHasLiveVideoTrack() {
+	const local = selectLocalStream(getState());
+	return local?.getVideoTracks?.()?.some((t) => t && t.readyState === "live") ?? false;
+}
+
 function noopNavigate() {}
 
 /**
@@ -558,8 +563,12 @@ export async function reacquireAudioStreamIfNeeded(
 
 	try {
 		let s = getState();
+		const previousEffect = selectBackgroundEffect(s) || "none";
+		/* Effekt hier nicht stoppen, wenn gleich `reapplyBackgroundEffectIfActive` läuft: sonst endet
+		 * die Kachel-/Producer-Spur vor dem Mute-Unmute-Replay → `newVideo: null` und
+		 * `cam-producer:removed` (z. B. Recovery nach Settings/devicechange bei aktivem Virtual BG). */
 		const hadEffectStop = typeof s.backgroundEffectStop === "function";
-		if (hadEffectStop) {
+		if (hadEffectStop && previousEffect === "none") {
 			try {
 				s.backgroundEffectStop();
 			} catch (_) {}
@@ -567,8 +576,6 @@ export async function reacquireAudioStreamIfNeeded(
 			await sleep(100);
 			s = getState();
 		}
-
-		const previousEffect = selectBackgroundEffect(s) || "none";
 		const wantVideoNow = Boolean(selectIsVideoEnabled(s) && (selectHasVideoSupport(s) ?? false));
 		const unmutedNow = !selectIsMuted(s);
 
@@ -578,6 +585,12 @@ export async function reacquireAudioStreamIfNeeded(
 				if (typeof replayMuteUnmuteForDeviceRecovery !== "function") {
 					mediaDebugLog("device:recovery:abort", { reason: "no-replay-mute-unmute" });
 					return;
+				}
+				if (previousEffect !== "none" && wantVideoNow && !localStreamHasLiveVideoTrack()) {
+					mediaDebugLog("device:recovery:pre-reapply-effect", {
+						reason: "no-live-video-before-mute-replay"
+					});
+					await reapplyBackgroundEffectIfActive(app, attachRemoteAudio);
 				}
 				await replayMuteUnmuteForDeviceRecovery(app, setupAudioTrackEndedHandler);
 			} else {

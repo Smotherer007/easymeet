@@ -1020,11 +1020,17 @@ async function doUnmuteLocalStream(s, setupAudioTrackEndedHandler) {
 }
 
 /**
- * @param {{ forceMicProducer?: boolean }} [options] Nach Geräte-/Gate-Wechsel: Mic-Producer neu erzeugen (sonst gleicher Web-Audio-Destination-Track → Mediasoup denkt „kein Wechsel“).
+ * @param {{ forceMicProducer?: boolean; skipCamProducerChanges?: boolean }} [options] Nach Geräte-/Gate-Wechsel: Mic-Producer neu erzeugen (sonst gleicher Web-Audio-Destination-Track → Mediasoup denkt „kein Wechsel“). `skipCamProducerChanges`: nur bei Device-Recovery-Mute mit aktivem Hintergrund.
  */
 async function syncMuteToPeersAsync(app, options = {}) {
-	const { forceMicProducer = false } = options;
-	const streamOpts = forceMicProducer ? { forceMicProducer: true } : undefined;
+	const { forceMicProducer = false, skipCamProducerChanges = false } = options;
+	const streamOpts =
+		forceMicProducer || skipCamProducerChanges
+			? {
+					...(forceMicProducer ? { forceMicProducer: true } : {}),
+					...(skipCamProducerChanges ? { skipCamProducerChanges: true } : {})
+				}
+			: undefined;
 	const state = getState();
 	let localStream = selectors.selectLocalStream(state);
 	if (localStream?.getAudioTracks?.()?.some((t) => t && t.readyState === "live")) {
@@ -1101,14 +1107,24 @@ export async function replayMuteUnmuteForDeviceRecovery(app, setupAudioTrackEnde
 	mediaDebugLog("device:recovery:mute-unmute-cycle:start", {});
 
 	patchState({ isMuted: true });
-	doMuteLocalStream(s0);
-	await syncMuteToPeersAsync(app);
+	doMuteLocalStream(getState());
+	const stAfterMute = getState();
+	const recoverySkipCam =
+		(selectors.selectBackgroundEffect(stAfterMute) || "none") !== "none" &&
+		selectors.selectIsVideoEnabled(stAfterMute);
+	await syncMuteToPeersAsync(
+		app,
+		recoverySkipCam ? { skipCamProducerChanges: true } : {}
+	);
 
 	patchState({ isMuted: false });
 	const s1 = getState();
 	if (!(await doUnmuteLocalStream(s1, setupAudioTrackEndedHandler))) {
 		patchState({ isMuted: true });
-		await syncMuteToPeersAsync(app);
+		await syncMuteToPeersAsync(
+			app,
+			recoverySkipCam ? { skipCamProducerChanges: true } : {}
+		);
 		return;
 	}
 	/* Kurz warten: Gate/Destination-Track soll live sein, bevor produce läuft (sonst „track ended“ im Log). */
