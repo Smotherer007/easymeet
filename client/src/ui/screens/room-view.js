@@ -1137,9 +1137,11 @@ export function attachRoomViewListeners(container, callbacks) {
 		"click",
 		(e) => {
 			const sr = e.target.closest('[data-action="send-reaction"]');
-			if (sr?.dataset?.emoji) {
+			/* getAttribute: zuverlässiger als dataset bei manchen Emoji-Sequenzen / Browsern */
+			const reactionEmoji = sr?.getAttribute?.("data-emoji") ?? sr?.dataset?.emoji ?? sr?.textContent?.trim() ?? "";
+			if (sr && reactionEmoji) {
 				e.preventDefault();
-				callbacks.onSendReaction?.(sr.dataset.emoji);
+				callbacks.onSendReaction?.(reactionEmoji);
 				return;
 			}
 			const sfx = e.target.closest('[data-action="send-reaction-effect"]');

@@ -34,6 +34,8 @@ import { startSpeakingIndicator, stopSpeakingIndicator } from "../../speaking-in
 import { mediaDebugLog, mediaDebugStreamInfo, mediaDebugTrackInfo } from "../../utils/mediaDebug.js";
 import { showToast } from "../../utils/toast.js";
 import { POLL_CREATE_MAX_OPTIONS } from "../../ui/screens/room-view-renderers.js";
+import { spawnFloatingReaction } from "./floatingReactions.js";
+import { playReactionEffect } from "./reactionEffects.js";
 
 /** DOMException.name → appropriate i18n key (not every error is permission denied). */
 function alertMediaAccessError(err, kind) {
@@ -895,14 +897,22 @@ function buildRoomViewConfigPart2(app, deps) {
 		onSendReaction: (emoji) => {
 			if (!emoji) return;
 			const s = getState();
+			const myId = selectors.selectMyPeerId(s);
+			if (myId && selectors.selectScreen(s) === "room-view") {
+				spawnFloatingReaction(app, myId, emoji);
+			}
 			const p = selectors.selectHostPeer(s) || selectors.selectViewerConn(s);
 			p?.sendWs?.({ type: "reaction", emoji });
 		},
 		onSendReactionEffect: (effect) => {
 			if (!effect) return;
 			const s = getState();
+			const trimmed = String(effect).trim();
+			if (selectors.selectScreen(s) === "room-view") {
+				playReactionEffect(app, trimmed);
+			}
 			const p = selectors.selectHostPeer(s) || selectors.selectViewerConn(s);
-			p?.sendWs?.({ type: "reaction_effect", effect: String(effect).trim() });
+			p?.sendWs?.({ type: "reaction_effect", effect: trimmed });
 		},
 		onPollVote: (pollId, optionIndex) => {
 			const p = selectors.selectHostPeer(getState()) || selectors.selectViewerConn(getState());

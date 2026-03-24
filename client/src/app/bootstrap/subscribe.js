@@ -197,10 +197,15 @@ export function createSubscriptionHandler(appEl, getState, dispatch) {
 		const evt = event.type;
 		const p = event.payload;
 		if (evt === "room/reaction" && p?.peerId && p?.emoji && selectors.selectScreen(state) === "room-view") {
-			spawnFloatingReaction(appEl, p.peerId, p.emoji);
+			/* Eigene Reaktion: schon in onSendReaction lokal gezeigt — Server-Echo sonst doppelt / falsches Layer. */
+			if (p.peerId !== selectors.selectMyPeerId(state)) {
+				spawnFloatingReaction(appEl, p.peerId, p.emoji);
+			}
 		}
 		if (evt === "room/reactionEffect" && p?.effect && selectors.selectScreen(state) === "room-view") {
-			playReactionEffect(appEl, p.effect);
+			if (p.peerId !== selectors.selectMyPeerId(state)) {
+				playReactionEffect(appEl, p.effect);
+			}
 		}
 		if (evt === "room/handRaisedSelf" && selectors.selectScreen(state) === "room-view") {
 			updateHandRaiseMeetingBar(appEl, !!p?.raised);

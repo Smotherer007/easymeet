@@ -1330,6 +1330,12 @@ body {
 	will-change: transform, opacity;
 }
 
+/* Wie .reaction-effects-canvas: nicht in .reaction-float-layer stecken — sonst clippt overflow:hidden (Floating-Video). */
+.reaction-float.reaction-float--viewport {
+	position: fixed;
+	z-index: 1880;
+}
+
 .reaction-float--animate {
 	animation: easymeet-reaction-float 2.35s ease-out forwards;
 }
@@ -1488,6 +1494,17 @@ body {
 	box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5);
 	overflow: hidden;
 	pointer-events: auto;
+}
+
+/* Höhere Spezifität als .polls-dock allein — sonst überschreibt Zentrier-Layout die --draggable-* (anders als Stream/Settings). */
+.polls-modal__content.polls-dock.draggable-rect {
+	left: var(--draggable-x);
+	top: var(--draggable-y);
+	width: var(--draggable-w);
+	height: var(--draggable-h);
+	max-width: min(var(--draggable-w), 90vw);
+	max-height: min(var(--draggable-h), 85vh);
+	transform: var(--draggable-transform, none);
 }
 
 .polls-modal__resize-handle {
