@@ -44,6 +44,10 @@ let _applyEffectTail = Promise.resolve();
 /** Serialized: devicechange bursts must not overlap re-acquire / effect re-apply. */
 let _deviceRecoveryTail = Promise.resolve();
 
+function sleep(ms) {
+	return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 function noopNavigate() {}
 
 /**
