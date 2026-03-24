@@ -1204,10 +1204,18 @@ export async function setupRoomParticipant(peerObj, nick, localStream, callbacks
 				if (p) producers.set("cam", p);
 				mediaDebugLog("ms:cam-producer:first", { ok: Boolean(p), track: mediaDebugTrackInfo(p?.track) });
 			} else if (camProducer && !newVideoTrack) {
-				await closeProducerById(camProducer.id);
-				camProducer.close();
-				producers.delete("cam");
-				mediaDebugLog("ms:cam-producer:removed", { reason: "no-video-in-stream" });
+				/* Kein live-Video im Stream, aber Producer-Track noch live: oft Race (Device-Recovery
+				 * mute-unmute, Effect-Wechsel) — Producer nicht killen. Kamera bewusst aus: Track ist ended. */
+				if (camProducer.track && camProducer.track.readyState === "live") {
+					mediaDebugLog("ms:cam-producer:keep-despite-no-live-video-in-stream", {
+						producerTrack: mediaDebugTrackInfo(camProducer.track)
+					});
+				} else {
+					await closeProducerById(camProducer.id);
+					camProducer.close();
+					producers.delete("cam");
+					mediaDebugLog("ms:cam-producer:removed", { reason: "no-video-in-stream" });
+				}
 			}
 			mediaDebugLog("ms:do-update-local-stream:done", {
 				hasCam: producers.has("cam"),
