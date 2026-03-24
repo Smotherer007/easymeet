@@ -25,7 +25,8 @@ export function createApp(opts) {
 				useDefaults: false,
 				directives: {
 					defaultSrc: ["'self'"],
-					scriptSrc: ["'self'", "https://code.iconify.design"],
+					/* MediaPipe / @mediapipe/tasks-vision (Hintergrundeffekte): WASM-Compile braucht wasm-unsafe-eval, nicht volles unsafe-eval. */
+					scriptSrc: ["'self'", "'wasm-unsafe-eval'", "https://code.iconify.design"],
 					styleSrc: ["'self'", "'unsafe-inline'"],
 					imgSrc: ["'self'", "data:", "blob:", "https:"],
 					connectSrc: ["'self'", "ws:", "wss:"],
