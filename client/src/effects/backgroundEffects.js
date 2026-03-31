@@ -4,32 +4,45 @@ import { categoryMaskToImageData, createMaskTemporalState, drawPersonWithMask, d
 
 let imageSegmenter = null;
 
+function createSegmenterOptions(delegate) {
+	const modelAssetPath = new URL("/mediapipe/models/selfie_multiclass_256x256.tflite", window.location.origin).href;
+	return {
+		baseOptions: {
+			modelAssetPath,
+			delegate
+		},
+		runningMode: "VIDEO",
+		outputCategoryMask: true,
+		outputConfidenceMasks: false
+	};
+}
+
 async function getImageSegmenter() {
 	if (imageSegmenter) return imageSegmenter;
 
 	const wasmPath = new URL("/mediapipe/wasm", window.location.origin).href;
 	const vision = await FilesetResolver.forVisionTasks(wasmPath);
 
-	imageSegmenter = await ImageSegmenter.createFromOptions(vision, {
-		baseOptions: {
-			modelAssetPath: new URL("/mediapipe/models/selfie_multiclass_256x256.tflite", window.location.origin).href,
-			delegate: "GPU"
-		},
-		runningMode: "VIDEO",
-		outputCategoryMask: true,
-		outputConfidenceMasks: false
-	});
-
-	return imageSegmenter;
+	try {
+		imageSegmenter = await ImageSegmenter.createFromOptions(vision, createSegmenterOptions("GPU"));
+		return imageSegmenter;
+	} catch {
+		/* GPU delegate often fails in headless, some VMs, or strict GPU blockers — CPU still works for blur. */
+		imageSegmenter = await ImageSegmenter.createFromOptions(vision, createSegmenterOptions("CPU"));
+		return imageSegmenter;
+	}
 }
 
 /**
  * Preloads the MediaPipe model in the background (blur/virtual background).
  * Should be called early so opening settings does not require waiting.
+ * Insertable Streams are only required when applying the effect to a track; WASM + model load independently.
  */
 export function preloadBackgroundEffectsModel() {
-	if (!isInsertableStreamsSupported()) return;
-	getImageSegmenter().catch(() => {});
+	if (typeof WebAssembly === "undefined") return;
+	void getImageSegmenter().catch((err) => {
+		console.warn("[easymeet] background model preload failed:", err?.message || err);
+	});
 }
 
 /**
