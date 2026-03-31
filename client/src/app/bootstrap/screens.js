@@ -1,5 +1,5 @@
 /**
- * DOM-Rendering und Screen-Navigation (ohne Subscription-Logik).
+ * DOM rendering and screen navigation (no subscription logic).
  */
 
 import { getLang, setLang, t } from "../../i18n.js";

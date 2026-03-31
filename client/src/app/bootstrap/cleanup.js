@@ -1,5 +1,5 @@
 /**
- * Medien stoppen, Session zurücksetzen, Navigation nach Cleanup.
+ * Stop media, reset session, navigate after cleanup.
  */
 
 import { cleanupAllSpeakingIndicators } from "../../speaking-indicator.js";
@@ -11,7 +11,7 @@ import { attachRemoteAudio } from "../../effects/media/tiles.js";
 import { writePeerVolumes } from "../../effects/storage/deviceStorage.js";
 import * as selectors from "../../domain/selectors/index.js";
 
-/** Room-View: angebundene Listener/Timer für Geräte-Hotplug (Cleanup bei Raum verlassen). */
+/** Room view: listeners/timers for device hotplug (cleanup when leaving the room). */
 let roomViewDeviceChangeTimer = null;
 let roomViewVisibilityTimer = null;
 /** @type {(() => void) | null} */
@@ -53,9 +53,9 @@ function clearRoomViewDeviceRecoveryUi() {
 }
 
 /**
- * Volle Recovery nur sinnvoll, wenn der lokale Stream wirklich kaputt ist. Sonst nur Gerätelisten aktualisieren.
- * Verhindert Producer/Consumer-Stürme (SFU + Remote-Peers) bei Spurious-`devicechange` nach enumerate,
- * Tab-Fokus, Settings öffnen.
+ * Full recovery only makes sense when the local stream is actually broken; otherwise refresh device lists only.
+ * Avoids producer/consumer storms (SFU + remote peers) on spurious `devicechange` after enumerate,
+ * tab focus, or opening settings.
  */
 function needsFullDeviceGraphRecoveryOnResume(getState) {
 	const s = getState();
@@ -77,7 +77,7 @@ function needsFullDeviceGraphRecoveryOnResume(getState) {
  * @param {() => void} setupEnded
  */
 function runDeviceChangeOrBenignResume(getState, appEl, setupEnded) {
-	/* Einstellungen offen + gesunde Spuren: enumerate löst oft `devicechange` aus — keine Mute-Unmute-Kette. */
+	/* Settings open + healthy tracks: enumerate often fires `devicechange` — skip mute-unmute chain. */
 	if (selectors.selectSettingsPanelOpen(getState()) && !needsFullDeviceGraphRecoveryOnResume(getState)) {
 		void refreshDeviceSelects(appEl);
 		return;
@@ -155,7 +155,7 @@ export function setupRoomViewDeviceHandlers(ctx) {
 	dispatch({ type: "effects/callDeviceChangeHandler", payload: { handler: newHandler } });
 	navigator.mediaDevices?.addEventListener?.("devicechange", newHandler);
 
-	/* Tab wieder sichtbar: nie volle Medien-Recovery — nur Dropdowns. Volle Kette nur bei Track-ended / devicechange + kaputtem Stream. */
+	/* Tab visible again: never full media recovery — dropdowns only. Full chain only on track-ended / devicechange + broken stream. */
 	roomViewVisibilityListener = () => {
 		if (document.visibilityState !== "visible") return;
 		if (roomViewVisibilityTimer != null) clearTimeout(roomViewVisibilityTimer);
@@ -167,7 +167,7 @@ export function setupRoomViewDeviceHandlers(ctx) {
 	};
 	document.addEventListener("visibilitychange", roomViewVisibilityListener);
 
-	/* Fensterfokus: ebenfalls nur Gerätelisten (kein Mute-Unmute / keine Producer-Neuaufbauten). */
+	/* Window focus: device lists only as well (no mute-unmute / no producer rebuilds). */
 	roomViewFocusListener = () => {
 		if (roomViewFocusTimer != null) clearTimeout(roomViewFocusTimer);
 		roomViewFocusTimer = setTimeout(() => {

@@ -17,7 +17,7 @@ function playOnce(src, volume = 0.85) {
 		a.volume = volume;
 		void a.play().catch(() => {});
 	} catch (_) {
-		/* Autoplay-Policy oder fehlende Datei */
+		/* Autoplay policy or missing file */
 	}
 }
 

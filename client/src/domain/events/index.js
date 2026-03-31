@@ -6,7 +6,7 @@
 
 /** @typedef {'landing'|'create-room'|'create-room-success'|'join-room'|'room-view'} Screen */
 
-/** Navigation: `screen` plus beliebige weitere State-Felder (wie früher patchState bei navigate). */
+/** Navigation: `screen` plus any extra state fields (same idea as patchState on navigate). */
 /** @typedef {{ type: 'navigation/screen'; payload: { screen: Screen } & Record<string, unknown> }} NavScreenEvent */
 /** @typedef {{ type: 'room/createRequested'; payload: { nickname: string; password: string; roomCode: string } }} CreateRoomRequestedEvent */
 /** @typedef {{ type: 'room/joinRequested'; payload: { roomId: string; password: string; nickname: string } }} JoinRoomRequestedEvent */

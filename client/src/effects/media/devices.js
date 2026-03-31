@@ -56,7 +56,7 @@ function localStreamHasLiveVideoTrack() {
 function noopNavigate() {}
 
 /**
- * Einstellungs-Vorschau (eigenes videoOnly-GUM) sonst blockiert oft Kamera/Mikro für den Call.
+ * Settings preview (own videoOnly getUserMedia) otherwise often blocks camera/mic for the call.
  * @param {HTMLElement | null | undefined} app
  */
 export function tearDownSettingsPreviewForDeviceRecovery(app) {
@@ -533,13 +533,13 @@ async function applyEffectToCallStreamInternal(
 }
 
 /**
- * Erneuert lokale Aufnahme nach Gerätegraph-Änderung (`devicechange`, Track `ended`).
+ * Refreshes local capture after the device graph changes (`devicechange`, track `ended`).
  *
- * - **Mikro (nicht stumm):** Wie Nutzer-Mute/Unmute (`replayMuteUnmuteForDeviceRecovery`), sofern noch nicht stumm.
- *   War der Nutzer in der Warteschlange stumm geworden → nur stummes Neu-Binden (`rebindMicWhileMutedForDeviceRecovery`).
- * - **Mikro (stumm):** Neues Mikro ohne `isMuted` zu ändern (`rebindMicWhileMutedForDeviceRecovery`), optional zuvor tote Webcam.
- * - **Kamera (stumm):** Nur bei totem Video-Track `videoOnly`-GUM wie zuvor.
- * (I/O & Side-Effect Schwer - Layer 4)
+ * - **Mic (not muted):** Same as user mute/unmute (`replayMuteUnmuteForDeviceRecovery`) if still unmuted.
+ *   If the user became muted while queued → muted rebind only (`rebindMicWhileMutedForDeviceRecovery`).
+ * - **Mic (muted):** New mic without toggling `isMuted` (`rebindMicWhileMutedForDeviceRecovery`), optionally dead webcam first.
+ * - **Camera (muted):** Only when video track is dead, `videoOnly` getUserMedia as before.
+ * (I/O & side effects heavy — Layer 4)
  */
 export async function reacquireAudioStreamIfNeeded(
 	app,
@@ -564,9 +564,9 @@ export async function reacquireAudioStreamIfNeeded(
 	try {
 		let s = getState();
 		const previousEffect = selectBackgroundEffect(s) || "none";
-		/* Effekt hier nicht stoppen, wenn gleich `reapplyBackgroundEffectIfActive` läuft: sonst endet
-		 * die Kachel-/Producer-Spur vor dem Mute-Unmute-Replay → `newVideo: null` und
-		 * `cam-producer:removed` (z. B. Recovery nach Settings/devicechange bei aktivem Virtual BG). */
+		/* Do not stop effect here if `reapplyBackgroundEffectIfActive` runs next: otherwise tile/producer track
+		 * ends before mute-unmute replay → `newVideo: null` and
+		 * `cam-producer:removed` (e.g. recovery after settings/devicechange with active virtual BG). */
 		const hadEffectStop = typeof s.backgroundEffectStop === "function";
 		if (hadEffectStop && previousEffect === "none") {
 			try {
@@ -580,7 +580,7 @@ export async function reacquireAudioStreamIfNeeded(
 		const unmutedNow = !selectIsMuted(s);
 
 		if (unmutedNow) {
-			/* Nochmal prüfen: in der Warteschlange kann der Nutzer zwischenzeitlich stumm geworden sein. */
+			/* Re-check: user may have muted while queued. */
 			if (!selectIsMuted(getState())) {
 				if (typeof replayMuteUnmuteForDeviceRecovery !== "function") {
 					mediaDebugLog("device:recovery:abort", { reason: "no-replay-mute-unmute" });
@@ -606,7 +606,7 @@ export async function reacquireAudioStreamIfNeeded(
 			}
 			mediaDebugLog("device:recovery:reacquire:done", { branch: "mic-after-unmuted-or-rebind" });
 		} else {
-			/* Stumm: nie Mute/Unmute-Replay — nur Mikro neu binden, Stumm bleibt. */
+			/* Muted: never mute/unmute replay — rebind mic only, stay muted. */
 			if (wantVideoNow) {
 				const local = selectLocalStream(s);
 				const lv0 = local?.getVideoTracks?.()?.[0];
@@ -674,9 +674,9 @@ export async function reacquireAudioStreamIfNeeded(
  * @param {typeof import("./tiles.js").attachRemoteAudio} attachRemoteAudioFn
  * @param {(t: MediaStreamTrack) => void} setupAudioTrackEndedHandler
  * @param {() => Promise<void>} refreshDeviceSelects
- * @param {(() => void | Promise<void>) | null | undefined} restartSettingsPreview Wenn Einstellungen offen: Vorschau neu starten
- * @param {((app: HTMLElement, setupEnded: (t: MediaStreamTrack) => void) => void | Promise<void>) | null | undefined} replayMuteUnmuteForDeviceRecovery Wie Nutzer Mute→Unmute nach Hotplug (nur wenn nicht stumm)
- * @param {((app: HTMLElement, setupEnded: (t: MediaStreamTrack) => void) => void | Promise<void>) | null | undefined} rebindMicWhileMutedForDeviceRecovery Mikro neu bei stummem Nutzer
+ * @param {(() => void | Promise<void>) | null | undefined} restartSettingsPreview When settings open: restart preview
+ * @param {((app: HTMLElement, setupEnded: (t: MediaStreamTrack) => void) => void | Promise<void>) | null | undefined} replayMuteUnmuteForDeviceRecovery Same as user mute→unmute after hotplug (only when not muted)
+ * @param {((app: HTMLElement, setupEnded: (t: MediaStreamTrack) => void) => void | Promise<void>) | null | undefined} rebindMicWhileMutedForDeviceRecovery Rebind mic while user stays muted
  */
 export function enqueueDeviceGraphRecovery(
 	app,
@@ -703,7 +703,7 @@ export function enqueueDeviceGraphRecovery(
 			let st = getState();
 			const streamForMs = selectLocalStream(st);
 			const participant = selectHostPeer(st) || selectViewerConn(st);
-			/* prepareRoomLocalStream liefert oft denselben Web-Audio-Destination-Track → ohne force kein Producer-Neuaufbau (Hotplug/Hintergrund). */
+			/* prepareRoomLocalStream often returns the same Web Audio destination track → without force no producer rebuild (hotplug/background). */
 			if (
 				participant &&
 				streamForMs &&
@@ -721,7 +721,7 @@ export function enqueueDeviceGraphRecovery(
 			const peerId = selectMyPeerId(st);
 			const stream = selectLocalStream(st);
 			if (peerId && stream && selectScreen(st) === "room-view") {
-				/* Wie nach syncMuteToPeers: Kachel + Teilnehmerliste + Mute-Button — sonst wirkt nur manuelles Muten. */
+				/* Same as after syncMuteToPeers: tile + participant list + mute button — otherwise only manual mute seems to work. */
 				attachRemoteAudioFn(peerId, stream, app, { forceTileMediaRefresh: true });
 				updateVoipParticipants(
 					app,

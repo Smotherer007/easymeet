@@ -45,10 +45,10 @@ const msRooms = new Map();
  * @property {number} createdAt
  * @property {Map<string, object>} polls
  * @property {number} pollSeq
- * @property {object[]} chatHistory serialisierte Chat-/Datei-Zeilen (wie Client-messages), begrenzt durch MAX_ROOM_CHAT_HISTORY
+ * @property {object[]} chatHistory serialized chat/file lines (like client messages), capped by MAX_ROOM_CHAT_HISTORY
  */
 
-/** Max. Einträge pro Raum (Text + geteilte Dateien); bei Überschreitung älteste verwerfen. */
+/** Max entries per room (text + shared files); drop oldest when exceeded. */
 const MAX_ROOM_CHAT_HISTORY = 400;
 
 /**
@@ -297,7 +297,7 @@ export function listRoomParticipantNicks(room) {
 	return nicks;
 }
 
-/** Räume mit mindestens einem beigetretenen VoIP-Peer (Landing-Liste). */
+/** Rooms with at least one joined VoIP peer (landing list). */
 export function listActiveRoomsPublic() {
 	const out = [];
 	for (const [roomId, room] of msRooms.entries()) {

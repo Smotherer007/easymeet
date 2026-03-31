@@ -1,6 +1,6 @@
 /**
- * Composition Root – zentraler Einstieg für App-Start und Store.
- * Bootstrap-Orchestrierung: ./bootstrap/index.js
+ * Composition root — main entry for app startup and store.
+ * Bootstrap orchestration: ./bootstrap/index.js
  */
 
 export { bootstrap } from "./bootstrap/index.js";

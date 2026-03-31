@@ -1,5 +1,5 @@
 /**
- * Dünne Fetch-Hülle: einheitliches JSON-Parsing, Status-Handling und API-Logging.
+ * Thin fetch wrapper: shared JSON parsing, status handling, and API logging.
  */
 
 import { logApiInfo, logApiWarn, logApiDebug } from "../../utils/easymeetLog.js";

@@ -197,7 +197,7 @@ export function createSubscriptionHandler(appEl, getState, dispatch) {
 		const evt = event.type;
 		const p = event.payload;
 		if (evt === "room/reaction" && p?.peerId && p?.emoji && selectors.selectScreen(state) === "room-view") {
-			/* Eigene Reaktion: schon in onSendReaction lokal gezeigt — Server-Echo sonst doppelt / falsches Layer. */
+			/* Own reaction: already shown in onSendReaction — skip server echo to avoid duplicate / wrong layer. */
 			if (p.peerId !== selectors.selectMyPeerId(state)) {
 				spawnFloatingReaction(appEl, p.peerId, p.emoji);
 			}

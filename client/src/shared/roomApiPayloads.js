@@ -1,6 +1,6 @@
 /**
- * REST-API-Payload-Parsing (Create / Host / Join).
- * Spiegelbild zu server/src/shared/roomApiPayloads.js — bei Regel-Änderungen beide Dateien anpassen.
+ * REST API payload parsing (create / host / join).
+ * Mirror of server/src/shared/roomApiPayloads.js — update both when validation rules change.
  */
 
 /**

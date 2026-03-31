@@ -55,7 +55,7 @@ const smAttrs = { ...defaultAttrs, width: "1.75rem", height: "1.75rem" };
 const lockInlineAttrs = { ...defaultAttrs, width: "0.9rem", height: "0.9rem", class: "icon landing-active-room__lock-svg" };
 const jumpInlineAttrs = { ...defaultAttrs, width: "0.95rem", height: "0.95rem", class: "icon landing-active-room__jump-svg" };
 const lgAttrs = { ...defaultAttrs, width: "3rem", height: "3rem" };
-/** Landing: leere aktive Räume – groß, passend zur Empty-State-Kachel */
+/** Landing: empty active rooms — large, matches empty-state tile */
 const landingEmptyStateAttrs = { ...defaultAttrs, width: "2.75rem", height: "2.75rem", class: "icon landing__empty-state-svg", "stroke-width": 1.5 };
 
 export const iconCopy = () => createElement(Copy, smAttrs).outerHTML;
@@ -107,7 +107,7 @@ export const iconLockInline = () => createElement(Lock, lockInlineAttrs).outerHT
 export const iconPinnedRoomJump = () => createElement(ArrowRight, jumpInlineAttrs).outerHTML;
 export const iconHand = () => createElement(Hand, smAttrs).outerHTML;
 export const iconBarChart2 = () => createElement(BarChart2, smAttrs).outerHTML;
-/** „Keine live-Räume“ – dezentes Lucide-Icon statt Illustration */
+/** “No live rooms” — subtle Lucide icon instead of illustration */
 export const iconLandingActiveRoomsEmpty = () => createElement(Radio, landingEmptyStateAttrs).outerHTML;
 
 export const iconLogo = () => `
@@ -138,7 +138,7 @@ export const iconLogo = () => `
 
 export const iconLogoWordmark = ({ width = "100%", height = "100%", extraClass = "" } = {}) => {
 	const cls = `icon logo-wordmark${extraClass ? ` ${extraClass}` : ""}`;
-	/* SVG height="auto" ist ungültig (Browser-Warnung); Höhe per CSS (z. B. .landing__wordmark .logo-wordmark). */
+	/* SVG height="auto" is invalid (browser warning); height via CSS (e.g. .landing__wordmark .logo-wordmark). */
 	const heightAttr =
 		height === null || height === "" || height === "auto" ? "" : ` height="${height}"`;
 	return `

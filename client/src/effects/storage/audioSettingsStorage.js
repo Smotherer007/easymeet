@@ -80,12 +80,12 @@ export function getSpeakingThreshold() {
 	return readAudioSettings().speakingThreshold;
 }
 
-/** Sichtbarer Slider und gespeicherte Schwelle (5–50): niedriger Wert = empfindlicher. */
+/** Visible slider and stored threshold (5–50): lower = more sensitive. */
 export const SPEAKING_THRESHOLD_UI_MIN = 5;
 export const SPEAKING_THRESHOLD_UI_MAX = 50;
 
 /**
- * Empfindlichkeit 10–100 % für die Einstellungen: 100 % = sehr empfindlich (intern niedrig), 10 % = streng (intern hoch).
+ * Sensitivity 10–100% for settings UI: 100% = very sensitive (internally low threshold), 10% = strict (internally high).
  * @param {number} threshold
  * @returns {number}
  */

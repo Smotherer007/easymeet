@@ -1,5 +1,5 @@
 /**
- * Kurze Hinweise für Hintergrund-Ereignisse (Beitritt, Datei, …).
+ * Short toasts for background events (join, file, …).
  */
 
 const ROOT_ID = "toast-root";

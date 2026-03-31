@@ -161,6 +161,8 @@ export function createNewTile(container, peerId, tileState) {
 	tile.appendChild(statusRow);
 	if (!hasVideo) tile.appendChild(createCameraOffElement());
 	container.appendChild(tile);
+	tile.classList.add("video-tile--enter");
+	tile.addEventListener("animationend", () => tile.classList.remove("video-tile--enter"), { once: true });
 	return { tile, mediaEl };
 }
 
@@ -314,13 +316,13 @@ export function applyStreamToMedia(mediaEl, stream, hasVideo, vol, outputDeviceI
 				mediaEl.play?.().catch(() => {});
 			};
 			tryPlay();
-			/* Consumer-Video startet oft kurz als muted — erstes Frame nach unmute */
+			/* Consumer video often starts briefly muted — first frame after unmute */
 			for (const tr of vTracks) {
 				tr.addEventListener("unmute", tryPlay, { once: true });
 			}
 			return;
 		}
-		/* Kein Split: ein Element — verstecktes Audio nicht doppelt abspielen */
+		/* No split: one element — do not play hidden audio twice */
 		const hidden = tile.querySelector("audio.video-tile__remote-audio");
 		if (hidden) {
 			hidden.srcObject = null;
@@ -334,7 +336,7 @@ export function applyStreamToMedia(mediaEl, stream, hasVideo, vol, outputDeviceI
 	const showVideo = Boolean(hasVideo || vCount > 0);
 	const targetStream = showVideo ? stream : stream ? new MediaStream(stream.getAudioTracks?.() ?? []) : null;
 
-	/* Gleiche MediaStream-Instanz, aber getauschte Tracks (z. B. Hotplug): Browser aktualisiert sonst oft nicht. */
+	/* Same MediaStream instance but swapped tracks (e.g. hotplug): browser often fails to update otherwise. */
 	if (forceTileMediaRefresh && isLocal && targetStream && mediaEl.srcObject === targetStream) {
 		mediaEl.srcObject = null;
 	}

@@ -205,6 +205,24 @@ function extractRttMsFromRtcStats(stats) {
 	return null;
 }
 
+/**
+ * Estimated packet loss (%) from inbound-rtp / remote-inbound-rtp, averaged across transports.
+ * @param {RTCStatsReport | Map<string, object>} stats
+ * @returns {number|null}
+ */
+function extractPacketLossPercent(stats) {
+	if (!stats || typeof stats.forEach !== "function") return null;
+	let recv = 0;
+	let lost = 0;
+	stats.forEach((r) => {
+		if (r.type !== "inbound-rtp" && r.type !== "remote-inbound-rtp") return;
+		if (typeof r.packetsReceived === "number" && r.packetsReceived >= 0) recv += r.packetsReceived;
+		if (typeof r.packetsLost === "number" && r.packetsLost >= 0) lost += r.packetsLost;
+	});
+	if (recv + lost === 0) return null;
+	return (100 * lost) / (recv + lost);
+}
+
 /* ---------- Transports (protoo requests) ---------- */
 
 async function createSendTransport(protoo, device) {
@@ -569,8 +587,8 @@ export async function setupRoomParticipant(peerObj, nick, localStream, callbacks
 					type: "chat/membersUpdated",
 					payload: { list: membersRef.map((m) => m.nick).filter(Boolean) }
 				});
-				/* mute/video/bg kommen im Snapshot — reduceVoipMembersUpdated übernimmt Maps.
-				 * Keine N× voip/* Events: sonst attachRemoteAudio-Sturm → Ton weg / Kamera-Flackern (z. B. nach hand_raise). */
+				/* mute/video/bg come in the snapshot — reduceVoipMembersUpdated owns the maps.
+				 * Avoid N× voip/* events or attachRemoteAudio thrashes (audio drop / camera flicker, e.g. after hand_raise). */
 				if (peerId) {
 					const me = membersRef.find((m) => m.peerId === peerId);
 					dispatch?.({ type: "room/handRaisedSelf", payload: { peerId, raised: !!me?.handRaised } });
@@ -1060,7 +1078,7 @@ export async function setupRoomParticipant(peerObj, nick, localStream, callbacks
 	/**
 	 * @param {MediaStream} newStream
 	 * @param {{ forceMicProducer?: boolean; skipCamProducerChanges?: boolean }} [options]
-	 * `skipCamProducerChanges`: Mic/Gate-Update ohne Cam-Producer anzufassen (Recovery-Mute bei Virtual BG).
+	 * `skipCamProducerChanges`: mic/gate update without touching the cam producer (recovery mute with virtual background).
 	 */
 	async function updateLocalStream(newStream, options = {}) {
 		if (!newStream) return;
@@ -1102,7 +1120,7 @@ export async function setupRoomParticipant(peerObj, nick, localStream, callbacks
 	async function _doUpdateLocalStream(newStream, options = {}) {
 		try {
 			const skipCamProducerChanges = options.skipCamProducerChanges === true;
-			/* Erstes *live* Track — sonst nach Producer-Close/Stop bleibt oft ein beendetes Track an Index 0 (Logs: track ended). */
+			/* First *live* track — otherwise after producer close/stop a dead track often stays at index 0 (logs: track ended). */
 			const newAudioTrack =
 				(newStream.getAudioTracks?.() ?? []).find((t) => t && t.readyState === "live") ?? null;
 			const newVideoTrack =
@@ -1116,10 +1134,10 @@ export async function setupRoomParticipant(peerObj, nick, localStream, callbacks
 				hadCamProducer: Boolean(camProducer),
 				skipCamProducerChanges
 			});
-			/* Wie bei der Webcam: replaceTrack allein reicht oft nicht (Web-Audio-Destination / Gerätewechsel). */
+			/* Like webcam: replaceTrack alone is often not enough (Web Audio destination / device switch). */
 			if (micProducer && newAudioTrack) {
-				/* micNoiseGate: Ausgang ist immer derselbe destination-Track; Roh-Mikro wird nur in wireInput umgesteckt.
-				 * forceMicProducer + gleiche Track-Referenz → Producer NICHT schließen: close() beendet den Gate-Ausgang. */
+				/* micNoiseGate: output is always the same destination track; raw mic is rewired in wireInput only.
+				 * forceMicProducer + same track ref → do not close producer: close() would tear down the gate output. */
 				const sameGateDestinationTrack =
 					micProducer.track === newAudioTrack &&
 					newAudioTrack.readyState === "live" &&
@@ -1211,8 +1229,8 @@ export async function setupRoomParticipant(peerObj, nick, localStream, callbacks
 					if (p) producers.set("cam", p);
 					mediaDebugLog("ms:cam-producer:first", { ok: Boolean(p), track: mediaDebugTrackInfo(p?.track) });
 				} else if (camProducer && !newVideoTrack) {
-					/* Kein live-Video im Stream, aber Producer-Track noch live: oft Race (Device-Recovery
-					 * mute-unmute, Effect-Wechsel) — Producer nicht killen. Kamera bewusst aus: Track ist ended. */
+					/* No live video in stream but producer track still live: often a race (device recovery
+					 * mute-unmute, effect switch) — do not kill producer. Camera intentionally off: track is ended. */
 					if (camProducer.track && camProducer.track.readyState === "live") {
 						mediaDebugLog("ms:cam-producer:keep-despite-no-live-video-in-stream", {
 							producerTrack: mediaDebugTrackInfo(camProducer.track)
@@ -1237,7 +1255,7 @@ export async function setupRoomParticipant(peerObj, nick, localStream, callbacks
 		} catch (e) {
 			logMsError("updateLocalStream (mediasoup):", e);
 			mediaDebugLog("ms:do-update-local-stream:error", { message: e?.message || String(e) });
-			/* Nicht erneut werfen: sonst bricht die updateLocalStream-Warteschlange ab und es gibt Uncaught (in promise). */
+			/* Do not rethrow: would break the updateLocalStream queue and surface uncaught (in promise). */
 		}
 	}
 
@@ -1286,6 +1304,34 @@ export async function setupRoomParticipant(peerObj, nick, localStream, callbacks
 		}
 		if (!rtts.length) return null;
 		return Math.round(rtts.reduce((a, b) => a + b, 0) / rtts.length);
+	}
+
+	/**
+	 * RTT + packet loss + coarse quality tier for the meeting header.
+	 * @returns {Promise<{ rttMs: number|null; packetLossPercent: number|null; quality: 'good'|'fair'|'poor'|'unknown' }>}
+	 */
+	async function getWebRtcConnectionStats() {
+		const rttMs = await getWebRtcRttMs();
+		const losses = [];
+		for (const tr of [sendTransport, recvTransport]) {
+			if (!tr || tr.closed) continue;
+			try {
+				const s = await tr.getStats();
+				const p = extractPacketLossPercent(s);
+				if (p != null) losses.push(p);
+			} catch (_) {
+				/* ignore */
+			}
+		}
+		const packetLossPercent = losses.length ? losses.reduce((a, b) => a + b, 0) / losses.length : null;
+		if (rttMs == null && packetLossPercent == null) {
+			return { rttMs: null, packetLossPercent: null, quality: "unknown" };
+		}
+		const rScore = rttMs == null ? 0 : rttMs > 220 ? 2 : rttMs > 110 ? 1 : 0;
+		const lScore = packetLossPercent == null ? 0 : packetLossPercent > 12 ? 2 : packetLossPercent > 4 ? 1 : 0;
+		const worst = Math.max(rScore, lScore);
+		const quality = worst === 0 ? "good" : worst === 1 ? "fair" : "poor";
+		return { rttMs, packetLossPercent, quality };
 	}
 
 	const wsShim = {
@@ -1338,6 +1384,7 @@ export async function setupRoomParticipant(peerObj, nick, localStream, callbacks
 		},
 		sendFileToRoom: (file, onProgress, fromNick, fileId) => sendFileToViewers(protoo, file, onProgress, roomId, password, fromNick, fileId),
 
-		getWebRtcRttMs
+		getWebRtcRttMs,
+		getWebRtcConnectionStats
 	};
 }

@@ -1,6 +1,6 @@
 /**
- * Leises Audio unterhalb von speakingThreshold dämpfen (Web Audio), gleiche Metrik wie speaking-indicator.js.
- * Roh-Mikro bleibt nur in dieser Pipeline; in localStream liegt der Ausgangs-Track für WebRTC + UI.
+ * Attenuate quiet audio below speakingThreshold (Web Audio), same metric as speaking-indicator.js.
+ * Raw mic stays only in this pipeline; localStream carries the output track for WebRTC + UI.
  */
 
 import { getSpeakingThreshold } from "../storage/audioSettingsStorage.js";
@@ -75,7 +75,7 @@ function resumeCtx() {
 }
 
 /**
- * Aktuelles Roh-Mikro (getUserMedia), falls Gate aktiv.
+ * Current raw mic (getUserMedia) when gate is active.
  * @returns {MediaStreamTrack | null}
  */
 export function getMicGateRawInputTrack() {
@@ -105,7 +105,7 @@ function wireInput(track) {
 }
 
 /**
- * Baut localStream für den Raum: erstes Audiosignal durch Gate, Video unverändert.
+ * Builds localStream for the room: first audio through gate, video unchanged.
  * @param {MediaStream | null | undefined} stream
  * @returns {MediaStream}
  */
@@ -140,7 +140,7 @@ export function prepareRoomLocalStream(stream) {
 }
 
 /**
- * Session beenden: Graph schließen, Roh-Mikro stoppen (falls nur fürs Gate genutzt).
+ * End session: close graph, stop raw mic (if only used for gate).
  */
 export function disposeMicNoiseGate() {
 	stopLoop();

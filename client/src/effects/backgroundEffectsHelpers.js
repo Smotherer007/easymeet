@@ -6,7 +6,7 @@
 const MASK_TEMPORAL_MIX = 0.52;
 
 /**
- * Pro Pipeline-Instanz ein State-Objekt (Closure), nicht global teilen.
+ * One state object per pipeline instance (closure); do not share globally.
  * @returns {{ smoothAlpha: Float32Array|null; mw: number; mh: number }}
  */
 export function createMaskTemporalState() {

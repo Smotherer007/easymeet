@@ -58,7 +58,7 @@ export function isInsertableStreamsSupported() {
  * @param {MediaStream} sourceStream
  * @param {Object} options
  * @param {number} [options.blurAmount=15]
- * @param {boolean} [options.stopSourceVideoTrackOnCleanup] – bei Quelle = dedizierter Klon (call stream): mit stoppen, sonst Leak
+ * @param {boolean} [options.stopSourceVideoTrackOnCleanup] – if source is a dedicated clone (call stream): stop it on cleanup, otherwise leak
  * @returns {Promise<{ stream: MediaStream; stop: () => void }>}
  */
 export async function createBlurredStream(sourceStream, options = {}) {

@@ -108,7 +108,7 @@ export function syncHandRaisedOnVideoTiles() {
 
 /**
  * @param {HTMLElement} app
- * @param {{ forceTileMediaRefresh?: boolean }} [options] Nach Hotplug: lokales Video-Element neu an Stream hängen (gleiche MediaStream-Ref, neue Tracks).
+ * @param {{ forceTileMediaRefresh?: boolean }} [options] After hotplug: reattach local video element to stream (same MediaStream ref, new tracks).
  */
 export function attachRemoteAudio(peerId, stream, app, options) {
 	const forceTileMediaRefresh = Boolean(options?.forceTileMediaRefresh);

@@ -1,5 +1,5 @@
 /**
- * Einheitliche Fehler-Codes für HTTP-JSON und Protoo-Reason-Strings ([CODE] Nachricht).
+ * Unified error codes for HTTP JSON and Protoo reason strings ([CODE] message).
  */
 
 import { getLogContext } from "./logger.js";
@@ -55,7 +55,7 @@ export function sendValidationJsonError(res, err) {
 }
 
 /**
- * Protoo reject(reason) — stabiles Präfix [CODE] für Logs und optional Client-Parsing.
+ * Protoo reject(reason) — stable [CODE] prefix for logs and optional client parsing.
  * @param {string} code
  * @param {string} message
  */

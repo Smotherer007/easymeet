@@ -1,5 +1,5 @@
 /**
- * Vollflächige Raum-Effekte — Canvas, ohne zusätzliche Dependencies.
+ * Full-screen room effects — canvas, no extra dependencies.
  */
 
 import { REACTION_EFFECT_IDS } from "../../shared/reactionEffectIds.js";
@@ -24,7 +24,7 @@ function fitCanvas(canvas, ctx) {
 }
 
 /**
- * Jeder Lauf bekommt ein eigenes Vollbild-Canvas — mehrere Effekte laufen parallel, ohne sich zu löschen.
+ * Each run gets its own fullscreen canvas — multiple effects run in parallel without clearing each other.
  *
  * @param {HTMLElement} appEl
  * @param {(ctx: CanvasRenderingContext2D, w: number, h: number, elapsed: number, frame: number) => boolean} tick
@@ -175,7 +175,7 @@ function playFireworks(appEl) {
 const SPARKLE_COLORS = ["#ffffff", "#fffbeb", "#fef9c3", "#fde047", "#facc15", "#fcd34d", "#e9d5ff", "#ddd6fe", "#c4b5fd", "#a5b4fc", "#7dd3fc", "#fef08a"];
 
 /**
- * Kreuz-Stern (4 Strahlen) für größere Funken.
+ * Cross star (4 rays) for larger sparkles.
  * @param {CanvasRenderingContext2D} ctx
  * @param {number} x
  * @param {number} y
@@ -259,7 +259,7 @@ function playSparkles(appEl) {
 const HEART_COLORS = ["#fda4af", "#fb7185", "#f43f5e", "#e11d48", "#be123c", "#f9a8d4", "#ec4899", "#db2777"];
 
 /**
- * Gefülltes Herz; Spitze unten bei (tipX, tipY), Höhe ~size (MDN-Bezier-Schema).
+ * Filled heart; tip at (tipX, tipY), height ~size (MDN bezier pattern).
  * @param {CanvasRenderingContext2D} ctx
  * @param {number} tipX
  * @param {number} tipY
@@ -284,7 +284,7 @@ function drawFilledHeartAtTip(ctx, tipX, tipY, size) {
 function playHearts(appEl) {
 	const w0 = window.innerWidth;
 	const h0 = window.innerHeight;
-	/* Weniger Partikel; kein shadowBlur (pro Frame pro Partikel sehr teuer auf dem Canvas-Compositor). */
+	/* Fewer particles; no shadowBlur (very expensive per frame per particle on the canvas compositor). */
 	const n = 28;
 	/** @type {{ x: number; y: number; vx: number; vy: number; s: number; rot: number; vr: number; c: string; wobble: number; wv: number }[]} */
 	const parts = [];

@@ -21,9 +21,9 @@ export async function refreshDeviceSelects(app) {
 	let { inputs, outputs } = await getAudioDevices();
 	let videos = await getVideoDevices();
 
-	/* Labels fehlen oft bis zur ersten GUM — im laufenden Call mit lebender Mikro-Spur kein zweites GUM:
-	 * sonst Kollision mit Noise-Gate / Hotplug-Recovery. */
-	/* Im Raum nie: enumerate reicht nach bestehender Berechtigung; extra GUM stört Hotplug/Re-GUM. */
+	/* Labels often missing until first getUserMedia — in an active call with a live mic track, no second
+	 * getUserMedia (would conflict with noise gate / hotplug recovery). */
+	/* In-room: never; enumerate is enough after permission; extra getUserMedia disrupts hotplug/re-gum. */
 	const stateEarly = getState();
 	if (
 		selectScreen(stateEarly) !== "room-view" &&

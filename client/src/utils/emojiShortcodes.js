@@ -1,6 +1,6 @@
 /**
- * Ersetzt gängige Text-Emoticons durch Unicode-Emojis (Chat).
- * Längere Muster zuerst, damit z. B. :-) vor :) gewinnt.
+ * Replaces common text emoticons with Unicode emojis (chat).
+ * Longer patterns first so e.g. :-) wins over :).
  */
 
 const RULES = [

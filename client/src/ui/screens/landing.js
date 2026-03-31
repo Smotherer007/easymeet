@@ -14,19 +14,19 @@ import {
 import { fetchActiveRooms, fetchPinnedRooms } from "../../effects/network/api.js";
 
 /**
- * Intervall für GET /api/rooms/active + pinned (kein extra WebSocket nötig).
- * Kürzer = aktuellere Zahlen, etwas mehr HTTP-Last.
+ * Poll interval for GET /api/rooms/active (no extra WebSocket).
+ * Shorter interval = fresher numbers, slightly more HTTP traffic.
  */
 export const LANDING_ROOMS_POLL_MS = 10000;
 
 /**
- * Nur eine Landing-Aktualisierung gleichzeitig (pinned + active nacheinander).
- * Sonst kann eine schnelle leere Antwort „gewinnen“, während eine langsamere mit Räumen verworfen wird (Gen-Zähler).
+ * Serialize landing list refreshes so only one runs at a time (e.g. active rooms).
+ * Avoids a fast empty response winning over a slower response that still has rooms.
  */
 let landingRoomPanelsRefreshChain = Promise.resolve();
 
 /**
- * Timer + Visibility-Listener der Landing-Seite entfernen (z. B. beim Navigieren weg von der Startseite).
+ * Clear landing poll timer and visibility listener (e.g. when navigating away from the home screen).
  * @param {HTMLElement} container
  */
 export function teardownLandingAutoRefresh(container) {
@@ -115,7 +115,7 @@ export function renderLanding() {
   `;
 }
 
-/** Anzeige ohne Bindestriche (kanonischer Code). */
+/** Display room id without hyphenation (canonical code). */
 function formatRoomIdDisplay(roomId) {
 	const s = String(roomId || "")
 		.replace(/[^A-Z0-9]/gi, "")
@@ -299,22 +299,28 @@ export function attachLandingListeners(container, handlers) {
 	container.querySelectorAll('[data-action="create"]').forEach((el) => el.addEventListener("click", runLandingNav(onCreateRoom)));
 	container.querySelectorAll('[data-action="join"]').forEach((el) => el.addEventListener("click", runLandingNav(onJoinRoom)));
 
-	const runRefresh = () => {
+	/** Active rooms only (do not reload pinned list on every poll). */
+	const runActiveRoomsRefresh = () => {
 		landingRoomPanelsRefreshChain = landingRoomPanelsRefreshChain
 			.catch(() => {})
 			.then(async () => {
-				await refreshPinnedRoomsPanel(container, onPickActiveRoom);
 				await refreshActiveRoomsPanel(container, onPickActiveRoom);
 			});
 		return landingRoomPanelsRefreshChain;
 	};
-	container.querySelector('[data-action="refresh-active-rooms"]')?.addEventListener("click", () => void runRefresh());
+
+	container.querySelector('[data-action="refresh-active-rooms"]')?.addEventListener("click", () => void runActiveRoomsRefresh());
 	container.querySelector('[data-action="join-empty-cta"]')?.addEventListener("click", runLandingNav(onJoinRoom));
-	void runRefresh();
-	container._easymeetActiveRoomsInterval = window.setInterval(() => void runRefresh(), LANDING_ROOMS_POLL_MS);
+
+	void (async () => {
+		await refreshPinnedRoomsPanel(container, onPickActiveRoom);
+		await refreshActiveRoomsPanel(container, onPickActiveRoom);
+	})();
+
+	container._easymeetActiveRoomsInterval = window.setInterval(() => void runActiveRoomsRefresh(), LANDING_ROOMS_POLL_MS);
 
 	const onVis = () => {
-		if (document.visibilityState === "visible") void runRefresh();
+		if (document.visibilityState === "visible") void runActiveRoomsRefresh();
 	};
 	container._easymeetLandingVisibilityHandler = onVis;
 	document.addEventListener("visibilitychange", onVis);

@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import { runWithLogContext } from "../logger.js";
 
 /**
- * Setzt X-Request-Id (oder übernimmt X-Request-Id / X-Correlation-Id) und ALS für Handler.
+ * Sets X-Request-Id (or forwards X-Request-Id / X-Correlation-Id) and ALS for handlers.
  */
 export function requestLogContextMiddleware(req, res, next) {
 	const incoming =

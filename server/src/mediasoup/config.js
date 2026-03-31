@@ -1,6 +1,6 @@
 /**
- * mediasoup Worker- und Router-Konfiguration.
- * Layer 2: Generic configuration – kein I/O.
+ * mediasoup worker and router configuration.
+ * Layer 2: generic configuration — no I/O.
  */
 
 import os from "os";

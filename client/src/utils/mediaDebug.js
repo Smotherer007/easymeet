@@ -10,32 +10,32 @@
  * Disable: `localStorage.removeItem('easymeetMediaDebug')` and load without the URL param.
  *
  * ---
- * **B) Geräte-Hotplug / Mikro — Forschungs-Checkliste (Filter in der Konsole)**
+ * **B) Device hotplug / mic — research checklist (console filter)**
  *
- * 1. Debug einschalten (siehe oben), Seite neu laden, Problem reproduzieren.
- * 2. Konsole filtern nach **`device:recovery`** (Recovery-Kette) und optional **`ms:`** (Mediasoup).
- * 3. Tabelle — Bedeutung der Phasen:
+ * 1. Turn on debug (see above), reload, reproduce the issue.
+ * 2. Filter console for **`device:recovery`** (recovery chain) and optionally **`ms:`** (mediasoup).
+ * 3. Table — meaning of phases:
  *
- * | Phase / Präfix | Bedeutung |
- * |----------------|-----------|
- * | `device:recovery:chain:run` | Warteschlange gestartet nach **Track `ended`**, oder nach `devicechange` **nur wenn** der lokale Stream wirklich keine live Audio-/Video-Spur mehr hat (nicht bei Tab-Fokus/Sichtbarkeit; bei offenen Settings oft unterdrückt, wenn der Stream noch gesund ist). |
- * | `device:recovery:skip` | `payload.reason`: z. B. `not-room-view`, `no-local-stream` |
- * | `device:recovery:reacquire:start` | Reacquire-Logik läuft; `muted` / `wantVideo` im Payload |
- * | `device:recovery:abort` | `reason`: fehlende Callbacks (`no-replay-mute-unmute`, `no-rebind-mic-while-muted`) |
- * | `device:recovery:use-muted-rebind` | Nutzer war vor Replay stumm geworden → stummer Rebind-Pfad |
- * | `device:recovery:mute-unmute-cycle:*` | Replay wie Mute/Unmute (nur ungemutet) |
- * | `device:recovery:rebind-mic-while-muted:*` | Mikro neu bei stummem Nutzer |
- * | `device:recovery:camera-reacquire-skipped` | Webcam in stummem Zweig nicht neu bekommen |
- * | `device:recovery:post-chain:mic-producer-force` | Abschließender Mediasoup-`updateLocalStream` mit `forceMicProducer` |
- * | `device:recovery:reacquire:done` | `branch` im Payload: welcher Pfad fertig wurde |
- * | `device:recovery:error` | Exception im Reacquire-Block |
- * | `ms:do-update-local-stream:start` | Mediasoup verarbeitet Stream-Update |
- * | `ms:mic-producer:recreate` | Mic-Producer wird neu erzeugt |
- * | `ms:update-local-stream:queued` | Update wartet auf Lock (parallel anderer Pfad) |
+ * | Phase / prefix | Meaning |
+ * |----------------|---------|
+ * | `device:recovery:chain:run` | Queue started after **track `ended`**, or after `devicechange` **only if** the local stream truly has no live audio/video track (not on tab focus/visibility; with settings open often suppressed when the stream is still healthy). |
+ * | `device:recovery:skip` | `payload.reason`: e.g. `not-room-view`, `no-local-stream` |
+ * | `device:recovery:reacquire:start` | Reacquire logic runs; `muted` / `wantVideo` in payload |
+ * | `device:recovery:abort` | `reason`: missing callbacks (`no-replay-mute-unmute`, `no-rebind-mic-while-muted`) |
+ * | `device:recovery:use-muted-rebind` | User became muted before replay → muted rebind path |
+ * | `device:recovery:mute-unmute-cycle:*` | Replay like mute/unmute (unmuted only) |
+ * | `device:recovery:rebind-mic-while-muted:*` | Rebind mic while user is muted |
+ * | `device:recovery:camera-reacquire-skipped` | Webcam not reacquired in muted branch |
+ * | `device:recovery:post-chain:mic-producer-force` | Final mediasoup `updateLocalStream` with `forceMicProducer` |
+ * | `device:recovery:reacquire:done` | `branch` in payload: which path finished |
+ * | `device:recovery:error` | Exception in reacquire block |
+ * | `ms:do-update-local-stream:start` | Mediasoup processing stream update |
+ * | `ms:mic-producer:recreate` | Mic producer recreated |
+ * | `ms:update-local-stream:queued` | Update waiting on lock (parallel path) |
  *
- * 4. **Auswertung:** `chain:run` fehlt trotz echtem Hotplug (Spur wirklich weg) → `devicechange`/Track-`ended` prüfen. Tab/Fokus triggern **keine** `chain:run` mehr. `chain:run` da, Ton trotzdem kaputt → `chrome://webrtc-internals` / Mediasoup-Logs.
+ * 4. **Interpretation:** If `chain:run` is missing despite real hotplug (track really gone) → check `devicechange` / track `ended`. Tab/focus no longer trigger **`chain:run`**. If `chain:run` is present but audio still broken → `chrome://webrtc-internals` / mediasoup logs.
  *
- * Einmal pro Browser-Tab wird beim ersten `device:recovery:chain:run` eine Kurzfassung in die Konsole geschrieben. Manuell: **`window.printEasymeetDeviceRecoveryGuide()`** (nur wenn Debug an).
+ * Once per browser tab, a short summary is printed on first `device:recovery:chain:run`. Manual: **`window.printEasymeetDeviceRecoveryGuide()`** (only when debug is on).
  */
 
 function urlDebugOn() {
@@ -49,24 +49,24 @@ function urlDebugOn() {
 const SESSION_GUIDE_KEY = "easymeet_media_debug_recovery_guide_v1";
 
 /**
- * Gibt die Kurz-Checkliste B) in die Konsole (nützlich nach Reload oder manuell).
- * Nur sinnvoll mit aktivem Media-Debug (`easymeetMediaDebug`).
+ * Prints short checklist B) to the console (useful after reload or manually).
+ * Only meaningful with media debug enabled (`easymeetMediaDebug`).
  */
 export function printEasymeetDeviceRecoveryGuide() {
 	if (!mediaDebugEnabled()) {
 		console.warn(
-			"[easymeet/media-debug] Media-Debug ist aus. Einschalten: ?easymeetMediaDebug=1 oder localStorage.setItem('easymeetMediaDebug','1'), dann Seite neu laden."
+			"[easymeet/media-debug] Media debug is off. Enable: ?easymeetMediaDebug=1 or localStorage.setItem('easymeetMediaDebug','1'), then reload."
 		);
 	}
 	const lines = [
-		"[easymeet/media-debug] — Checkliste B) Geräte-Recovery (Kurz)",
-		"Filter: \"device:recovery\" | optional \"ms:\" für Mediasoup",
-		"· chain:run        → Recovery gestartet (fehlt oft = kein Browser-Event / Fokus)",
-		"· reacquire:start/done/error → Kernpfad",
-		"· mute-unmute-cycle / rebind-mic-while-muted → welcher Audio-Zweig",
-		"· post-chain:mic-producer-force → finaler Mediasoup-Push",
-		"· ms:mic-producer:recreate → Producer wirklich neu",
-		"Vollständige Tabelle: Kopfkommentar in client/src/utils/mediaDebug.js"
+		"[easymeet/media-debug] — Checklist B) device recovery (short)",
+		"Filter: \"device:recovery\" | optional \"ms:\" for mediasoup",
+		"· chain:run        → recovery started (often missing = no browser event / focus)",
+		"· reacquire:start/done/error → core path",
+		"· mute-unmute-cycle / rebind-mic-while-muted → which audio branch",
+		"· post-chain:mic-producer-force → final mediasoup push",
+		"· ms:mic-producer:recreate → producer truly recreated",
+		"Full table: file header comment in client/src/utils/mediaDebug.js"
 	];
 	console.warn(lines.join("\n"));
 }
@@ -113,7 +113,7 @@ export function mediaDebugLog(phase, data) {
 	console.warn("[easymeet/media-debug]", phase, payload);
 }
 
-/* Konsole: printEasymeetDeviceRecoveryGuide() — nur mit aktivem Media-Debug sinnvoll */
+/* Console: printEasymeetDeviceRecoveryGuide() — only useful with media debug on */
 try {
 	if (typeof globalThis !== "undefined") {
 		globalThis.printEasymeetDeviceRecoveryGuide = printEasymeetDeviceRecoveryGuide;
@@ -159,7 +159,7 @@ export function mediaDebugWireStreamVideoTracks(stream, label) {
 	}
 }
 
-/** Video-/Audiospuren eines Streams als kompakte Liste. */
+/** Compact list of video/audio tracks of a stream. */
 export function mediaDebugStreamInfo(stream) {
 	if (!stream) return { video: [], audio: [] };
 	return {

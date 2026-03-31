@@ -92,7 +92,7 @@ export function createRoomsRouter(deps) {
 		});
 	});
 
-	/** Vor /rooms/:roomId — sonst wird "active" als Raum-ID geparst. */
+	/** Before /rooms/:roomId — otherwise "active" is parsed as a room id. */
 	router.get("/rooms/active", (req, res) => {
 		res.setHeader("Cache-Control", "no-store");
 		cleanupExpiredRooms();

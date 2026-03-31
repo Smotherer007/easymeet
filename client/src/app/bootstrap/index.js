@@ -1,6 +1,6 @@
 /**
- * App Bootstrap – Orchestrierung (Navigation, Storage, Raum-Lebenszyklus, Subscriptions).
- * Öffentlicher Einstieg: ../index.js (bootstrap exportieren).
+ * App bootstrap — orchestration (navigation, storage, room lifecycle, subscriptions).
+ * Public entry: ../index.js (re-exports bootstrap).
  */
 
 import { installAudioUnlockOnUserGesture } from "../../audio.js";

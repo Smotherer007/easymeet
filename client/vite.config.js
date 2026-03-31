@@ -3,7 +3,7 @@ import { fileURLToPath } from "url";
 import { defineConfig, loadEnv } from "vite";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-/** Gemeinsam mit dem API-Server: Repo-Root `.env` (nur VITE_* gehen ins Bundle). */
+/** Shared with API server: repo-root `.env` (only VITE_* is bundled). */
 const rootConfigDir = path.resolve(__dirname, "..");
 
 function httpToWsTarget(httpUrl) {

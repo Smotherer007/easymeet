@@ -419,7 +419,7 @@ export function renderRoomViewHeader(meetingTitle) {
         <a href="/" class="room-view__logo-link">${iconLogoWordmark({ width: "110px", height: "28px" })}</a>
         <span class="room-view__header-sep"></span>
         <span class="room-view__meeting-title">${escapeHtml(meetingTitle)}</span>
-        <span class="room-view__media-latency" id="room-view-media-latency" title="${latencyTitle}" aria-live="polite">${latencyPlaceholder}</span>
+        <span class="room-view__media-latency" id="room-view-media-latency" role="status" title="${latencyTitle}" aria-label="${latencyTitle}" aria-live="polite">${latencyPlaceholder}</span>
       </div>
     </div>
   `;
@@ -504,7 +504,7 @@ export function renderChatPanelContent(messagesHtml, voipParticipantsHtml, voipM
 export const POLL_CREATE_MAX_OPTIONS = 8;
 
 /**
- * @param {number} optionNumber 1-basiert für Platzhalter „Antwort 1“ …
+ * @param {number} optionNumber 1-based for placeholder “Answer 1” …
  */
 export function renderPollOptionRowHtml(optionNumber) {
 	const p1 = escapeAttr(t("pollOptionPlaceholder"));
@@ -532,7 +532,7 @@ function renderPollCreateFormHtml() {
 }
 
 /**
- * Entfernen-Buttons nur ab 3 Zeilen; „Weitere Antwort“ bis Server-Limit.
+ * Remove buttons only from 3 rows onward; “Add option” until server limit.
  * @param {HTMLElement} container
  */
 export function syncPollCreateOptionUi(container) {
@@ -557,7 +557,7 @@ function renderOnePollBlock(poll, myId, participantCount = 0) {
 	const opts = poll.options || [];
 	const tallies = poll.tallies || opts.map(() => 0);
 	const totalVotes = tallies.reduce((a, b) => a + b, 0);
-	/** Balken: Anteil der Raumteilnehmer (visuelles Feedback); Fallback Anteil der Stimmen wenn keine Member-Liste. */
+	/** Bar: share of room participants (visual feedback); fallback to vote share when no member list. */
 	const barDenominator =
 		participantCount > 0 ? participantCount : totalVotes > 0 ? totalVotes : 1;
 	const barPct = (votes) =>

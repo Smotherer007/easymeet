@@ -142,8 +142,8 @@ function syncModalVideo(app) {
 }
 
 /**
- * Screen-Share-UI ohne Full-Re-render (kein navigate('room-view')).
- * @param {{ skipVoip?: boolean }} [options] — nach voip/*-Events ist die Teilnehmerliste schon via handleVoipOrRoomUpdate aktuell.
+ * Screen-share UI without full re-render (no navigate('room-view')).
+ * @param {{ skipVoip?: boolean }} [options] — after voip/* events the participant list is already current via handleVoipOrRoomUpdate.
  */
 export function patchMeetingScreenSharePresentation(app, options = {}) {
 	const { skipVoip = false } = options;
@@ -416,36 +416,85 @@ function clearRoomMediaLatencyTimer(app) {
 		app._easymeetMediaLatencyTimer = null;
 	}
 	const el = app.querySelector("#room-view-media-latency");
-	if (el) el.textContent = t("roomMediaLatencyNone");
+	if (el) {
+		el.textContent = t("roomMediaLatencyNone");
+		el.classList.remove("room-view__media-latency--good", "room-view__media-latency--fair", "room-view__media-latency--poor");
+		el.setAttribute("aria-label", t("roomMediaLatencyTitle"));
+	}
+}
+
+function applyMediaLatencyPresentation(el, { line, quality, ariaLabel }) {
+	el.textContent = line;
+	el.classList.remove("room-view__media-latency--good", "room-view__media-latency--fair", "room-view__media-latency--poor");
+	if (quality === "good") el.classList.add("room-view__media-latency--good");
+	else if (quality === "fair") el.classList.add("room-view__media-latency--fair");
+	else if (quality === "poor") el.classList.add("room-view__media-latency--poor");
+	if (ariaLabel) el.setAttribute("aria-label", ariaLabel);
 }
 
 function startRoomMediaLatencyDisplay(app) {
 	clearRoomMediaLatencyTimer(app);
-	/** Last valid value — getStats often delays RTT or briefly returns null */
+	/** Last valid snapshot — getStats often returns RTT/loss late or briefly null */
+	let lastStatsSnapshot = null;
 	let lastGoodMs = null;
 	const tick = async () => {
 		const el = app.querySelector("#room-view-media-latency");
 		if (!el) return;
 		const hp = selectors.selectHostPeer(getState());
-		const fn = hp?.getWebRtcRttMs;
-		if (typeof fn !== "function") {
-			el.textContent = t("roomMediaLatencyNone");
+		const fnStats = hp?.getWebRtcConnectionStats;
+		const fnRtt = hp?.getWebRtcRttMs;
+
+		if (typeof fnStats === "function") {
+			const stats = await fnStats().catch(() => null);
+			if (stats && stats.rttMs != null && stats.rttMs >= 0) lastStatsSnapshot = stats;
+			const show = stats?.rttMs != null && stats.rttMs >= 0 ? stats : lastStatsSnapshot;
+			if (!show || show.rttMs == null || show.rttMs < 0) {
+				el.textContent = t("roomMediaLatencyNone");
+				el.classList.remove("room-view__media-latency--good", "room-view__media-latency--fair", "room-view__media-latency--poor");
+				el.setAttribute("aria-label", t("roomMediaLatencyTitle"));
+				return;
+			}
+			const q =
+				show.quality === "good" || show.quality === "fair" || show.quality === "poor" ? show.quality : "good";
+			const ratingWord =
+				q === "good" ? t("connectionRatingGood") : q === "fair" ? t("connectionRatingFair") : t("connectionRatingPoor");
+			const line = t("roomMediaLatencyLine").replace("{ms}", String(show.rttMs)).replace("{rating}", ratingWord);
+			const lossNote =
+				show.packetLossPercent != null
+					? t("roomMediaLatencyAriaLoss").replace("{p}", String(Math.round(show.packetLossPercent * 10) / 10))
+					: "";
+			const aria = t("roomMediaLatencyAria").replace("{ms}", String(show.rttMs)).replace("{rating}", ratingWord) + (lossNote ? " " + lossNote : "");
+			applyMediaLatencyPresentation(el, { line, quality: q, ariaLabel: aria });
 			return;
 		}
-		const ms = await fn().catch(() => null);
+
+		if (typeof fnRtt !== "function") {
+			el.textContent = t("roomMediaLatencyNone");
+			el.classList.remove("room-view__media-latency--good", "room-view__media-latency--fair", "room-view__media-latency--poor");
+			el.setAttribute("aria-label", t("roomMediaLatencyTitle"));
+			return;
+		}
+		const ms = await fnRtt().catch(() => null);
 		if (ms != null && ms >= 0) lastGoodMs = ms;
 		const showMs = ms != null && ms >= 0 ? ms : lastGoodMs;
 		if (showMs == null || showMs < 0) {
 			el.textContent = t("roomMediaLatencyNone");
+			el.classList.remove("room-view__media-latency--good", "room-view__media-latency--fair", "room-view__media-latency--poor");
+			el.setAttribute("aria-label", t("roomMediaLatencyTitle"));
 			return;
 		}
-		el.textContent = t("roomMediaLatency").replace("{ms}", String(showMs));
+		const showQ = showMs <= 110 ? "good" : showMs <= 220 ? "fair" : "poor";
+		const ratingWord =
+			showQ === "good" ? t("connectionRatingGood") : showQ === "fair" ? t("connectionRatingFair") : t("connectionRatingPoor");
+		const line = t("roomMediaLatencyLine").replace("{ms}", String(showMs)).replace("{rating}", ratingWord);
+		const aria = t("roomMediaLatencyAria").replace("{ms}", String(showMs)).replace("{rating}", ratingWord);
+		applyMediaLatencyPresentation(el, { line, quality: showQ, ariaLabel: aria });
 	};
 	void tick();
 	app._easymeetMediaLatencyTimer = setInterval(() => void tick(), ROOM_MEDIA_LATENCY_POLL_MS);
 }
 
-/** Beim Verlassen des Raums Interval stoppen (bootstrap). */
+/** Stop interval when leaving the room (bootstrap). */
 export function stopRoomMediaLatencyDisplay(app) {
 	clearRoomMediaLatencyTimer(app);
 }
@@ -458,7 +507,7 @@ function runInitialRoomSetup(app, deps) {
 		patchState({ localStream });
 	}
 	const myPeerId = selectors.selectMyPeerId(state);
-	/* Sprech-Indikator nur in attachRemoteAudio (bei live Audio) — kein zweiter Aufruf mit leerem localStream */
+	/* Speaking indicator only from attachRemoteAudio (live audio) — no second call with empty localStream */
 	if (localStream && myPeerId) attachRemoteAudio(myPeerId, localStream, app);
 	selectors.selectRemoteStreams(state).forEach((stream, peerId) => {
 		attachRemoteAudio(peerId, stream, app);
@@ -685,7 +734,7 @@ function handleToggleVideoLayout(app, navigate) {
 	}
 	patchState({
 		videoLayoutMode: next,
-		/* Beim Wechsel in Free-Layout: Chat/Teilnehmer nicht automatisch aufklappen; Videos sichtbar */
+		/* Switching to free layout: do not auto-expand chat/participants; keep videos visible */
 		...(next === "free" ? { freeLayoutChatOpen: false, freeLayoutParticipantsOpen: false, freeLayoutVideosOpen: true } : {})
 	});
 	try {
@@ -1014,7 +1063,7 @@ async function doUnmuteLocalStream(s, setupAudioTrackEndedHandler) {
 }
 
 /**
- * @param {{ forceMicProducer?: boolean; skipCamProducerChanges?: boolean }} [options] Nach Geräte-/Gate-Wechsel: Mic-Producer neu erzeugen (sonst gleicher Web-Audio-Destination-Track → Mediasoup denkt „kein Wechsel“). `skipCamProducerChanges`: nur bei Device-Recovery-Mute mit aktivem Hintergrund.
+ * @param {{ forceMicProducer?: boolean; skipCamProducerChanges?: boolean }} [options] After device/gate change: recreate mic producer (otherwise same Web Audio destination track → mediasoup sees “no change”). `skipCamProducerChanges`: only for device-recovery mute with active background.
  */
 async function syncMuteToPeersAsync(app, options = {}) {
 	const { forceMicProducer = false, skipCamProducerChanges = false } = options;
@@ -1036,7 +1085,7 @@ async function syncMuteToPeersAsync(app, options = {}) {
 	const myPeerId = selectors.selectMyPeerId(stAfter);
 	const host = selectors.selectHostPeer(stAfter);
 	const viewer = selectors.selectViewerConn(stAfter);
-	/* Nur ein Participant — parallel host+viewer würde dieselbe Transport-PC doppelt anfassen und queued Updates mit ended-Tracks mischen. */
+	/* Single participant — parallel host+viewer would touch the same transport PC twice and mix queued updates with ended tracks. */
 	const participant = host || viewer;
 	if (participant?.updateLocalStream) await participant.updateLocalStream(localStream, streamOpts);
 	if (host) host.broadcastMute?.(myPeerId, selectors.selectIsMuted(stAfter));
@@ -1068,7 +1117,7 @@ function syncMuteToPeers(app) {
 }
 
 /**
- * Stumm bleiben: neues Mikro wie beim Unmute einbinden, aber alle Audio-Spuren deaktiviert + sync (kein isMuted umschalten).
+ * Stay muted: bind new mic like unmute, but all audio tracks disabled + sync (do not flip isMuted).
  */
 export async function rebindMicWhileMutedForDeviceRecovery(app, setupAudioTrackEndedHandler) {
 	const s0 = getState();
@@ -1091,8 +1140,8 @@ export async function rebindMicWhileMutedForDeviceRecovery(app, setupAudioTrackE
 }
 
 /**
- * Derselbe Pfad wie Nutzer: Mute → Unmute (lokal + Mediasoup + VoIP-UI).
- * Nur aufrufen, wenn der Nutzer **nicht** stumm ist (sonst `rebindMicWhileMutedForDeviceRecovery`).
+ * Same path as user: mute → unmute (local + mediasoup + VoIP UI).
+ * Only call when the user is **not** muted (otherwise use `rebindMicWhileMutedForDeviceRecovery`).
  */
 export async function replayMuteUnmuteForDeviceRecovery(app, setupAudioTrackEndedHandler) {
 	const s0 = getState();
@@ -1121,7 +1170,7 @@ export async function replayMuteUnmuteForDeviceRecovery(app, setupAudioTrackEnde
 		);
 		return;
 	}
-	/* Kurz warten: Gate/Destination-Track soll live sein, bevor produce läuft (sonst „track ended“ im Log). */
+	/* Brief wait: gate/destination track should be live before produce (otherwise “track ended” in logs). */
 	await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
 	await syncMuteToPeersAsync(app, { forceMicProducer: true });
 	mediaDebugLog("device:recovery:mute-unmute-cycle:done", {});
@@ -1395,7 +1444,7 @@ async function setupPreviewVideoWhenOpen(app, applyEffectToPreview) {
 	}
 }
 
-/** Nach Geräte-Hotplug (Vorschau wurde gestoppt, damit der Call die Kamera bekommt). */
+/** After device hotplug (preview was stopped so the call could take the camera). */
 export async function restartEffectPreviewAfterDeviceRecovery(app, applyEffectToPreview) {
 	await new Promise((r) => requestAnimationFrame(r));
 	const st = getState();
@@ -1502,7 +1551,7 @@ async function swapInputDeviceAndSync(app, s, deviceId, newStream, setupAudioTra
 	patchState({ inputDeviceId, videoDeviceId });
 	syncPreviewVideoToLocalStream(app, localStream);
 	await syncPeersAndSpeakingAfterInputChange(app, localStream, inputDeviceId, videoDeviceId, setupAudioTrackEndedHandler);
-	/* Nicht Tracks stoppen, die noch im aktuellen local/base stecken (z. B. Noise-Gate-Destination — sonst endet der Mic-Pfad). */
+	/* Do not stop tracks still referenced by current local/base (e.g. noise-gate destination — would kill the mic path). */
 	const keep = new Set();
 	for (const stream of [selectors.selectLocalStream(getState()), selectors.selectBaseLocalStream(getState())]) {
 		stream?.getTracks?.()?.forEach((t) => t && keep.add(t));
@@ -1526,7 +1575,7 @@ async function handleInputDeviceChange(app, deviceId, setupAudioTrackEndedHandle
 		if (!(await swapInputDeviceAndSync(app, s, deviceId, newStream, setupAudioTrackEndedHandler))) return;
 		refreshDeviceSelects(app);
 		await applyPreviousEffectAfterDeviceChange(app, previousEffect, navigate);
-		/* Nach Effekt-Pipeline: Mute-Status + mediasoup nochmal sauber anbinden (Producer/Peers) */
+		/* After effect pipeline: re-sync mute + mediasoup (producers/peers) */
 		syncMuteToPeers(app);
 		await refreshDeviceSelects(app);
 		if (selectors.selectSettingsPanelOpen(getState())) await setupPreviewVideoWhenOpen(app, applyEffectToPreview);
@@ -1556,7 +1605,7 @@ function syncPeersAndPreviewAfterVideoChange(app, localStream, deviceId) {
 	const vdId = selectors.selectVideoDeviceId(getState());
 	if (vdId) writeDeviceId(DEVICE_STORAGE.video, vdId);
 	else localStorage.removeItem(DEVICE_STORAGE.video);
-	/* Producer-Update nur über applyEffectToCallStream (await) — sonst Race mit _updateLock / doppelter Pfad. */
+	/* Producer updates only via applyEffectToCallStream (await) — otherwise races _updateLock / duplicate path. */
 	const myPeerId = selectors.selectMyPeerId(getState());
 	if (myPeerId) attachRemoteAudio(myPeerId, localStream, app);
 	const preview = app.querySelector("#effect-preview-video");

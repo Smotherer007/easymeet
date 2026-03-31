@@ -1,5 +1,5 @@
 /**
- * I/O: API calls using Result type (Validierung über client/src/shared/roomApiPayloads).
+ * I/O: API calls using Result type (validation via client/src/shared/roomApiPayloads).
  */
 
 import { ok, err } from "../../shared/result.js";
@@ -106,7 +106,7 @@ export async function fetchJoinRoom(identifier, password) {
  */
 export async function fetchActiveRooms() {
 	try {
-		// Kein Browser-/Proxy-Caching: sonst leere Antwort „kleben“ lassen während der Server schon Räume liefert
+		// Disable browser/proxy caching so an empty response cannot stick while the server already returns rooms
 		const res = await fetchJson(`${API_BASE}/rooms/active?_=${Date.now()}`, {
 			cache: "no-store",
 			headers: { "Cache-Control": "no-cache" }

@@ -2,7 +2,7 @@ import { escapeAttr } from "./shared/escape.js";
 
 const URL_REGEX = /https?:\/\/[^\s<>"{}|\\^`[\]]+/gi;
 
-/** Nur http(s) für klickbare Links — kein javascript: u. ä. */
+/** Only http(s) for clickable links — no javascript:, etc. */
 export function safeHrefFromUserUrl(raw) {
 	if (!raw || typeof raw !== "string") return null;
 	try {

@@ -1,5 +1,5 @@
 /**
- * Hintergrund-Effekte für die Vorschau (Composition Root – nur dispatch, kein patchState).
+ * Background effects for preview (composition root — dispatch only, no patchState).
  */
 
 import { createBlurredStream, createVirtualBackgroundStream, isSupported as isBackgroundEffectsSupported, BACKGROUND_IMAGES } from "../../effects/backgroundEffects.js";

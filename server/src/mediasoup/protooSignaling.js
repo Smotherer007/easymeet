@@ -54,7 +54,7 @@ function sanitizeReactionEffect(raw) {
 	return REACTION_EFFECT_ID_SET.has(s) ? s : "";
 }
 
-/** Tenor / Giphy CDNs only — verhindert beliebige Tracking- oder XSS-Hilfs-URLs in Chat-GIFs. */
+/** Tenor / Giphy CDNs only — blocks arbitrary tracking or XSS helper URLs in chat GIFs. */
 function isAllowedGiphyMediaUrl(raw) {
 	try {
 		const u = new URL(raw);
@@ -203,7 +203,7 @@ function getConsumerTransport(msPeer) {
 }
 
 /**
- * Protoo: Peer.notify ist async — „transport closed“ landet als rejected Promise, nicht in try/catch.
+ * Protoo: Peer.notify is async — "transport closed" surfaces as a rejected Promise, not in try/catch.
  */
 function safeProtooNotify(protooPeer, method, data) {
 	if (!protooPeer) return;
@@ -330,7 +330,7 @@ function attachPeerToRoom(roomId, room, msPeer, protooPeer) {
 		const nick = still.nick ?? "?";
 		const leftId = msPeer.peerId;
 
-		/* Abgehender Peer noch in room.peers — nicht an seinen geschlossenen Transport notify-en */
+		/* Departing peer still in room.peers — do not notify their closed transport */
 		broadcastEasymeet(roomId, { type: "peer_left", peerId: leftId, nick }, leftId);
 
 		closePeer(roomId, leftId, { closeProtooPeer: false });

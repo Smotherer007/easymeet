@@ -1,6 +1,6 @@
 /**
- * Schwebende Emoji-Reaktionen — gleiches Prinzip wie reactionEffects.js: an #app mit position:fixed,
- * damit nichts von overflow:hidden (z. B. schwebendes Video-Fenster) weggeschnitten wird.
+ * Floating emoji reactions — same idea as reactionEffects.js: append to #app with position:fixed
+ * so overflow:hidden (e.g. floating video window) does not clip them.
  */
 
 /**

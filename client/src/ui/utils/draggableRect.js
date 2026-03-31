@@ -1,11 +1,11 @@
 /**
- * Geometrie für verschiebbare Overlay-Fenster (Floating-Windows, Modals).
- * Layout ausschließlich über CSS (.draggable-rect + Custom Properties).
+ * Geometry for draggable overlay windows (floating windows, modals).
+ * Layout only via CSS (.draggable-rect + custom properties).
  */
 
 /**
  * @param {{ x: number; y: number; w: number; h: number }} rect
- * @returns {string} Nur Custom-Properties für das style-Attribut
+ * @returns {string} Custom properties only, for the style attribute
  */
 export function draggableRectInlineStyle(rect) {
 	const x = Math.round(rect.x);

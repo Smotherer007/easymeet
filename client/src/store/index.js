@@ -39,7 +39,7 @@ export function getState() {
 }
 
 /**
- * Direktes State-Merge – nur noch für Legacy-Pfade (effects/ui/roomView, effects/media/*).
+ * Direct state merge — legacy paths only (effects/ui/roomView, effects/media/*).
  * Neue Logik: `dispatch` + Events in `domain/events` und Handler in `appReducer`.
  * @param {Partial<AppState>} patch
  */
