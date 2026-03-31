@@ -66,6 +66,7 @@ import { replaceEmojiShortcodes } from "../../utils/emojiShortcodes.js";
 import { WINDOW_POSITION_DEFAULTS } from "../../shared/windowPositionsDefaults.js";
 import { mergeAndClampWindowRect, clampWindowRectById, clampDraggablePosition } from "../utils/viewportWindowClamp.js";
 import { applyDraggableRect } from "../utils/draggableRect.js";
+import { createFocusTrap } from "../../utils/focusTrap.js";
 
 function clearPollCreateValidation(container) {
 	const err = container.querySelector("#poll-create-error");
@@ -481,6 +482,7 @@ export function updateMuteButton(container, isMuted) {
 		btn.className = meeting ? `meeting-control-btn chat__mute-btn--${suffix}` : `chat__sidebar-btn btn btn--ghost btn--sm chat__mute-btn--${suffix}`;
 		btn.innerHTML = isMuted ? iconMicOff() : iconMic();
 		btn.title = isMuted ? t("unmute") : t("mute");
+		if (meeting) btn.setAttribute("aria-pressed", isMuted ? "true" : "false");
 	});
 }
 
@@ -491,6 +493,7 @@ export function updateVideoButton(container, isVideoEnabled) {
 		btn.className = meeting ? `meeting-control-btn video-btn--${suffix}` : `chat__sidebar-btn btn btn--ghost btn--sm video-btn--${suffix}`;
 		btn.innerHTML = isVideoEnabled ? iconVideo() : iconVideoOff();
 		btn.title = isVideoEnabled ? t("cameraOn") : t("cameraOff");
+		if (meeting) btn.setAttribute("aria-pressed", isVideoEnabled ? "true" : "false");
 	});
 	const wrap = container.querySelector("#effect-tiles-wrap");
 	if (wrap) wrap.dataset.cameraActive = isVideoEnabled ? "true" : "false";
@@ -841,8 +844,23 @@ function setupDraggableModals(container, callbacks = {}) {
 
 function attachRoomViewModalListeners(container, callbacks) {
 	const leaveModal = container.querySelector("#leave-room-modal");
-	const openLeaveModal = () => leaveModal?.removeAttribute("hidden");
-	const closeLeaveModal = () => leaveModal?.setAttribute("hidden", "");
+	/** @type {{ deactivate: () => void } | null} */
+	let leaveFocusTrap = null;
+	const openLeaveModal = () => {
+		leaveModal?.removeAttribute("hidden");
+		requestAnimationFrame(() => {
+			const panel = leaveModal?.querySelector(".leave-room-modal__panel");
+			if (!panel) return;
+			leaveFocusTrap?.deactivate?.();
+			leaveFocusTrap = createFocusTrap(panel);
+			leaveFocusTrap.activate();
+		});
+	};
+	const closeLeaveModal = () => {
+		leaveFocusTrap?.deactivate?.();
+		leaveFocusTrap = null;
+		leaveModal?.setAttribute("hidden", "");
+	};
 	container.querySelectorAll('[data-action="leave"]').forEach((btn) => btn.addEventListener("click", openLeaveModal));
 	leaveModal?.querySelectorAll('[data-action="leave-cancel"]').forEach((el) => el.addEventListener("click", closeLeaveModal));
 	leaveModal?.querySelector('[data-action="leave-confirm"]')?.addEventListener("click", () => {
@@ -1333,13 +1351,30 @@ export function attachRoomViewListeners(container, callbacks) {
 			callbacks.onPeerVolumeChange?.(slider.dataset.peerId, val);
 		}
 	});
+	/** @type {{ activate: () => void; deactivate: () => void } | null} */
+	let settingsFocusTrap = null;
 	const openSettingsModal = () => {
 		callbacks.onOpenSettingsModal?.();
+		requestAnimationFrame(() => {
+			container.querySelectorAll('[data-action="toggle-settings"]').forEach((b) => b.setAttribute("aria-expanded", "true"));
+			const modal = container.querySelector("#settings-modal");
+			const content = modal?.querySelector(".settings-modal__content");
+			if (!modal || modal.hasAttribute("hidden") || !content) return;
+			settingsFocusTrap?.deactivate?.();
+			settingsFocusTrap = createFocusTrap(content);
+			settingsFocusTrap.activate();
+		});
 	};
 	const closeSettingsModal = () => {
+		container.querySelectorAll('[data-action="toggle-settings"]').forEach((b) => b.setAttribute("aria-expanded", "false"));
+		settingsFocusTrap?.deactivate?.();
+		settingsFocusTrap = null;
 		callbacks.onMinimizeSettingsModal?.();
 	};
 	container.querySelectorAll('[data-action="toggle-video-layout"]').forEach((el) => el.addEventListener("click", () => callbacks.onToggleVideoLayout?.()));
+	container.querySelectorAll('[data-action="reset-free-layout"]').forEach((el) =>
+		el.addEventListener("click", () => callbacks.onResetFreeLayout?.())
+	);
 	container.querySelectorAll('[data-action="toggle-settings"]').forEach((el) =>
 		el.addEventListener("click", () => {
 			const modal = container.querySelector("#settings-modal");
@@ -1353,11 +1388,31 @@ export function attachRoomViewListeners(container, callbacks) {
 	container.querySelectorAll('[data-action="minimize-settings-modal"]').forEach((el) => {
 		el.addEventListener("click", closeSettingsModal);
 	});
+	container.addEventListener(
+		"click",
+		(e) => {
+			const tab = e.target.closest('[data-action="settings-tab"]');
+			if (!tab) return;
+			const name = tab.dataset.tab;
+			if (!name) return;
+			container.querySelectorAll('[data-action="settings-tab"]').forEach((btn) => {
+				const active = btn.dataset.tab === name;
+				btn.setAttribute("aria-selected", active ? "true" : "false");
+				btn.classList.toggle("settings-modal__tab--active", active);
+				btn.tabIndex = active ? 0 : -1;
+			});
+			container.querySelectorAll(".settings-modal__tab-panel[data-panel]").forEach((panel) => {
+				const active = panel.dataset.panel === name;
+				panel.toggleAttribute("hidden", !active);
+			});
+		},
+		{ signal: vSignal }
+	);
 	container.addEventListener("keydown", (e) => {
 		if (e.key === "Escape") {
 			const leaveM = container.querySelector("#leave-room-modal");
 			if (leaveM && !leaveM.hasAttribute("hidden")) {
-				leaveM.setAttribute("hidden", "");
+				leaveM.querySelector('[data-action="leave-cancel"]')?.click();
 				return;
 			}
 			const pop = container.querySelector("#reaction-popover");
@@ -1468,11 +1523,18 @@ export function attachRoomViewListeners(container, callbacks) {
 		container.querySelectorAll(".meeting-control-bar").forEach((bar) => bar.classList.remove("meeting-control-bar--more-open"));
 		container.querySelectorAll('[data-action="toggle-meeting-more"]').forEach((b) => b.setAttribute("aria-expanded", "false"));
 	};
+	const narrowSidebars = () =>
+		typeof window !== "undefined" && window.matchMedia("(max-width: 1023px)").matches;
+
 	const toggleSidebar = () => {
 		collapseMeetingMore();
 		if (participantsFloatingWindow) {
 			callbacks.onFloatingParticipantsToggle?.();
 		} else {
+			const wasOpen = sidebar?.classList.contains("chat__sidebar--open");
+			if (!wasOpen && narrowSidebars()) {
+				chatPanel?.classList.remove("chat-panel--open");
+			}
 			sidebar?.classList.toggle("chat__sidebar--open");
 			syncMobileMeetingOverlay();
 		}
@@ -1484,7 +1546,11 @@ export function attachRoomViewListeners(container, callbacks) {
 		} else {
 			const wasOpen = chatPanel?.classList.contains("chat-panel--open");
 			chatPanel?.classList.toggle("chat-panel--open");
-			if (!wasOpen && chatPanel?.classList.contains("chat-panel--open")) callbacks.onChatPanelOpen?.();
+			const nowOpen = chatPanel?.classList.contains("chat-panel--open");
+			if (nowOpen && !wasOpen) {
+				if (narrowSidebars()) sidebar?.classList.remove("chat__sidebar--open");
+				callbacks.onChatPanelOpen?.();
+			}
 			syncMobileMeetingOverlay();
 		}
 	};

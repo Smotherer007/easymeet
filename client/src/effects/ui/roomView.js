@@ -13,6 +13,7 @@ import { addCustomBackground, removeCustomBackground } from "../storage/customBa
 import { writeDeviceId } from "../storage/deviceStorage.js";
 import { writeAudioSettings, getAudioProcessingConstraints } from "../storage/audioSettingsStorage.js";
 import { DEVICE_STORAGE, VIDEO_LAYOUT_STORAGE, WINDOW_POSITIONS_STORAGE } from "../../shared/constants.js";
+import { WINDOW_POSITION_DEFAULTS } from "../../shared/windowPositionsDefaults.js";
 import { escapeHtml } from "../../shared/escape.js";
 import {
 	attachRoomViewListeners,
@@ -908,6 +909,21 @@ function buildRoomViewConfigPart2(app, deps) {
 		runExpandFromToolbar(app, content, toolbarSettingsBtn);
 	};
 
+	const onResetFreeLayout = () => {
+		const wp = selectors.selectWindowPositions(getState());
+		const next = {
+			...wp,
+			videos: { ...WINDOW_POSITION_DEFAULTS.videos },
+			chat: { ...WINDOW_POSITION_DEFAULTS.chat },
+			participants: { ...WINDOW_POSITION_DEFAULTS.participants }
+		};
+		patchState({ windowPositions: next });
+		try {
+			localStorage.setItem(WINDOW_POSITIONS_STORAGE, JSON.stringify(next));
+		} catch (_) {}
+		navigate("room-view");
+	};
+
 	return {
 		onToggleMute: () => handleToggleMute(app, setupAudioTrackEndedHandler, navigate),
 		onToggleVideo: () => handleToggleVideo(app, applyEffectToPreview, applyEffectToCallStream, navigate, setupAudioTrackEndedHandler),
@@ -923,6 +939,7 @@ function buildRoomViewConfigPart2(app, deps) {
 		onOpenPollsPanel: () => openPollsPanelFromToolbar(app),
 		onMinimizePollsModal: () => minimizePollsModalToToolbar(app),
 		onMinimizeSettingsModal: () => minimizeSettingsModalToToolbar(),
+		onResetFreeLayout: onResetFreeLayout,
 		onInputDeviceChange: (deviceId) =>
 			handleInputDeviceChange(app, deviceId, setupAudioTrackEndedHandler, refreshDeviceSelects, navigate, applyEffectToPreview),
 		onVideoDeviceChange: (deviceId) => handleVideoDeviceChange(app, deviceId, refreshDeviceSelects, navigate, applyEffectToPreview),

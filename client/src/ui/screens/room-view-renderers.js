@@ -33,7 +33,8 @@ import {
 	iconGrip,
 	iconLogoWordmark,
 	iconHand,
-	iconBarChart2
+	iconBarChart2,
+	iconRefreshCw
 } from "../../icons.js";
 import { replaceEmojiShortcodes } from "../../utils/emojiShortcodes.js";
 import { renderChatContent } from "../../link-embed.js";
@@ -198,7 +199,8 @@ function renderMeetingControlBarInner(state) {
 		unreadChatCount,
 		roomId,
 		videoLayoutMode = "grid",
-		myHandRaised = false
+		myHandRaised = false,
+		settingsPanelOpen = false
 	} = state;
 	const screenSlot = hasScreenShareSupport
 		? `<span class="meeting-control-bar__screen-slot">${renderMeetingScreenShareSlotInner({ hasScreenShareSupport, hostStream })}</span>`
@@ -209,10 +211,13 @@ function renderMeetingControlBarInner(state) {
 	const layoutIcon = inFree ? iconLayoutGrid() : iconGrip();
 	const handTitle = myHandRaised ? t("lowerHand") : t("raiseHand");
 	const reactionPopoverInner = renderReactionPopoverBody();
+	const resetFreeBtn = inFree
+		? `<button type="button" class="meeting-control-btn meeting-control-btn--reset-layout" data-action="reset-free-layout" title="${escapeAttr(t("freeLayoutResetLayout"))}" aria-label="${escapeAttr(t("freeLayoutResetLayout"))}">${iconRefreshCw()}</button>`
+		: "";
 	return `
     <div class="meeting-control-bar__primary">
-      <button class="meeting-control-btn chat__mute-btn--${isMuted ? "muted" : "unmuted"}" data-action="toggle-mute" title="${escapeAttr(isMuted ? t("unmute") : t("mute"))}">${isMuted ? iconMicOff() : iconMic()}</button>
-      <button class="meeting-control-btn video-btn--${isVideoEnabled ? "on" : "off"}" data-action="toggle-video" title="${escapeAttr(isVideoEnabled ? t("cameraOn") : t("cameraOff"))}">${isVideoEnabled ? iconVideo() : iconVideoOff()}</button>
+      <button type="button" class="meeting-control-btn chat__mute-btn--${isMuted ? "muted" : "unmuted"}" data-action="toggle-mute" aria-pressed="${isMuted ? "true" : "false"}" title="${escapeAttr(isMuted ? t("unmute") : t("mute"))}">${isMuted ? iconMicOff() : iconMic()}</button>
+      <button type="button" class="meeting-control-btn video-btn--${isVideoEnabled ? "on" : "off"}" data-action="toggle-video" aria-pressed="${isVideoEnabled ? "true" : "false"}" title="${escapeAttr(isVideoEnabled ? t("cameraOn") : t("cameraOff"))}">${isVideoEnabled ? iconVideo() : iconVideoOff()}</button>
       <button class="meeting-control-btn meeting-control-btn--leave" data-action="leave" title="${escapeAttr(t("leaveRoom"))}">${iconPhoneOff()}</button>
       <button class="meeting-control-btn meeting-control-btn--chat" data-action="toggle-chat-panel" title="${escapeAttr(t("tabChat"))}"><span class="meeting-control-btn__icon-wrap">${iconMessageSquare()}<span class="chat-badge" id="chat-badge" ${unreadChatCount > 0 ? "" : "hidden"}>${unreadChatCount > 99 ? "99+" : unreadChatCount}</span></span></button>
       <button class="meeting-control-btn" data-action="toggle-sidebar" title="${escapeAttr(t("participants"))}">${iconUsers()}</button>
@@ -227,8 +232,9 @@ function renderMeetingControlBarInner(state) {
       <button type="button" class="meeting-control-btn" data-action="toggle-polls-panel" title="${escapeAttr(t("pollsToggle"))}">${iconBarChart2()}</button>
       ${screenSlot}
       ${roomId ? `<button class="meeting-control-btn" data-action="share" title="${escapeAttr(t("shareRoom"))}">${iconShare2()}</button>` : ""}
-      <button class="meeting-control-btn meeting-control-btn--layout" data-action="toggle-video-layout" title="${escapeAttr(layoutTitle)}" aria-label="${escapeAttr(layoutTitle)}">${layoutIcon}</button>
-      <button class="meeting-control-btn meeting-control-btn--settings" data-action="toggle-settings" title="${escapeAttr(t("settings"))}" aria-label="${escapeAttr(t("settings"))}">${iconSettings()}</button>
+      ${resetFreeBtn}
+      <button type="button" class="meeting-control-btn meeting-control-btn--layout" data-action="toggle-video-layout" title="${escapeAttr(layoutTitle)}" aria-label="${escapeAttr(layoutTitle)}">${layoutIcon}</button>
+      <button type="button" class="meeting-control-btn meeting-control-btn--settings" data-action="toggle-settings" aria-expanded="${settingsPanelOpen ? "true" : "false"}" title="${escapeAttr(t("settings"))}" aria-label="${escapeAttr(t("settings"))}">${iconSettings()}</button>
     </div>
   `;
 }
@@ -716,18 +722,21 @@ export function renderSettingsModalContent(state) {
 	const effectTiles = hasBackgroundBlur
 		? `<div class="effect-tiles" id="effect-tiles"><button type="button" class="effect-tile ${backgroundEffect === "none" ? "effect-tile--selected" : ""}" data-effect="none" title="${escapeAttr(t("backgroundNone"))}"><span class="effect-tile__preview effect-tile__preview--none">${iconVideo()}</span><span class="effect-tile__label">${t("backgroundNone")}</span></button><button type="button" class="effect-tile ${backgroundEffect === "blur" ? "effect-tile--selected" : ""}" data-effect="blur" title="${escapeAttr(t("backgroundBlur"))}"><span class="effect-tile__preview effect-tile__preview--blur"></span><span class="effect-tile__label">${t("backgroundBlur")}</span></button>${renderEffectTilesFirst(backgroundImages, backgroundEffect)}</div>${renderEffectTilesMore(backgroundImages, backgroundEffect)}<input type="file" id="background-upload-input" accept="image/*" hidden /><button type="button" class="effect-tiles-upload-btn" id="effect-tiles-upload-btn" title="${escapeAttr(t("uploadCustomBackground"))}">${iconUpload()} ${t("uploadCustomBackground")}</button>`
 		: `<p class="effect-preview-unsupported" id="effect-preview-unsupported">${t("backgroundEffectsNotSupported")}</p>`;
-	return `
-    <div class="settings-modal" id="settings-modal" ${state.settingsPanelOpen ? "" : "hidden"}>
-      <div class="settings-modal__content draggable-rect" data-draggable data-window="settings" style="${draggableRectInlineStyle(settingsPositionRect)}">
-        <div class="settings-modal__header" data-drag-handle>
-          <h3 class="settings-modal__title">${t("settings")}</h3>
-          <button type="button" class="btn btn--ghost btn--sm" data-action="minimize-settings-modal" title="${escapeAttr(t("minimizeWindow"))}" aria-label="${escapeAttr(t("minimizeWindow"))}">${iconMinus()}</button>
-        </div>
-        <div class="settings-modal__body" id="settings-panel">
+	const tabsAria = escapeAttr(t("settingsModalTabsAria"));
+	const mediaPanel = `
           <div class="settings-modal__section">
             <h4>${t("videoDevice")}</h4>
             <div class="input-group"><select id="video-device"></select></div>
           </div>
+          <div class="settings-modal__section">
+            <h4>${t("inputDevice")}</h4>
+            <div class="input-group"><select id="input-device"></select></div>
+          </div>
+          <div class="settings-modal__section">
+            <h4>${t("outputDevice")}</h4>
+            <div class="input-group"><select id="output-device"></select></div>
+          </div>`;
+	const effectsPanel = `
           <div class="effect-tiles-wrap settings-modal__section" id="effect-tiles-wrap" data-camera-active="${isVideoEnabled}">
             <h4>${t("backgroundEffect")}</h4>
             <div class="effect-preview-wrap" id="effect-preview-wrap">
@@ -735,11 +744,8 @@ export function renderSettingsModalContent(state) {
               <div class="effect-preview-loading" id="effect-preview-loading" hidden>${iconLoader2()}</div>
             </div>
             ${effectTiles}
-          </div>
-          <div class="settings-modal__section">
-            <h4>${t("inputDevice")}</h4>
-            <div class="input-group"><select id="input-device"></select></div>
-          </div>
+          </div>`;
+	const advancedPanel = `
           <div class="settings-modal__section settings-modal__section--audio-advanced">
             <h4>${t("audioAdvancedTitle")}</h4>
             <p class="settings-modal__hint settings-modal__hint--sm">${t("audioAdvancedHint")}</p>
@@ -768,11 +774,23 @@ export function renderSettingsModalContent(state) {
               <span class="settings-modal__field-help" role="img" aria-label="${escapeAttr(t("autoGainControlHelp"))}" title="${escapeAttr(t("autoGainControlHelp"))}">?</span>
             </div>
             <p class="settings-modal__hint settings-modal__hint--sm">${t("browserAudioConstraintsHint")}</p>
-          </div>
-          <div class="settings-modal__section">
-            <h4>${t("outputDevice")}</h4>
-            <div class="input-group"><select id="output-device"></select></div>
-          </div>
+          </div>`;
+	return `
+    <div class="settings-modal" id="settings-modal" role="dialog" aria-modal="true" aria-labelledby="settings-modal-title" ${state.settingsPanelOpen ? "" : "hidden"}>
+      <div class="settings-modal__content draggable-rect" data-draggable data-window="settings" style="${draggableRectInlineStyle(settingsPositionRect)}">
+        <div class="settings-modal__header" data-drag-handle>
+          <h3 class="settings-modal__title" id="settings-modal-title">${t("settings")}</h3>
+          <button type="button" class="btn btn--ghost btn--sm" data-action="minimize-settings-modal" title="${escapeAttr(t("minimizeWindow"))}" aria-label="${escapeAttr(t("minimizeWindow"))}">${iconMinus()}</button>
+        </div>
+        <div class="settings-modal__tabs" role="tablist" aria-label="${tabsAria}">
+          <button type="button" class="settings-modal__tab settings-modal__tab--active" role="tab" id="settings-tab-media" data-action="settings-tab" data-tab="media" aria-selected="true" aria-controls="settings-panel-media" tabindex="0">${escapeHtml(t("settingsTabMedia"))}</button>
+          <button type="button" class="settings-modal__tab" role="tab" id="settings-tab-effects" data-action="settings-tab" data-tab="effects" aria-selected="false" aria-controls="settings-panel-effects" tabindex="-1">${escapeHtml(t("settingsTabEffects"))}</button>
+          <button type="button" class="settings-modal__tab" role="tab" id="settings-tab-advanced" data-action="settings-tab" data-tab="advanced" aria-selected="false" aria-controls="settings-panel-advanced" tabindex="-1">${escapeHtml(t("settingsTabAdvanced"))}</button>
+        </div>
+        <div class="settings-modal__body" id="settings-panel">
+          <div class="settings-modal__tab-panel" id="settings-panel-media" role="tabpanel" aria-labelledby="settings-tab-media" data-panel="media">${mediaPanel}</div>
+          <div class="settings-modal__tab-panel" id="settings-panel-effects" role="tabpanel" aria-labelledby="settings-tab-effects" data-panel="effects" hidden>${effectsPanel}</div>
+          <div class="settings-modal__tab-panel" id="settings-panel-advanced" role="tabpanel" aria-labelledby="settings-tab-advanced" data-panel="advanced" hidden>${advancedPanel}</div>
         </div>
         <div class="settings-modal__resize-handle" data-resize-handle title="${escapeAttr(t("resize"))}"></div>
       </div>

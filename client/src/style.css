@@ -4569,6 +4569,52 @@ body {
 	font-weight: 600;
 }
 
+.settings-modal__tabs {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.25rem;
+	padding: 0.5rem 1rem 0;
+	background: var(--bg-input);
+	border-bottom: 1px solid var(--border);
+	flex-shrink: 0;
+}
+
+.settings-modal__tab {
+	flex: 1;
+	min-width: 0;
+	padding: 0.5rem 0.65rem;
+	font-size: 0.875rem;
+	font-weight: 500;
+	border: 1px solid transparent;
+	border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+	background: transparent;
+	color: var(--text-muted);
+	cursor: pointer;
+	font-family: inherit;
+}
+
+.settings-modal__tab:hover {
+	color: var(--text);
+}
+
+.settings-modal__tab--active,
+.settings-modal__tab[aria-selected="true"] {
+	background: var(--glass-bg);
+	color: var(--text);
+	border-color: var(--border);
+	border-bottom-color: transparent;
+	margin-bottom: -1px;
+}
+
+.settings-modal__tab:focus-visible {
+	outline: 2px solid var(--ring);
+	outline-offset: 2px;
+}
+
+.settings-modal__tab-panel[hidden] {
+	display: none;
+}
+
 .settings-modal__body {
 	padding: 1.25rem;
 	overflow-y: auto;
