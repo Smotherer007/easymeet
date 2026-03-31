@@ -518,8 +518,9 @@ export function renderPollOptionRowHtml(optionNumber) {
 function renderPollCreateFormHtml() {
 	return `<div class="poll-create">
     <h4 class="poll-create__title">${escapeHtml(t("pollNew"))}</h4>
+    <p class="poll-create__error" id="poll-create-error" hidden role="alert"></p>
     <div class="poll-create__fields">
-      <input type="text" id="poll-create-question" class="poll-create__input poll-create__input--question" maxlength="200" placeholder="${escapeAttr(t("pollQuestionPlaceholder"))}" autocomplete="off" />
+      <input type="text" id="poll-create-question" class="poll-create__input poll-create__input--question" maxlength="200" placeholder="${escapeAttr(t("pollQuestionPlaceholder"))}" autocomplete="off" aria-describedby="poll-create-error" />
       <div class="poll-create__options" id="poll-create-options">
         ${renderPollOptionRowHtml(1)}
         ${renderPollOptionRowHtml(2)}

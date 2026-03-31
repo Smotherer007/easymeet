@@ -266,6 +266,7 @@ const translations = {
 		pollVotesLabel: "{n} Stimmen",
 		handRaisedMarker: "Hand gehoben",
 		pollNeedTwoOptions: "Bitte mindestens zwei Antworten eintragen.",
+		pollQuestionRequired: "Bitte eine Frage eingeben.",
 		pollAddOption: "Weitere Antwort",
 		pollRemoveOption: "Antwort entfernen",
 		pollMaxOptions: "Es sind höchstens 8 Antworten möglich."
@@ -530,6 +531,7 @@ const translations = {
 		pollVotesLabel: "{n} votes",
 		handRaisedMarker: "Hand raised",
 		pollNeedTwoOptions: "Please enter at least two answers.",
+		pollQuestionRequired: "Please enter a question.",
 		pollAddOption: "Add answer",
 		pollRemoveOption: "Remove answer",
 		pollMaxOptions: "You can add at most 8 answers."

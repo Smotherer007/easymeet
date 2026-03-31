@@ -8,15 +8,36 @@ import {
 	iconRefreshCw,
 	iconLockInline,
 	iconPinnedRoomJump,
-	iconLandingActiveRoomsEmpty
+	iconLandingActiveRoomsEmpty,
+	iconLoader2
 } from "../../icons.js";
 import { fetchActiveRooms, fetchPinnedRooms } from "../../effects/network/api.js";
+
+/**
+ * Intervall für GET /api/rooms/active + pinned (kein extra WebSocket nötig).
+ * Kürzer = aktuellere Zahlen, etwas mehr HTTP-Last.
+ */
+export const LANDING_ROOMS_POLL_MS = 10000;
 
 /**
  * Nur eine Landing-Aktualisierung gleichzeitig (pinned + active nacheinander).
  * Sonst kann eine schnelle leere Antwort „gewinnen“, während eine langsamere mit Räumen verworfen wird (Gen-Zähler).
  */
 let landingRoomPanelsRefreshChain = Promise.resolve();
+
+/**
+ * Timer + Visibility-Listener der Landing-Seite entfernen (z. B. beim Navigieren weg von der Startseite).
+ * @param {HTMLElement} container
+ */
+export function teardownLandingAutoRefresh(container) {
+	if (!container) return;
+	clearInterval(container._easymeetActiveRoomsInterval);
+	container._easymeetActiveRoomsInterval = undefined;
+	if (container._easymeetLandingVisibilityHandler) {
+		document.removeEventListener("visibilitychange", container._easymeetLandingVisibilityHandler);
+		container._easymeetLandingVisibilityHandler = undefined;
+	}
+}
 
 export function renderLanding() {
 	return `
@@ -28,16 +49,24 @@ export function renderLanding() {
       </div>
       <div class="landing__cards">
         <div class="card card--create" data-action="create">
+          <span class="landing__nav-spinner" hidden aria-hidden="true">${iconLoader2()}</span>
           <div class="card__icon card__icon--create">${iconMessageCirclePlus()}</div>
           <h2>${t("createCardTitle")}</h2>
           <p>${t("createCardDesc")}</p>
-          <button class="btn btn--primary" data-action="create">${t("createRoom")}</button>
+          <button type="button" class="btn btn--primary" data-action="create">
+            <span class="landing__nav-spinner" hidden aria-hidden="true">${iconLoader2()}</span>
+            <span class="landing__btn-text">${t("createRoom")}</span>
+          </button>
         </div>
         <div class="card card--join" data-action="join">
+          <span class="landing__nav-spinner" hidden aria-hidden="true">${iconLoader2()}</span>
           <div class="card__icon card__icon--join">${iconMessageCircle()}</div>
           <h2>${t("joinCardTitle")}</h2>
           <p>${t("joinCardDesc")}</p>
-          <button class="btn btn--secondary" data-action="join">${t("join")}</button>
+          <button type="button" class="btn btn--secondary" data-action="join">
+            <span class="landing__nav-spinner" hidden aria-hidden="true">${iconLoader2()}</span>
+            <span class="landing__btn-text">${t("join")}</span>
+          </button>
         </div>
       </div>
       <section class="landing__pinned" aria-labelledby="pinned-rooms-heading">
@@ -64,7 +93,10 @@ export function renderLanding() {
           <div class="landing__empty-icon" aria-hidden="true">${iconLandingActiveRoomsEmpty()}</div>
           <p class="landing__empty-headline">${t("activeRoomsEmptyHeadline")}</p>
           <p class="landing__empty-copy">${t("activeRoomsEmpty")}</p>
-          <button type="button" class="btn btn--secondary btn--sm" data-action="join-empty-cta">${t("activeRoomsEmptyCta")}</button>
+          <button type="button" class="btn btn--secondary btn--sm" data-action="join-empty-cta">
+            <span class="landing__nav-spinner" hidden aria-hidden="true">${iconLoader2()}</span>
+            <span class="landing__btn-text">${t("activeRoomsEmptyCta")}</span>
+          </button>
         </div>
         <ul class="landing__active-list" id="active-rooms-list" role="list"></ul>
       </section>
@@ -250,13 +282,22 @@ export async function refreshActiveRoomsPanel(container, onPickRoom) {
  */
 export function attachLandingListeners(container, handlers) {
 	const { onCreateRoom, onJoinRoom, onPickActiveRoom } = handlers;
-	clearInterval(container._easymeetActiveRoomsInterval);
+	teardownLandingAutoRefresh(container);
 	landingRoomPanelsRefreshChain = Promise.resolve();
 
-	container.querySelector('[data-action="create"]')?.addEventListener("click", onCreateRoom);
-	container.querySelectorAll('[data-action="join"]').forEach((el) => {
-		el.addEventListener("click", onJoinRoom);
-	});
+	const runLandingNav = (fn) => (e) => {
+		const el = e.currentTarget;
+		el.setAttribute("aria-busy", "true");
+		el.classList.add("landing__nav-pending");
+		el.querySelectorAll(":scope > .landing__nav-spinner").forEach((s) => s.removeAttribute("hidden"));
+		requestAnimationFrame(() => {
+			requestAnimationFrame(() => {
+				fn();
+			});
+		});
+	};
+	container.querySelectorAll('[data-action="create"]').forEach((el) => el.addEventListener("click", runLandingNav(onCreateRoom)));
+	container.querySelectorAll('[data-action="join"]').forEach((el) => el.addEventListener("click", runLandingNav(onJoinRoom)));
 
 	const runRefresh = () => {
 		landingRoomPanelsRefreshChain = landingRoomPanelsRefreshChain
@@ -268,9 +309,15 @@ export function attachLandingListeners(container, handlers) {
 		return landingRoomPanelsRefreshChain;
 	};
 	container.querySelector('[data-action="refresh-active-rooms"]')?.addEventListener("click", () => void runRefresh());
-	container.querySelector('[data-action="join-empty-cta"]')?.addEventListener("click", onJoinRoom);
+	container.querySelector('[data-action="join-empty-cta"]')?.addEventListener("click", runLandingNav(onJoinRoom));
 	void runRefresh();
-	container._easymeetActiveRoomsInterval = window.setInterval(() => void runRefresh(), 30000);
+	container._easymeetActiveRoomsInterval = window.setInterval(() => void runRefresh(), LANDING_ROOMS_POLL_MS);
+
+	const onVis = () => {
+		if (document.visibilityState === "visible") void runRefresh();
+	};
+	container._easymeetLandingVisibilityHandler = onVis;
+	document.addEventListener("visibilitychange", onVis);
 
 	if (!window._easymeetOrbParallax) {
 		window._easymeetOrbParallax = true;

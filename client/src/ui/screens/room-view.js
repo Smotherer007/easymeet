@@ -67,6 +67,24 @@ import { WINDOW_POSITION_DEFAULTS } from "../../shared/windowPositionsDefaults.j
 import { mergeAndClampWindowRect, clampWindowRectById, clampDraggablePosition } from "../utils/viewportWindowClamp.js";
 import { applyDraggableRect } from "../utils/draggableRect.js";
 
+function clearPollCreateValidation(container) {
+	const err = container.querySelector("#poll-create-error");
+	if (err) {
+		err.textContent = "";
+		err.setAttribute("hidden", "");
+	}
+	container.querySelector("#poll-create-question")?.classList.remove("poll-create__input--invalid");
+	container.querySelectorAll(".poll-create-option").forEach((inp) => inp.classList.remove("poll-create__input--invalid"));
+}
+
+function showPollCreateValidationError(container, message) {
+	const el = container.querySelector("#poll-create-error");
+	if (el) {
+		el.textContent = message;
+		el.removeAttribute("hidden");
+	}
+}
+
 function renderFloatingWindows(state) {
 	const {
 		windowPositions = {},
@@ -1181,6 +1199,7 @@ export function attachRoomViewListeners(container, callbacks) {
 				if (n >= POLL_CREATE_MAX_OPTIONS) return;
 				wrap.insertAdjacentHTML("beforeend", renderPollOptionRowHtml(n + 1));
 				syncPollCreateOptionUi(container);
+				clearPollCreateValidation(container);
 				return;
 			}
 			const remOpt = e.target.closest('[data-action="poll-remove-option"]');
@@ -1191,6 +1210,7 @@ export function attachRoomViewListeners(container, callbacks) {
 				if (!row || !wrap || wrap.querySelectorAll(".poll-create__option-row").length <= 2) return;
 				row.remove();
 				syncPollCreateOptionUi(container);
+				clearPollCreateValidation(container);
 				return;
 			}
 			const voteBtn = e.target.closest('[data-action="poll-vote"]');
@@ -1205,12 +1225,38 @@ export function attachRoomViewListeners(container, callbacks) {
 			}
 			const createSub = e.target.closest('[data-action="poll-create-submit"]');
 			if (createSub) {
+				e.preventDefault();
+				clearPollCreateValidation(container);
 				const qEl = container.querySelector("#poll-create-question");
 				const q = qEl?.value?.trim() ?? "";
 				const opts = [...container.querySelectorAll(".poll-create-option")]
 					.map((inp) => inp.value.trim())
 					.filter(Boolean);
+				if (!q) {
+					qEl?.classList.add("poll-create__input--invalid");
+					showPollCreateValidationError(container, t("pollQuestionRequired"));
+					qEl?.focus();
+					return;
+				}
+				if (opts.length < 2) {
+					showPollCreateValidationError(container, t("pollNeedTwoOptions"));
+					return;
+				}
+				if (opts.length > POLL_CREATE_MAX_OPTIONS) {
+					showPollCreateValidationError(container, t("pollMaxOptions"));
+					return;
+				}
 				callbacks.onPollCreate?.(q, opts);
+			}
+		},
+		{ signal: vSignal }
+	);
+
+	container.addEventListener(
+		"input",
+		(e) => {
+			if (e.target?.matches?.("#poll-create-question, .poll-create-option")) {
+				clearPollCreateValidation(container);
 			}
 		},
 		{ signal: vSignal }

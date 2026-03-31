@@ -919,14 +919,8 @@ function buildRoomViewConfigPart2(app, deps) {
 			p?.sendWs?.({ type: "poll_vote", pollId, optionIndex });
 		},
 		onPollCreate: (question, options) => {
-			if (!question?.trim() || !options || options.length < 2) {
-				alert(t("pollNeedTwoOptions"));
-				return;
-			}
-			if (options.length > POLL_CREATE_MAX_OPTIONS) {
-				alert(t("pollMaxOptions"));
-				return;
-			}
+			if (!question?.trim() || !options || options.length < 2) return;
+			if (options.length > POLL_CREATE_MAX_OPTIONS) return;
 			const p = selectors.selectHostPeer(getState()) || selectors.selectViewerConn(getState());
 			p?.sendWs?.({ type: "poll_create", question: question.trim(), options });
 		},

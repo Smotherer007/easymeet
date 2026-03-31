@@ -6,6 +6,7 @@ import { getLang, setLang, t } from "../../i18n.js";
 import {
 	renderLanding,
 	attachLandingListeners,
+	teardownLandingAutoRefresh,
 	renderCreateRoomForm,
 	renderCreateRoomSuccess,
 	attachCreateRoomListeners,
@@ -38,6 +39,9 @@ import { escapeAttr } from "../../shared/escape.js";
  */
 export function renderShell(appEl, html, getState) {
 	const s = getState();
+	if (selectors.selectScreen(s) !== "landing") {
+		teardownLandingAutoRefresh(appEl);
+	}
 	appEl.innerHTML = html;
 	appEl.className = selectors.selectScreen(s) === "room-view" ? "fullscreen" : "";
 }
