@@ -1942,22 +1942,8 @@ body {
 	z-index: 20;
 	transition: box-shadow 0.35s ease;
 	isolation: isolate;
-	overflow: hidden;
-}
-
-/* Accent gradient edge + hover light sweep (premium dock) */
-.meeting-control-bar::after {
-	content: "";
-	position: absolute;
-	top: 0;
-	left: 0;
-	right: 0;
-	height: 2px;
-	border-radius: var(--radius-lg) var(--radius-lg) 0 0;
-	background: var(--accent-gradient);
-	opacity: 0.82;
-	pointer-events: none;
-	z-index: 1;
+	/* Must not clip: .reaction-popover opens above the bar (position absolute, bottom: 100% + …) */
+	overflow: visible;
 }
 
 @media (prefers-reduced-motion: no-preference) {
@@ -2001,7 +1987,7 @@ body {
 	}
 }
 
-/* Above shimmer (::before z-index 0) and gradient line (::after z-index 1); primary/secondary use display:contents */
+/* Above hover sweep (::before z-index 0); primary/secondary use display:contents */
 .meeting-control-bar .meeting-control-btn,
 .meeting-control-bar .reaction-popover-wrap {
 	position: relative;
