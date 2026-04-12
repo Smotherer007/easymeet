@@ -21,7 +21,8 @@ services:
         #   MEDIASOUP_ANNOUNCED_IP: 203.0.113.10
         #   PORT: "3001"
         networks:
-            - frontend
+            frontend:
+                ipv4_address: 172.20.0.3
 
 networks:
     frontend:
