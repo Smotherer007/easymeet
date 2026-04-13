@@ -22,7 +22,7 @@ services:
         #   PORT: "3001"
         networks:
             frontend:
-                ipv4_address: 172.20.0.3
+                ipv4_address: 172.20.0.2
 
 networks:
     frontend:
