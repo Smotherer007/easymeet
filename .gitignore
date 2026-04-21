@@ -9,3 +9,6 @@ persistent-rooms.json
 .DS_Store
 .cursor/
 .vscode/
+*.sqlite
+*.sqlite-shm
+*.sqlite-wal
