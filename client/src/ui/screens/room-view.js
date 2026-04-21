@@ -536,31 +536,31 @@ export function updateChatBadge(container, count) {
 }
 
 const CHAT_SIDEBAR_WIDTH_KEY = "easymeet_chatSidebarWidth";
-const CHAT_SIDEBAR_MIN = 140;
-const CHAT_SIDEBAR_MAX_PERCENT = 0.5;
+const CHAT_SIDEBAR_DESKTOP_MIN = 380;
+const CHAT_PANEL_WIDTH_KEY = "easymeet_chatPanelWidth";
+const CHAT_PANEL_DESKTOP_MIN = 380;
 
 function attachChatResize(container) {
 	const handle = container.querySelector("#chat-resize-handle");
 	const sidebar = container.querySelector("#chat-sidebar");
-	const body = container.querySelector(".chat-view__body");
-	if (!handle || !sidebar || !body) return;
+	if (!handle || !sidebar) return;
 
 	const stored = localStorage.getItem(CHAT_SIDEBAR_WIDTH_KEY);
 	if (stored) {
 		const w = parseInt(stored, 10);
-		if (w >= CHAT_SIDEBAR_MIN) sidebar.style.setProperty("--chat-sidebar-width", `${w}px`);
+		if (w >= CHAT_SIDEBAR_DESKTOP_MIN) sidebar.style.setProperty("--chat-sidebar-overlay-width", `${w}px`);
 	}
 
 	let startX = 0;
 	let startWidth = 0;
 
 	function onMove(e) {
-		const bodyRect = body.getBoundingClientRect();
-		const maxW = bodyRect.width * CHAT_SIDEBAR_MAX_PERCENT;
+		const vw = window.innerWidth || document.documentElement.clientWidth || 0;
+		const maxW = Math.max(CHAT_SIDEBAR_DESKTOP_MIN, Math.floor(vw * 0.9));
 		const delta = e.clientX - startX;
 		let w = Math.round(startWidth + delta);
-		w = Math.max(CHAT_SIDEBAR_MIN, Math.min(maxW, w));
-		sidebar.style.setProperty("--chat-sidebar-width", `${w}px`);
+		w = Math.max(CHAT_SIDEBAR_DESKTOP_MIN, Math.min(maxW, w));
+		sidebar.style.setProperty("--chat-sidebar-overlay-width", `${w}px`);
 	}
 
 	function onUp() {
@@ -578,6 +578,47 @@ function attachChatResize(container) {
 		e.preventDefault();
 		startX = e.clientX;
 		startWidth = sidebar.getBoundingClientRect().width;
+		handle.classList.add("chat__resize-handle--active");
+		document.body.style.cursor = "col-resize";
+		document.body.style.userSelect = "none";
+		document.addEventListener("mousemove", onMove);
+		document.addEventListener("mouseup", onUp);
+	});
+}
+
+function attachChatPanelResize(container) {
+	const handle = container.querySelector("#chat-resize-handle-right");
+	const panel = container.querySelector("#chat-panel");
+	if (!handle || !panel) return;
+	const stored = localStorage.getItem(CHAT_PANEL_WIDTH_KEY);
+	if (stored) {
+		const w = parseInt(stored, 10);
+		if (w >= CHAT_PANEL_DESKTOP_MIN) panel.style.setProperty("--chat-panel-width", `${w}px`);
+	}
+	let startX = 0;
+	let startWidth = 0;
+	function onMove(e) {
+		const vw = window.innerWidth || document.documentElement.clientWidth || 0;
+		const maxW = Math.max(CHAT_PANEL_DESKTOP_MIN, Math.floor(vw * 0.9));
+		const delta = startX - e.clientX;
+		let w = Math.round(startWidth + delta);
+		w = Math.max(CHAT_PANEL_DESKTOP_MIN, Math.min(maxW, w));
+		panel.style.setProperty("--chat-panel-width", `${w}px`);
+	}
+	function onUp() {
+		handle.classList.remove("chat__resize-handle--active");
+		document.removeEventListener("mousemove", onMove);
+		document.removeEventListener("mouseup", onUp);
+		document.body.style.cursor = "";
+		document.body.style.userSelect = "";
+		const w = panel.getBoundingClientRect().width;
+		localStorage.setItem(CHAT_PANEL_WIDTH_KEY, String(Math.round(w)));
+	}
+	handle.addEventListener("mousedown", (e) => {
+		if (e.button !== 0) return;
+		e.preventDefault();
+		startX = e.clientX;
+		startWidth = panel.getBoundingClientRect().width;
 		handle.classList.add("chat__resize-handle--active");
 		document.body.style.cursor = "col-resize";
 		document.body.style.userSelect = "none";
@@ -1367,6 +1408,7 @@ export function attachRoomViewListeners(container, callbacks) {
 	const input = container.querySelector("#chat-input");
 	attachRoomViewChatListeners(container, callbacks, input);
 	attachChatResize(container);
+	attachChatPanelResize(container);
 	const chatList = container.querySelector("#chat-messages");
 	if (chatList) {
 		chatList.scrollTop = chatList.scrollHeight;
@@ -1773,6 +1815,8 @@ export function attachRoomViewListeners(container, callbacks) {
 	const sidebar = container.querySelector("#chat-sidebar");
 	const overlay = document.getElementById("mobile-overlay");
 	const chatPanel = container.querySelector("#chat-panel");
+	const sidebarResizeHandle = container.querySelector("#chat-resize-handle");
+	const chatPanelResizeHandle = container.querySelector("#chat-resize-handle-right");
 	const chatFloatingWindow = container.querySelector('.floating-window[data-window="chat"]');
 	const participantsFloatingWindow = container.querySelector('.floating-window[data-window="participants"]');
 
@@ -1793,6 +1837,20 @@ export function attachRoomViewListeners(container, callbacks) {
 	};
 	const narrowSidebars = () =>
 		typeof window !== "undefined" && window.matchMedia("(max-width: 1023px)").matches;
+	const syncStaticChatPanelResizeHandle = () => {
+		if (!chatPanelResizeHandle) return;
+		const desktop = typeof window !== "undefined" && window.matchMedia("(min-width: 1024px)").matches;
+		const isStatic = !chatFloatingWindow;
+		const panelOpen = chatPanel?.classList.contains("chat-panel--open");
+		chatPanelResizeHandle.classList.toggle("chat__resize-handle--hidden", !(desktop && isStatic && panelOpen));
+	};
+	const syncStaticSidebarResizeHandle = () => {
+		if (!sidebarResizeHandle) return;
+		const desktop = typeof window !== "undefined" && window.matchMedia("(min-width: 1024px)").matches;
+		const isStatic = !participantsFloatingWindow;
+		const sidebarOpen = sidebar?.classList.contains("chat__sidebar--open");
+		sidebarResizeHandle.classList.toggle("chat__resize-handle--hidden", !(desktop && isStatic && sidebarOpen));
+	};
 
 	const toggleSidebar = () => {
 		collapseMeetingMore();
@@ -1805,6 +1863,8 @@ export function attachRoomViewListeners(container, callbacks) {
 			}
 			sidebar?.classList.toggle("chat__sidebar--open");
 			syncMobileMeetingOverlay();
+			syncStaticSidebarResizeHandle();
+			syncStaticChatPanelResizeHandle();
 		}
 	};
 	const toggleChatPanel = () => {
@@ -1820,6 +1880,8 @@ export function attachRoomViewListeners(container, callbacks) {
 				callbacks.onChatPanelOpen?.();
 			}
 			syncMobileMeetingOverlay();
+			syncStaticSidebarResizeHandle();
+			syncStaticChatPanelResizeHandle();
 		}
 	};
 	const closeOverlays = () => {
@@ -1829,6 +1891,8 @@ export function attachRoomViewListeners(container, callbacks) {
 			callbacks.onDismissFloatingMobileOverlays?.();
 		}
 		overlay?.setAttribute("hidden", "");
+		syncStaticSidebarResizeHandle();
+		syncStaticChatPanelResizeHandle();
 	};
 
 	container.querySelectorAll('[data-action="toggle-sidebar"]').forEach((el) => el.addEventListener("click", toggleSidebar));
@@ -1838,6 +1902,7 @@ export function attachRoomViewListeners(container, callbacks) {
 			else {
 				sidebar?.classList.remove("chat__sidebar--open");
 				syncMobileMeetingOverlay();
+				syncStaticSidebarResizeHandle();
 			}
 		})
 	);
@@ -1852,6 +1917,7 @@ export function attachRoomViewListeners(container, callbacks) {
 		else {
 			chatPanel?.classList.remove("chat-panel--open");
 			syncMobileMeetingOverlay();
+			syncStaticChatPanelResizeHandle();
 		}
 	});
 	container.querySelector('[data-action="minimize-floating-chat"]')?.addEventListener("click", () => {
@@ -1864,6 +1930,10 @@ export function attachRoomViewListeners(container, callbacks) {
 		callbacks.onMinimizeFloatingVideos?.();
 	});
 	overlay?.addEventListener("click", closeOverlays);
+	window.addEventListener("resize", syncStaticSidebarResizeHandle, { signal: vSignal });
+	window.addEventListener("resize", syncStaticChatPanelResizeHandle, { signal: vSignal });
+	requestAnimationFrame(syncStaticSidebarResizeHandle);
+	requestAnimationFrame(syncStaticChatPanelResizeHandle);
 
 	return {
 		getInputValue: () => input?.value?.trim() ?? "",

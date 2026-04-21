@@ -555,14 +555,15 @@ export function renderMeetingControlBarGrid(state) {
 export function renderChatPanelContent(messagesHtml, voipParticipantsHtml, voipMembersLength) {
 	return `
     <aside class="chat__sidebar chat__sidebar--voip chat__sidebar--overlay" id="chat-sidebar">
+      <div class="chat__resize-handle chat__resize-handle--hidden chat__resize-handle--panel" id="chat-resize-handle" title="${escapeAttr(t("resize"))}"></div>
       <div class="chat__sidebar-header">
         <h3 class="chat__sidebar-title">${t("participants")} (<span id="participant-count">${voipMembersLength}</span>)</h3>
         <button class="btn btn--ghost btn--sm chat__sidebar-close" data-action="close-sidebar">${iconX()}</button>
       </div>
       <div class="voip-view__participant-list" id="participant-list">${voipParticipantsHtml || '<p class="voip-view__empty">' + t("participants") + "</p>"}</div>
     </aside>
-    <div class="chat__resize-handle chat__resize-handle--hidden" id="chat-resize-handle" title="${escapeAttr(t("resize"))}"></div>
     <div class="chat-panel chat-panel--overlay" id="chat-panel">
+      <div class="chat__resize-handle chat__resize-handle--hidden chat__resize-handle--panel" id="chat-resize-handle-right" title="${escapeAttr(t("resize"))}"></div>
       <div class="chat-panel__header">
         <h3 class="chat-panel__title">${t("tabChat")}</h3>
         <button class="btn btn--ghost btn--sm" data-action="close-chat-panel">${iconX()}</button>
@@ -600,7 +601,6 @@ export function renderChatPanelContent(messagesHtml, voipParticipantsHtml, voipM
         </div>
       </div>
     </div>
-    <div class="chat__resize-handle chat__resize-handle--hidden" id="chat-resize-handle-right" title="${escapeAttr(t("resize"))}"></div>
   `;
 }
 

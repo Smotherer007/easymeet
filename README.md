@@ -32,7 +32,7 @@
 | **Audio & Video**       | Microphone, camera, mute, video on/off                                               |
 | **Device Switching**    | Switch microphone and camera during calls (exact constraint for reliable selection)  |
 | **Screen Sharing**      | `getDisplayMedia` with optional system audio                                         |
-| **Chat**                | Text messages, emojis, GIFs (Tenor/Giphy)                                            |
+| **Chat**                | Text messages, emojis, GIFs (Giphy)                                                  |
 | **File Sharing**        | Files via **Protoo/easymeet** chunks to the room (server-vermittelt); folders as ZIP |
 | **Virtual Backgrounds** | Blur, preset images (e.g. The Office, Matrix), custom uploads                        |
 | **Speaking Indicator**  | Visual display of speaking activity                                                  |
@@ -90,7 +90,7 @@ npm install
 
 The postinstall script automatically downloads MediaPipe models for virtual backgrounds.
 
-Optional environment variables: see [.env.example](.env.example) (e.g. `TENOR_API_KEY` for GIF search).
+Optional environment variables: see [.env.example](.env.example) (e.g. `GIPHY_API_KEY` for GIF search).
 
 ### Development
 
@@ -280,7 +280,7 @@ Die Pipeline kann auch manuell unter **Actions → Build and Push Docker Image �
 | -------------------------------- | ----------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `PORT`                           | `3001`                                    | Port the server listens on                                                                                                                                                                                             |
 | `NODE_ENV`                       | `production`                              | Set automatically in Dockerfile                                                                                                                                                                                        |
-| `TENOR_API_KEY`                  | `LIVDSRZULELA` (Tenor demo key)           | API key for GIF search; never exposed to client                                                                                                                                                                        |
+| `GIPHY_API_KEY`                  | _(leer)_                                  | API key for GIF search via Giphy SDK/runtime config                                                                                                                                                                     |
 | `MEDIASOUP_ANNOUNCED_IP`         | _(leer)_                                  | **Wichtig in Docker/Cloud:** öffentliche IP oder Hostname für ICE (sonst oft kein Video/Audio). Siehe [mediasoup WebRtcTransportOptions](https://mediasoup.org/documentation/v3/mediasoup/api/#WebRtcTransportOptions) |
 | `MEDIASOUP_LISTEN_IP`            | `0.0.0.0`                                 | Bind-Adresse des WebRTC-Transports                                                                                                                                                                                     |
 | `RTC_MIN_PORT` / `RTC_MAX_PORT`  | `40000`–`40200`                           | UDP-Portbereich für RTP (muss intern bis zum Container durchgereicht werden, z. B. Proxy)                                                                                                                              |

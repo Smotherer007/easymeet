@@ -31,17 +31,12 @@ RUN cd server && npm ci --omit=dev
 
 COPY --from=builder /app/client/dist ./client/dist
 COPY server ./server
-
-# Default pinned rooms in the image (EASYMEET_PERSISTENT_ROOMS). Override via EASYMEET_PERSISTENT_ROOMS_JSON in .env
-# or another EASYMEET_PERSISTENT_ROOMS path + your own file (custom image/volume).
-COPY persistent-rooms.default.json /app/persistent-rooms.json
 RUN chown -R node:node /app
 
 # Defaults; override with docker compose / docker run / .env (see .env.example)
 ENV NODE_ENV=production
 ENV PORT=3001
 ENV MEDIASOUP_LISTEN_IP=0.0.0.0
-ENV EASYMEET_PERSISTENT_ROOMS=/app/persistent-rooms.json
 
 # No EXPOSE: ports are bound internally (reverse proxy / overlay network), not published on the host by default.
 # Orchestrator-sichtbarer Liveness-Check: pingt den internen HTTP-Port. /api/rooms/active ist

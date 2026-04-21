@@ -6,12 +6,13 @@
 /* Base: like chat panel, but from left (left instead of right, translateX(-100%) instead of 100%) */
 #chat-sidebar.chat__sidebar--overlay,
 .chat__sidebar--voip.chat__sidebar--overlay {
+	--chat-sidebar-overlay-width: 380px;
 	position: fixed;
 	top: 0;
 	left: 0;
 	bottom: 0;
 	right: auto;
-	width: 380px;
+	width: var(--chat-sidebar-overlay-width);
 	max-width: 90vw;
 	transform: translateX(-100%);
 	transition: transform 0.25s ease;

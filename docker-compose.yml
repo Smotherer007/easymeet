@@ -3,9 +3,6 @@
 # Variables: ./.env → container environment (env_file).
 # Optional: set values under `environment:` — overrides env_file.
 #
-# Override pinned rooms at runtime: in .env e.g. EASYMEET_PERSISTENT_ROOMS_JSON='{"rooms":[{"id":"LOBBY"}]}' (one line, minified).
-# Default list is baked into the image (/app/persistent-rooms.json); see Dockerfile.
-#
 # One-time: cp .env.example .env
 #
 # Start: docker network create frontend && docker compose up -d
