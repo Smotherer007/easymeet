@@ -1,6 +1,7 @@
 import { ImageSegmenter, FilesetResolver } from "@mediapipe/tasks-vision";
 import { getCustomBackgrounds } from "./storage/customBackgroundStorage.js";
-import { categoryMaskToImageData, createMaskTemporalState, drawPersonWithMask, drawBlurBackground, drawImageHorizontallyFlipped } from "./backgroundEffectsHelpers.js";
+import { categoryMaskToImageData, createMaskTemporalState, drawPersonWithMask, drawBlurBackground } from "./backgroundEffectsHelpers.js";
+import { DEFAULT_BACKGROUND_EFFECTS_SETTINGS } from "./storage/backgroundEffectsSettingsStorage.js";
 
 let imageSegmenter = null;
 
@@ -13,7 +14,7 @@ function createSegmenterOptions(delegate) {
 		},
 		runningMode: "VIDEO",
 		outputCategoryMask: true,
-		outputConfidenceMasks: false
+		outputConfidenceMasks: true
 	};
 }
 
@@ -75,7 +76,15 @@ export function isInsertableStreamsSupported() {
  * @returns {Promise<{ stream: MediaStream; stop: () => void }>}
  */
 export async function createBlurredStream(sourceStream, options = {}) {
-	const { blurAmount = 15, stopSourceVideoTrackOnCleanup = false } = options;
+	const {
+		smoothingFactor = DEFAULT_BACKGROUND_EFFECTS_SETTINGS.smoothingFactor,
+		smoothstepMin = DEFAULT_BACKGROUND_EFFECTS_SETTINGS.smoothstepMin,
+		smoothstepMax = DEFAULT_BACKGROUND_EFFECTS_SETTINGS.smoothstepMax,
+		smoothBorders = DEFAULT_BACKGROUND_EFFECTS_SETTINGS.smoothBorders,
+		backgroundBlur = DEFAULT_BACKGROUND_EFFECTS_SETTINGS.backgroundBlur,
+		backgroundBlurRadius = DEFAULT_BACKGROUND_EFFECTS_SETTINGS.backgroundBlurRadius,
+		stopSourceVideoTrackOnCleanup = false
+	} = options;
 	const videoTrack = sourceStream.getVideoTracks()[0];
 	if (!videoTrack) throw new Error("No video track");
 	const clonedTrack = videoTrack.clone();
@@ -94,7 +103,7 @@ export async function createBlurredStream(sourceStream, options = {}) {
 	let lastMaskImageData = null;
 	let segmentTimestamp = 0;
 	let frameCount = 0;
-	const SEGMENT_EVERY_N_FRAMES = 2;
+	const SEGMENT_EVERY_N_FRAMES = 1;
 
 	const trackProcessor = new MediaStreamTrackProcessor({ track: clonedTrack });
 	const trackGenerator = new MediaStreamTrackGenerator({ kind: "video" });
@@ -139,7 +148,11 @@ export async function createBlurredStream(sourceStream, options = {}) {
 
 					segmenter.segmentForVideo(iData, segmentTimestamp, (result) => {
 						if (stopped) return;
-						const newMask = categoryMaskToImageData(result, maskTemporalState);
+						const newMask = categoryMaskToImageData(result, maskTemporalState, {
+							temporalMix: smoothingFactor,
+							smoothstepMin,
+							smoothstepMax
+						});
 						if (newMask) {
 							if (maskCanvas.width !== newMask.width || maskCanvas.height !== newMask.height) {
 								maskCanvas.width = newMask.width;
@@ -164,8 +177,9 @@ export async function createBlurredStream(sourceStream, options = {}) {
 				ctx.save();
 				ctx.clearRect(0, 0, w, h);
 
-				drawBlurBackground(blurCtx, videoFrame, w, h, blurAmount);
-				drawPersonWithMask(personCtx, maskCtx, maskCanvas, videoFrame, lastMaskImageData, w, h);
+				const blurPx = Math.max(0, Math.round(backgroundBlur * backgroundBlurRadius));
+				drawBlurBackground(blurCtx, videoFrame, w, h, blurPx);
+				drawPersonWithMask(personCtx, maskCtx, maskCanvas, videoFrame, lastMaskImageData, w, h, smoothBorders);
 
 				// Draw both layers (blur background + person) onto the final canvas.
 				ctx.save();
@@ -221,7 +235,13 @@ export async function createBlurredStream(sourceStream, options = {}) {
  * @returns {Promise<{ stream: MediaStream; stop: () => void }>}
  */
 export async function createVirtualBackgroundStream(sourceStream, imageUrl, options = {}) {
-	const { stopSourceVideoTrackOnCleanup = false } = options;
+	const {
+		smoothingFactor = DEFAULT_BACKGROUND_EFFECTS_SETTINGS.smoothingFactor,
+		smoothstepMin = DEFAULT_BACKGROUND_EFFECTS_SETTINGS.smoothstepMin,
+		smoothstepMax = DEFAULT_BACKGROUND_EFFECTS_SETTINGS.smoothstepMax,
+		smoothBorders = DEFAULT_BACKGROUND_EFFECTS_SETTINGS.smoothBorders,
+		stopSourceVideoTrackOnCleanup = false
+	} = options;
 	const videoTrack = sourceStream.getVideoTracks()[0];
 	if (!videoTrack) throw new Error("No video track");
 	const clonedTrack = videoTrack.clone();
@@ -248,7 +268,7 @@ export async function createVirtualBackgroundStream(sourceStream, imageUrl, opti
 	let lastMaskImageData = null;
 	let segmentTimestamp = 0;
 	let frameCount = 0;
-	const SEGMENT_EVERY_N_FRAMES = 2;
+	const SEGMENT_EVERY_N_FRAMES = 1;
 
 	const trackProcessor = new MediaStreamTrackProcessor({ track: clonedTrack });
 	const trackGenerator = new MediaStreamTrackGenerator({ kind: "video" });
@@ -292,7 +312,11 @@ export async function createVirtualBackgroundStream(sourceStream, imageUrl, opti
 
 					segmenter.segmentForVideo(iData, segmentTimestamp, (result) => {
 						if (stopped) return;
-						const newMask = categoryMaskToImageData(result, maskTemporalState);
+						const newMask = categoryMaskToImageData(result, maskTemporalState, {
+							temporalMix: smoothingFactor,
+							smoothstepMin,
+							smoothstepMax
+						});
 						if (newMask) {
 							if (maskCanvas.width !== newMask.width || maskCanvas.height !== newMask.height) {
 								maskCanvas.width = newMask.width;
@@ -316,8 +340,8 @@ export async function createVirtualBackgroundStream(sourceStream, imageUrl, opti
 
 				ctx.save();
 				ctx.clearRect(0, 0, w, h);
-				drawImageHorizontallyFlipped(ctx, bgImage, w, h);
-				drawPersonWithMask(personCtx, maskCtx, maskCanvas, videoFrame, lastMaskImageData, w, h);
+				ctx.drawImage(bgImage, 0, 0, w, h);
+				drawPersonWithMask(personCtx, maskCtx, maskCanvas, videoFrame, lastMaskImageData, w, h, smoothBorders);
 				ctx.save();
 				ctx.drawImage(personCanvas, 0, 0, w, h);
 				ctx.restore();

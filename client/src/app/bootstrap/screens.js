@@ -31,6 +31,7 @@ import { getStreamForViewers } from "./roomJoinCreate.js";
 import { setupRoomViewDeviceHandlers, setupAudioTrackEndedHandler, setPeerVolume, loadPeerVolumes, refreshDeviceSelects, attachRemoteAudio } from "./cleanup.js";
 import { getStreamForVideoTile } from "../../effects/media/tiles.js";
 import { escapeAttr } from "../../shared/escape.js";
+import { fetchAdminMe, fetchCreatePersistentRoom, fetchDeletePersistentRoom, fetchServerAdminBootstrapLogin } from "../../effects/network/api.js";
 
 /**
  * @param {HTMLElement} appEl
@@ -60,7 +61,9 @@ export function renderLangSwitcher(appEl, ctx) {
 	el.classList.toggle("lang-switcher--hidden", screen === "room-view");
 	if (screen === "room-view") return;
 	const lang = getLang();
+	const showLandingAdminLoginButton = screen === "landing" && !selectors.selectIsServerAdmin(s);
 	el.innerHTML = `
+    ${showLandingAdminLoginButton ? `<button type="button" id="server-admin-open-btn" class="lang-switcher__admin-trigger">Admin</button>` : ""}
     <div class="lang-switcher__dropdown">
       <button type="button" class="lang-switcher__trigger" aria-expanded="false" aria-haspopup="listbox" aria-label="${escapeAttr(t("langAriaLabel"))}">
         <span class="lang-switcher__flag" aria-hidden="true">${lang === "de" ? "🇩🇪" : "🇬🇧"}</span>
@@ -124,16 +127,43 @@ export function getJoinUrl(roomId) {
  * @param {object} ctx
  */
 export function renderLandingScreen(appEl, ctx) {
-	const { navigate, getState } = ctx;
+	const { navigate, getState, dispatch } = ctx;
 	renderShell(appEl, renderLanding(), getState);
 	renderLangSwitcher(appEl, ctx);
-	attachLandingListeners(appEl, {
+	const landingBindings = attachLandingListeners(appEl, {
 		onCreateRoom: () => navigate(appEl, "create-room"),
 		onJoinRoom: () => navigate(appEl, "join-room"),
+		onServerAdminLogin: async (token) => {
+			const result = await fetchServerAdminBootstrapLogin(token);
+			if (result.success) {
+				dispatch({ type: "admin/serverStatusUpdated", payload: { isServerAdmin: true } });
+				renderLangSwitcher(appEl, ctx);
+			}
+			return result.success;
+		},
+		onCreatePersistentRoom: async (payload) => {
+			const result = await fetchCreatePersistentRoom(payload);
+			return result;
+		},
+		onDeletePersistentRoom: async (roomId) => {
+			const result = await fetchDeletePersistentRoom(roomId);
+			return result;
+		},
+		isServerAdmin: () => selectors.selectIsServerAdmin(getState()),
 		onPickActiveRoom: (roomId, hasPassword) => {
 			navigate(appEl, "join-room", { joinRoomCode: roomId, joinRoomHasPassword: hasPassword });
 		}
 	});
+	void (async () => {
+		const adminMe = await fetchAdminMe();
+		if (!adminMe.success) return;
+		dispatch({
+			type: "admin/serverStatusUpdated",
+			payload: { isServerAdmin: !!adminMe.data.isServerAdmin }
+		});
+		renderLangSwitcher(appEl, ctx);
+		await landingBindings?.refreshPinnedRoomsForRole?.();
+	})();
 }
 
 /**

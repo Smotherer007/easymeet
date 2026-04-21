@@ -22,6 +22,7 @@ import { logProtooInfo, logProtooWarn, logProtooError, runWithLogContextAsync } 
 import { consumeHandshakeToken } from "../wsJoinTokens.js";
 import { EasymeetErrorCode, protooErrorReason } from "../easymeetErrors.js";
 import { REACTION_EFFECT_IDS } from "../shared/reactionEffectIds.js";
+import { sanitizeClientId } from "../authz.js";
 
 const require = createRequire(import.meta.url);
 const { WebSocketServer: ProtooWebSocketServer } = require("protoo-server");
@@ -88,6 +89,12 @@ function sanitizeGiphyUrls(raw) {
 
 const FILE_TRANSFER_MAX_BYTES = 250 * 1024 * 1024;
 const FILE_CHUNK_B64_MAX = 900_000;
+const SPAM_WINDOW_MS = 10_000;
+const WS_CHAT_PER_WINDOW = Math.max(5, Number(process.env.EASYMEET_WS_CHAT_PER_10S || 20));
+const WS_FILE_CHUNKS_PER_WINDOW = Math.max(
+	20,
+	Number(process.env.EASYMEET_WS_FILE_CHUNKS_PER_10S || 160)
+);
 
 function sanitizeMimeType(raw) {
 	if (typeof raw !== "string") return "application/octet-stream";
@@ -134,6 +141,19 @@ function sanitizeFileChunkNotification(msg) {
 	const chunk = msg.chunk.slice(0, FILE_CHUNK_B64_MAX);
 	if (!chunk) return null;
 	return { type: "file_chunk", chunk };
+}
+
+function bumpPeerSpamCounter(msPeer, key) {
+	const now = Date.now();
+	if (!msPeer.spamState || now - msPeer.spamState.windowStart > SPAM_WINDOW_MS) {
+		msPeer.spamState = {
+			windowStart: now,
+			chatCount: 0,
+			fileChunkCount: 0
+		};
+	}
+	msPeer.spamState[key] += 1;
+	return msPeer.spamState[key];
 }
 
 /**
@@ -587,6 +607,10 @@ async function handleProtooNotification(roomId, room, msPeer, notification) {
 
 			switch (msg.type) {
 				case "chat": {
+					if (bumpPeerSpamCounter(msPeer, "chatCount") > WS_CHAT_PER_WINDOW) {
+						logProtooWarn("chat rate limit exceeded", { peerId: msPeer.peerId, roomId });
+						break;
+					}
 					const chatEntry = buildSanitizedChatClientEntry(msg, msPeer);
 					if (!chatEntry) break;
 					appendRoomChatEntry(room, chatEntry);
@@ -654,6 +678,10 @@ async function handleProtooNotification(roomId, room, msPeer, notification) {
 					break;
 				}
 				case "file_chunk": {
+					if (bumpPeerSpamCounter(msPeer, "fileChunkCount") > WS_FILE_CHUNKS_PER_WINDOW) {
+						logProtooWarn("file_chunk rate limit exceeded", { peerId: msPeer.peerId, roomId });
+						break;
+					}
 					const sanitized = sanitizeFileChunkNotification(msg);
 					if (sanitized) broadcastEasymeet(roomId, sanitized, msPeer.peerId);
 					break;
@@ -742,7 +770,7 @@ async function handleProtooNotification(roomId, room, msPeer, notification) {
 /**
  * @param {import('http').Server} httpServer
  */
-export function attachProtooToHttpServer(httpServer) {
+export function attachProtooToHttpServer(httpServer, options = {}) {
 	const protooWss = new ProtooWebSocketServer(httpServer, {
 		maxReceivedFrameSize: 960000,
 		maxReceivedMessageSize: 960000,
@@ -774,6 +802,7 @@ export function attachProtooToHttpServer(httpServer) {
 
 			const roomId = normalizeRoomCode(consumed.roomId);
 			const peerId = consumed.peerId;
+			const tokenClientId = sanitizeClientId(consumed.clientId);
 			if (!roomId || !peerId) {
 				logProtooWarn("connection rejected: invalid handshake payload");
 				reject(400, protooErrorReason(EasymeetErrorCode.WS_HANDSHAKE_INVALID, "invalid handshake"));
@@ -782,7 +811,8 @@ export function attachProtooToHttpServer(httpServer) {
 
 			const urlRoom = normalizeRoomCode(u.searchParams.get("roomId") || "");
 			const urlPeer = (u.searchParams.get("peerId") || "").trim();
-			if (urlRoom !== roomId || urlPeer !== peerId) {
+			const urlClientId = sanitizeClientId(u.searchParams.get("clientId") || "");
+			if (urlRoom !== roomId || urlPeer !== peerId || urlClientId !== tokenClientId) {
 				logProtooWarn("connection rejected: roomId/peerId mismatch vs token");
 				reject(
 					403,
@@ -805,6 +835,7 @@ export function attachProtooToHttpServer(httpServer) {
 					const transport = accept();
 					const protooPeer = room.protooRoom.createPeer(peerId, transport);
 					const msPeer = createPeerState(peerId, "");
+					msPeer.clientId = tokenClientId;
 					msPeer.connectionId = randomUUID();
 					room.peers.set(peerId, msPeer);
 

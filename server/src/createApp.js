@@ -1,23 +1,42 @@
 import express from "express";
 import cors from "cors";
 import helmet from "helmet";
+import rateLimit from "express-rate-limit";
 import { logHttp } from "./logger.js";
 import { requestLogContextMiddleware } from "./middleware/requestLogContext.js";
 import { createRoomsRouter } from "./routes/rooms.js";
 import { createJoinRouter } from "./routes/join.js";
 import { createGifsRouter } from "./routes/gifs.js";
 import { attachStaticSpaIfPresent } from "./routes/staticSpa.js";
+import { getRequestClientId } from "./authz.js";
 
 /**
  * @param {object} opts
  * @param {ReturnType<import('./roomStore.js').createRoomStore>} opts.roomStore
+ * @param {ReturnType<import('./db/adminDb.js').createAdminDb>} opts.adminDb
+ * @param {string} opts.bootstrapAdminToken
  * @param {string} opts.tenorApiKey
  * @param {string} opts.repoRoot
  */
 export function createApp(opts) {
-	const { roomStore, tenorApiKey, repoRoot } = opts;
+	const { roomStore, adminDb, bootstrapAdminToken, tenorApiKey, repoRoot } = opts;
+	const corsOrigins = new Set(
+		(process.env.EASYMEET_CORS_ORIGINS || "")
+			.split(",")
+			.map((v) => v.trim())
+			.filter(Boolean)
+	);
+	if (corsOrigins.size === 0) {
+		corsOrigins.add("http://localhost:5173");
+		corsOrigins.add("http://127.0.0.1:5173");
+		corsOrigins.add("http://localhost:3001");
+		corsOrigins.add("http://127.0.0.1:3001");
+	}
+	const apiRateLimitMax = Math.max(20, Number(process.env.EASYMEET_API_RATE_LIMIT_MAX || 120));
+	const joinRateLimitMax = Math.max(5, Number(process.env.EASYMEET_JOIN_RATE_LIMIT_MAX || 30));
 
 	const app = express();
+	app.set("trust proxy", 1);
 	app.use(
 		helmet({
 			crossOriginEmbedderPolicy: false,
@@ -48,9 +67,40 @@ export function createApp(opts) {
 			}
 		})
 	);
-	app.use(cors());
-	app.use(express.json());
+	app.use(
+		cors({
+			origin: (origin, cb) => {
+				if (!origin) return cb(null, true);
+				if (corsOrigins.has(origin)) return cb(null, true);
+				return cb(null, false);
+			}
+		})
+	);
+	app.use(express.json({ limit: "1mb" }));
+	app.use(
+		"/api",
+		rateLimit({
+			windowMs: 60 * 1000,
+			max: apiRateLimitMax,
+			standardHeaders: true,
+			legacyHeaders: false
+		})
+	);
+	app.use(
+		"/api/join",
+		rateLimit({
+			windowMs: 60 * 1000,
+			max: joinRateLimitMax,
+			standardHeaders: true,
+			legacyHeaders: false
+		})
+	);
 	app.use(requestLogContextMiddleware);
+	app.use((req, _res, next) => {
+		req.easymeet = req.easymeet || {};
+		req.easymeet.clientId = getRequestClientId(req);
+		next();
+	});
 	app.use((req, res, next) => {
 		const start = Date.now();
 		res.on("finish", () => {
@@ -59,8 +109,8 @@ export function createApp(opts) {
 		next();
 	});
 
-	app.use("/api", createRoomsRouter({ roomStore }));
-	app.use("/api", createJoinRouter({ roomStore }));
+	app.use("/api", createRoomsRouter({ roomStore, adminDb, bootstrapAdminToken }));
+	app.use("/api", createJoinRouter({ roomStore, adminDb }));
 	app.use("/api", createGifsRouter({ tenorApiKey }));
 
 	attachStaticSpaIfPresent(app, { repoRoot });

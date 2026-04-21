@@ -1,5 +1,5 @@
 /**
- * Raum erstellen / beitreten (API + mediasoup-Setup).
+ * Create/join room (API + mediasoup setup).
  */
 
 import { t } from "../../i18n.js";
@@ -43,10 +43,10 @@ async function doCreateRoomApiAndSetup(appEl, ctx, nick, pwd, code) {
 	const { roomId } = createResult.data;
 	const joinResult = await fetchJoinRoom(roomId, pwd);
 	if (!joinResult.success) return joinResult;
-	const { roomId: joinedRoomId, peerId: id, wsToken } = joinResult.data;
+	const { roomId: joinedRoomId, peerId: id, wsToken, role } = joinResult.data;
 	const p = { id, _ms: true, destroy() {} };
 	dispatch({ type: "peer/connectionEstablished", payload: { peer: p } });
-	dispatch({ type: "room/created", payload: { roomId: joinedRoomId, password: pwd, nickname: nick, peerId: id } });
+	dispatch({ type: "room/created", payload: { roomId: joinedRoomId, password: pwd, nickname: nick, peerId: id, role } });
 	if (nick) writeNickname(nick);
 	let participant;
 	try {
@@ -89,11 +89,11 @@ async function doJoinRoomApiAndSetup(appEl, ctx, roomId, password, nickname) {
 		dispatch({ type: "room/joinAttemptAborted" });
 		return joinResult;
 	}
-	const { roomId: actualRoomId, peerId: id, wsToken } = joinResult.data;
+	const { roomId: actualRoomId, peerId: id, wsToken, role } = joinResult.data;
 	const p = { id, _ms: true, destroy() {} };
 	dispatch({
 		type: "room/joined",
-		payload: { roomId: actualRoomId, password: pwd, nickname: (nickname ?? "").trim(), peerId: id }
+		payload: { roomId: actualRoomId, password: pwd, nickname: (nickname ?? "").trim(), peerId: id, role }
 	});
 	dispatch({ type: "peer/connectionEstablished", payload: { peer: p } });
 	const nick = selectors.selectNickname(getState());

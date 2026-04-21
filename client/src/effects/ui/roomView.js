@@ -12,6 +12,7 @@ import { extractDropData, processDropData, zipFileList } from "../../utils/folde
 import { addCustomBackground, removeCustomBackground } from "../storage/customBackgroundStorage.js";
 import { writeDeviceId } from "../storage/deviceStorage.js";
 import { writeAudioSettings, getAudioProcessingConstraints } from "../storage/audioSettingsStorage.js";
+import { writeBackgroundEffectsSettings } from "../storage/backgroundEffectsSettingsStorage.js";
 import { DEVICE_STORAGE, VIDEO_LAYOUT_STORAGE, WINDOW_POSITIONS_STORAGE } from "../../shared/constants.js";
 import { WINDOW_POSITION_DEFAULTS } from "../../shared/windowPositionsDefaults.js";
 import { escapeHtml } from "../../shared/escape.js";
@@ -82,6 +83,34 @@ function handleAudioSettingsChange(app, partial) {
 	patchState({ audioSettings: merged });
 	if (partial.noiseSuppression !== undefined || partial.echoCancellation !== undefined || partial.autoGainControl !== undefined) {
 		applyLiveAudioProcessingToLocalTracks();
+	}
+}
+
+async function handleBackgroundEffectsSettingsChange(app, partial, applyEffectToCallStream, applyEffectToPreview, navigate) {
+	const merged = writeBackgroundEffectsSettings(partial);
+	patchState({ backgroundEffectsSettings: merged });
+	const state = getState();
+	const effect = selectors.selectBackgroundEffect(state) || "none";
+	if (selectors.selectSettingsPanelOpen(state)) {
+		const previewVideo = app.querySelector("#effect-preview-video");
+		const source = selectors.selectIsVideoEnabled(state)
+			? selectors.selectLocalStream(state)
+			: selectors.selectPreviewStream(state);
+		if (previewVideo && source?.getVideoTracks?.()?.length) {
+			await applyEffectToPreview(source, effect, previewVideo);
+		}
+	}
+	if (effect !== "none" && selectors.selectIsVideoEnabled(state)) {
+		await applyEffectToCallStream(
+			effect,
+			app,
+			attachRemoteAudio,
+			updateVoipParticipants,
+			updateEffectTilesSelection,
+			getStreamForPeerId,
+			getStreamForScreenShare,
+			navigate
+		);
 	}
 }
 
@@ -1005,6 +1034,9 @@ export function attachRoomViewAndHandlers(app, deps) {
 		...buildRoomViewConfigChat(() => handlers),
 		...buildRoomViewConfigPart2(app, deps),
 		onAudioSettingsChange: (partial) => handleAudioSettingsChange(app, partial)
+		,
+		onBackgroundEffectsSettingsChange: (partial) =>
+			handleBackgroundEffectsSettingsChange(app, partial, applyEffectToCallStream, applyEffectToPreview, navigate)
 	};
 	handlers = attachRoomViewListeners(app, config);
 	setupDropzone(app.querySelector("#dropzone"), handlers.onFileSelect);

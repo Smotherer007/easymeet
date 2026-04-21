@@ -108,6 +108,10 @@ function renderFloatingWindows(state) {
 	const volumeMap = state.peerVolume instanceof Map ? state.peerVolume : new Map();
 	const floatingState = { ...state, muteMap, volumeMap, myPeerId: state.peer?.id ?? "" };
 	const messagesHtml = renderMessagesHtml(messages, (id) => state.receivedFileBlobs?.get?.(id), state.nickname);
+	const welcomeChatHtml =
+		state.roomSettings?.welcomeMessage
+			? `<div class="chat__msg"><div class="chat__msg-header"><span class="chat__msg-nick">Server</span><span class="chat__msg-time">${formatTime(Date.now())}</span></div><div class="chat__msg-body">${escapeHtml(state.roomSettings.welcomeMessage)}</div></div>`
+			: "";
 	const voipParticipantsHtml = renderVoipParticipantsHtmlFloating(voipMembers, floatingState);
 	const controlBar = renderMeetingControlBarFloating({
 		...state,
@@ -122,7 +126,7 @@ function renderFloatingWindows(state) {
 	return (
 		renderFloatingWindowVideos(pVideos, !!freeLayoutVideosOpen) +
 		`<div class="meeting-control-bar meeting-control-bar--floating" id="meeting-control-bar">${controlBar}</div>` +
-		renderFloatingWindowChat(pChat, messagesHtml, !!freeLayoutChatOpen) +
+		renderFloatingWindowChat(pChat, `${welcomeChatHtml}${messagesHtml}`, !!freeLayoutChatOpen) +
 		renderFloatingWindowParticipants(pParticipants, voipParticipantsHtml, voipMembers.length, !!freeLayoutParticipantsOpen) +
 		renderStreamModalFloating(pStream, { isHost, hostStream, audioEnabled })
 	);
@@ -160,7 +164,9 @@ export function renderRoomView(state) {
 		hasScreenShareSupport = true,
 		unreadChatCount = 0,
 		videoLayoutMode = "grid",
-		windowPositions = {}
+		windowPositions = {},
+		roomRole = "user",
+		roomSettings = null
 	} = state;
 
 	const streamRect = mergeAndClampWindowRect("stream", WINDOW_POSITION_DEFAULTS.stream, windowPositions.stream);
@@ -172,6 +178,11 @@ export function renderRoomView(state) {
 	const formattedRoomId = roomId ? roomId.replace(/(.{3})/g, "$1-").replace(/-$/, "") : "";
 
 	const messagesHtml = renderMessagesHtml(messages, (id) => receivedFileBlobs?.get?.(id), nickname);
+	const welcomeChatHtml =
+		roomSettings?.welcomeMessage
+			? `<div class="chat__msg"><div class="chat__msg-header"><span class="chat__msg-nick">Server</span><span class="chat__msg-time">${formatTime(Date.now())}</span></div><div class="chat__msg-body">${escapeHtml(roomSettings.welcomeMessage)}</div></div>`
+			: "";
+	const messagesWithWelcomeHtml = `${welcomeChatHtml}${messagesHtml}`;
 	const voipCtx = {
 		muteMap: peerMuteState instanceof Map ? peerMuteState : new Map(),
 		volumeMap: peerVolume instanceof Map ? peerVolume : new Map(),
@@ -188,7 +199,7 @@ export function renderRoomView(state) {
 	const meetingTitle = roomId ? formattedRoomId : t("title");
 	const screenShareBannerHtml = renderScreenShareBannersHtml(screenStreams, myPeerId);
 	const gridState = { ...state, voipMembers };
-	const gridContent = videoLayoutMode !== "free" ? renderGridMeetingSection(gridState, messagesHtml, voipParticipantsHtml) : "";
+	const gridContent = videoLayoutMode !== "free" ? renderGridMeetingSection(gridState, messagesWithWelcomeHtml, voipParticipantsHtml) : "";
 	const shareModalHtml = renderShareModalContent(roomId, formattedRoomId, joinUrl || "", renderShareContent, shareRect);
 	const settingsState = { ...state, settingsPositionRect: settingsRect, settingsPanelOpen: settingsPanelOpen ?? false };
 	return `
@@ -1153,7 +1164,6 @@ export function attachRoomViewListeners(container, callbacks) {
 	});
 	container.querySelectorAll('[data-action="toggle-mute"]').forEach((el) => el.addEventListener("click", () => callbacks.onToggleMute?.()));
 	container.querySelectorAll('[data-action="toggle-video"]').forEach((el) => el.addEventListener("click", () => callbacks.onToggleVideo?.()));
-
 	container.addEventListener(
 		"click",
 		(e) => {
@@ -1435,6 +1445,16 @@ export function attachRoomViewListeners(container, callbacks) {
 	});
 	const audioTh = container.querySelector("#audio-speaking-threshold");
 	const audioThVal = container.querySelector("#audio-speaking-threshold-value");
+	const appSoundVolume = container.querySelector("#audio-app-sound-volume");
+	const appSoundVolumeVal = container.querySelector("#audio-app-sound-volume-value");
+	appSoundVolume?.addEventListener("input", () => {
+		const v = parseInt(appSoundVolume.value, 10);
+		if (Number.isNaN(v)) return;
+		if (appSoundVolumeVal) appSoundVolumeVal.textContent = `${v}%`;
+		appSoundVolume.setAttribute("aria-valuenow", String(v));
+		appSoundVolume.setAttribute("aria-valuetext", `${v}%`);
+		callbacks.onAudioSettingsChange?.({ appSoundVolume: v });
+	});
 	audioTh?.addEventListener("input", () => {
 		const v = parseInt(audioTh.value, 10);
 		if (Number.isNaN(v)) return;
@@ -1460,6 +1480,26 @@ export function attachRoomViewListeners(container, callbacks) {
 	container.querySelector("#video-device")?.addEventListener("change", (e) => {
 		const deviceId = e.target?.value || "";
 		callbacks.onVideoDeviceChange?.(deviceId);
+	});
+	const bgfxPairs = [
+		["#bgfx-smoothing-factor", "#bgfx-smoothing-factor-value", (v) => Number(v).toFixed(2), "smoothingFactor"],
+		["#bgfx-smoothstep-min", "#bgfx-smoothstep-min-value", (v) => Number(v).toFixed(2), "smoothstepMin"],
+		["#bgfx-smoothstep-max", "#bgfx-smoothstep-max-value", (v) => Number(v).toFixed(2), "smoothstepMax"],
+		["#bgfx-smooth-borders", "#bgfx-smooth-borders-value", (v) => String(v), "smoothBorders"],
+		["#bgfx-background-blur", "#bgfx-background-blur-value", (v) => Number(v).toFixed(2), "backgroundBlur"],
+		["#bgfx-background-blur-radius", "#bgfx-background-blur-radius-value", (v) => String(v), "backgroundBlurRadius"]
+	];
+	bgfxPairs.forEach(([inputSel, valueSel, format, field]) => {
+		const input = container.querySelector(inputSel);
+		const value = container.querySelector(valueSel);
+		if (!input) return;
+		input.addEventListener("input", () => {
+			const raw = input.value;
+			if (value) value.textContent = format(raw);
+			const num = Number(raw);
+			if (Number.isNaN(num)) return;
+			callbacks.onBackgroundEffectsSettingsChange?.({ [field]: num });
+		});
 	});
 	container.querySelector("#effect-tiles-upload-btn")?.addEventListener("click", () => {
 		container.querySelector("#background-upload-input")?.click();

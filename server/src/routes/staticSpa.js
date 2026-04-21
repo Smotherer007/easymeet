@@ -27,7 +27,7 @@ export function attachStaticSpaIfPresent(app, opts) {
 	if (finalDistPath) {
 		logInfo("static SPA", finalDistPath);
 		app.use(express.static(finalDistPath));
-		app.get("*", (req, res) => {
+		app.get("/{*splat}", (req, res) => {
 			res.sendFile(path.join(finalDistPath, "index.html"));
 		});
 	} else {

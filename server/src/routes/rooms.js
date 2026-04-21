@@ -10,6 +10,7 @@ import {
 } from "../mediasoup/rooms.js";
 import { logInfo, logWarn } from "../logger.js";
 import { EasymeetErrorCode, sendJsonError, sendValidationJsonError } from "../easymeetErrors.js";
+import { sanitizeClientId } from "../authz.js";
 
 function hostSetupTokensEqual(a, b) {
 	if (typeof a !== "string" || typeof b !== "string") return false;
@@ -18,14 +19,54 @@ function hostSetupTokensEqual(a, b) {
 	return crypto.timingSafeEqual(ha, hb);
 }
 
+function safeTokenEquals(a, b) {
+	if (typeof a !== "string" || typeof b !== "string") return false;
+	const ha = crypto.createHash("sha256").update(a, "utf8").digest();
+	const hb = crypto.createHash("sha256").update(b, "utf8").digest();
+	return crypto.timingSafeEqual(ha, hb);
+}
+
 /**
- * @param {{ roomStore: ReturnType<import('../roomStore.js').createRoomStore> }} deps
+ * @param {{ roomStore: ReturnType<import('../roomStore.js').createRoomStore>; adminDb: ReturnType<import('../db/adminDb.js').createAdminDb>; bootstrapAdminToken: string }} deps
  */
 export function createRoomsRouter(deps) {
-	const { roomStore } = deps;
-	const { rooms, findRoomByIdentifier, cleanupExpiredRooms, allocateRoomId } = roomStore;
+	const { roomStore, adminDb, bootstrapAdminToken } = deps;
+	const { rooms, findRoomByIdentifier, cleanupExpiredRooms, allocateRoomId, upsertPersistentRoomMeta, removeRoom } = roomStore;
 
 	const router = Router();
+
+	function requireServerAdmin(req, res) {
+		const clientId = req.easymeet?.clientId || "";
+		if (!adminDb.isServerAdmin(clientId)) {
+			sendJsonError(res, 403, EasymeetErrorCode.PERMISSION_DENIED, "Server admin required");
+			return null;
+		}
+		return clientId;
+	}
+
+	router.post("/admin/bootstrap-login", (req, res) => {
+		const clientId = req.easymeet?.clientId || "";
+		const token = String(req.body?.token || "");
+		if (!sanitizeClientId(clientId)) {
+			sendJsonError(res, 400, "INVALID_CLIENT_ID", "Valid client identity required");
+			return;
+		}
+		if (!token || !safeTokenEquals(token, bootstrapAdminToken)) {
+			sendJsonError(res, 403, "INVALID_BOOTSTRAP_TOKEN", "Invalid bootstrap token");
+			return;
+		}
+		adminDb.grantServerAdmin(clientId);
+		logInfo("server admin granted", { clientId });
+		res.json({ ok: true, role: "serverAdmin" });
+	});
+
+	router.get("/admin/me", (req, res) => {
+		const clientId = req.easymeet?.clientId || "";
+		res.json({
+			clientId,
+			isServerAdmin: adminDb.isServerAdmin(clientId)
+		});
+	});
 
 	router.post("/rooms", async (req, res) => {
 		const parsed = validateCreateRoomPayload(req.body);
@@ -37,15 +78,58 @@ export function createRoomsRouter(deps) {
 		const { password, roomCode } = parsed.data;
 		const passwordHash = password ? await hashPassword(password) : null;
 		const roomId = allocateRoomId(roomCode);
-		const hostSetupToken = crypto.randomBytes(32).toString("hex");
 		rooms.set(roomId, {
 			passwordHash,
 			hostPeerId: null,
 			createdAt: Date.now(),
-			hostSetupToken
+			hostSetupToken: null
 		});
 		logInfo("room created", { roomId, hasPassword: !!passwordHash });
-		res.json({ roomId, hostPeerId: null, hostSetupToken });
+		res.json({ roomId, hostPeerId: null });
+	});
+
+	router.post("/admin/persistent-rooms", async (req, res) => {
+		if (!requireServerAdmin(req, res)) return;
+		const roomCode = String(req.body?.roomCode || "");
+		const roomId = allocateRoomId(roomCode);
+		let created = null;
+		try {
+			created = await adminDb.createPersistentRoom({
+				roomId,
+				name: String(req.body?.name || ""),
+				description: String(req.body?.description || ""),
+				welcomeMessage: String(req.body?.welcomeMessage || ""),
+				password: String(req.body?.password || "")
+			});
+		} catch (e) {
+			if (String(e?.code || "").startsWith("SQLITE_CONSTRAINT")) {
+				sendJsonError(res, 409, EasymeetErrorCode.ROOM_ALREADY_EXISTS, "Persistent room already exists");
+				return;
+			}
+			throw e;
+		}
+		if (!created) {
+			sendJsonError(res, 400, "PERSISTENT_ROOM_CREATE_FAILED", "Could not create persistent room");
+			return;
+		}
+		upsertPersistentRoomMeta(created.roomId, {
+			passwordHash: created.passwordHash,
+			name: created.name,
+			description: created.description,
+			welcomeMessage: created.welcomeMessage
+		});
+		res.json({ room: created });
+	});
+
+	router.delete("/admin/persistent-rooms/:roomId", (req, res) => {
+		if (!requireServerAdmin(req, res)) return;
+		const ok = adminDb.deletePersistentRoom(req.params.roomId);
+		if (!ok) {
+			sendJsonError(res, 404, EasymeetErrorCode.ROOM_NOT_FOUND, "Persistent room not found");
+			return;
+		}
+		removeRoom(req.params.roomId);
+		res.json({ ok: true });
 	});
 
 	router.patch("/rooms/:roomId", (req, res) => {
@@ -127,7 +211,10 @@ export function createRoomsRouter(deps) {
 			if (!room.persistent) continue;
 			list.push({
 				roomId,
-				hasPassword: room.passwordHash != null && room.passwordHash !== ""
+				hasPassword: room.passwordHash != null && room.passwordHash !== "",
+				name: room.name || "",
+				description: room.description || "",
+				welcomeMessage: room.welcomeMessage || ""
 			});
 		}
 		list.sort((a, b) => a.roomId.localeCompare(b.roomId));

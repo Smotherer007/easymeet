@@ -7,6 +7,8 @@ import { AUDIO_SETTINGS_STORAGE } from "../../shared/constants.js";
 export const DEFAULT_AUDIO_SETTINGS = {
 	/** Speaking gate: same threshold as UI indicator; outgoing mic is attenuated below this level (~5–50). */
 	speakingThreshold: 15,
+	/** Global app sound level (0–100), scales notification and UI sounds. */
+	appSoundVolume: 100,
 	noiseSuppression: true,
 	echoCancellation: true,
 	autoGainControl: false
@@ -20,6 +22,9 @@ function sanitizePartial(o) {
 	const out = {};
 	if (typeof o.speakingThreshold === "number" && !Number.isNaN(o.speakingThreshold)) {
 		out.speakingThreshold = Math.min(50, Math.max(5, Math.round(o.speakingThreshold)));
+	}
+	if (typeof o.appSoundVolume === "number" && !Number.isNaN(o.appSoundVolume)) {
+		out.appSoundVolume = Math.min(100, Math.max(0, Math.round(o.appSoundVolume)));
 	}
 	for (const k of ["noiseSuppression", "echoCancellation", "autoGainControl"]) {
 		if (typeof o[k] === "boolean") out[k] = o[k];
@@ -64,6 +69,10 @@ export function writeAudioSettings(partial) {
 		const v = Number(partial.speakingThreshold);
 		if (!Number.isNaN(v)) next.speakingThreshold = Math.min(50, Math.max(5, Math.round(v)));
 	}
+	if (partial.appSoundVolume !== undefined) {
+		const v = Number(partial.appSoundVolume);
+		if (!Number.isNaN(v)) next.appSoundVolume = Math.min(100, Math.max(0, Math.round(v)));
+	}
 	for (const k of ["noiseSuppression", "echoCancellation", "autoGainControl"]) {
 		if (partial[k] !== undefined) next[k] = !!partial[k];
 	}
@@ -78,6 +87,12 @@ export function writeAudioSettings(partial) {
 
 export function getSpeakingThreshold() {
 	return readAudioSettings().speakingThreshold;
+}
+
+export function getAppSoundVolumeGain() {
+	const volume = Number(readAudioSettings().appSoundVolume);
+	const clamped = Number.isNaN(volume) ? DEFAULT_AUDIO_SETTINGS.appSoundVolume : Math.min(100, Math.max(0, volume));
+	return clamped / 100;
 }
 
 /** Visible slider and stored threshold (5–50): lower = more sensitive. */

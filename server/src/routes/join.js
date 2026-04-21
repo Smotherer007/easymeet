@@ -39,8 +39,9 @@ export function createJoinRouter(deps) {
 					return;
 				}
 			}
+			const clientId = req.easymeet?.clientId || "";
 			const peerId = newAssignedPeerId();
-			const wsToken = issueHandshakeToken(actualRoomId, peerId);
+			const wsToken = issueHandshakeToken(actualRoomId, peerId, clientId);
 			logInfo("join ok", { roomId: actualRoomId, peerIdPrefix: peerId.slice(0, 8) });
 			res.json({ roomId: actualRoomId, peerId, wsToken });
 		} catch (err) {

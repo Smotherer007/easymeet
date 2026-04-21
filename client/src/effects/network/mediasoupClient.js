@@ -12,6 +12,7 @@ import { mediaDebugLog, mediaDebugStreamInfo, mediaDebugTrackInfo } from "../../
 import { logMsInfo, logMsWarn, logMsError } from "../../utils/easymeetLog.js";
 import { replaceEmojiShortcodes } from "../../utils/emojiShortcodes.js";
 import { getAudioProcessingConstraints } from "../storage/audioSettingsStorage.js";
+import { getClientId } from "../storage/clientIdentity.js";
 import protooPkg from "protoo-client";
 
 const ProtooPeer = protooPkg.Peer;
@@ -54,7 +55,7 @@ function canonicalRoomIdForProtoo(roomId) {
 function getProtooUrl(roomId, peerId, wsToken) {
 	const proto = location.protocol === "https:" ? "wss:" : "ws:";
 	const id = canonicalRoomIdForProtoo(roomId);
-	const q = new URLSearchParams({ roomId: id, peerId, token: wsToken });
+	const q = new URLSearchParams({ roomId: id, peerId, token: wsToken, clientId: getClientId() });
 
 	const isViteDevServer = typeof location !== "undefined" && String(location.port) === "5173";
 	const forceDirectBackend = import.meta.env.VITE_MEDIASOUP_PROTOO_DIRECT === "true" || import.meta.env.VITE_MEDIASOUP_PROTOO_DIRECT === "1";

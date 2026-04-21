@@ -36,6 +36,7 @@ function reduceRoomEntered(state, payload, isHost) {
 		localStream: new MediaStream(),
 		baseLocalStream: new MediaStream(),
 		isHost,
+		roomRole: p.role ?? "user",
 		isVideoEnabled: false,
 		hasVideoSupport: false,
 		unreadChatCount: 0,
@@ -323,6 +324,19 @@ function reduceRoomPollUpsert(state, payload) {
 	return { ...state, roomPolls: list };
 }
 
+function reduceRoomRoleUpdated(state, payload) {
+	return { ...state, roomRole: payload?.role ?? state.roomRole ?? "user" };
+}
+
+function reduceRoomSettingsUpdated(state, payload) {
+	const p = payload ?? null;
+	return { ...state, roomSettings: p };
+}
+
+function reduceAdminServerStatusUpdated(state, payload) {
+	return { ...state, isServerAdmin: !!payload?.isServerAdmin };
+}
+
 function reduceRoomHandRaised(state, payload) {
 	const { peerId, raised } = payload ?? {};
 	const myId = state.peer?.id;
@@ -402,6 +416,18 @@ function reduceStorageAudioSettingsRestored(state, payload) {
 	return { ...state, audioSettings: a };
 }
 
+function reduceStorageBackgroundEffectsSettingsRestored(state, payload) {
+	const v = payload?.backgroundEffectsSettings;
+	if (!v || typeof v !== "object") return state;
+	return { ...state, backgroundEffectsSettings: v };
+}
+
+function reduceUiBackgroundEffectsSettingsSet(state, payload) {
+	const v = payload?.backgroundEffectsSettings;
+	if (!v || typeof v !== "object") return state;
+	return { ...state, backgroundEffectsSettings: v };
+}
+
 function reducePeerVolumesMerged(state, payload) {
 	const vols = payload?.volumes;
 	if (!vols || typeof vols !== "object") return state;
@@ -474,11 +500,16 @@ const HANDLERS = {
 	"room/reaction": reduceRoomReaction,
 	"room/pollsSet": reduceRoomPollsSet,
 	"room/pollUpsert": reduceRoomPollUpsert,
+	"room/roleUpdated": reduceRoomRoleUpdated,
+	"room/settingsUpdated": reduceRoomSettingsUpdated,
 	"room/handRaisedSelf": reduceRoomHandRaised,
+	"admin/serverStatusUpdated": reduceAdminServerStatusUpdated,
 	"storage/devicesRestored": reduceStorageDevicesRestored,
 	"storage/videoLayoutRestored": reduceStorageVideoLayoutRestored,
 	"storage/windowPositionsRestored": reduceStorageWindowPositionsRestored,
 	"storage/audioSettingsRestored": reduceStorageAudioSettingsRestored,
+	"storage/backgroundEffectsSettingsRestored": reduceStorageBackgroundEffectsSettingsRestored,
+	"ui/backgroundEffectsSettingsSet": reduceUiBackgroundEffectsSettingsSet,
 	"peer/volumesMerged": reducePeerVolumesMerged,
 	"ui/unreadChatIncremented": reduceUnreadChatIncremented,
 	"effects/callDeviceChangeHandler": reduceEffectsCallDeviceChangeHandler,

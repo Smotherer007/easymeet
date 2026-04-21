@@ -3,6 +3,7 @@
  */
 import { WINDOW_POSITION_DEFAULTS } from "../../shared/windowPositionsDefaults.js";
 import { DEFAULT_AUDIO_SETTINGS } from "../../effects/storage/audioSettingsStorage.js";
+import { DEFAULT_BACKGROUND_EFFECTS_SETTINGS } from "../../effects/storage/backgroundEffectsSettingsStorage.js";
 
 /** @typedef {Object} AppState */
 
@@ -16,6 +17,8 @@ export function createInitialState() {
 		password: null,
 		nickname: null,
 		isHost: false,
+		roomRole: "user",
+		isServerAdmin: false,
 		peer: null,
 		hostPeer: null,
 		viewerConn: null,
@@ -45,6 +48,7 @@ export function createInitialState() {
 		inputDeviceId: null,
 		videoDeviceId: null,
 		audioSettings: { ...DEFAULT_AUDIO_SETTINGS },
+		backgroundEffectsSettings: { ...DEFAULT_BACKGROUND_EFFECTS_SETTINGS },
 		_receivingProgress: null,
 		_receivingFileId: null,
 		_receivingTotal: null,
@@ -66,6 +70,7 @@ export function createInitialState() {
 		_reactionNonce: 0,
 		_reactionLast: null,
 		roomPolls: [],
-		myHandRaised: false
+		myHandRaised: false,
+		roomSettings: null
 	};
 }

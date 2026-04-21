@@ -99,6 +99,18 @@ export function selectIsHost(state) {
 	return state.isHost ?? false;
 }
 
+export function selectRoomRole(state) {
+	return state.roomRole ?? "user";
+}
+
+export function selectIsServerAdmin(state) {
+	return !!state.isServerAdmin;
+}
+
+export function selectRoomSettings(state) {
+	return state.roomSettings ?? null;
+}
+
 /**
  * @param {AppState} state
  * @returns {MediaStream|null}
@@ -404,6 +416,10 @@ export function selectCallDeviceChangeHandler(state) {
  */
 export function selectMyHandRaised(state) {
 	return !!state.myHandRaised;
+}
+
+export function selectBackgroundEffectsSettings(state) {
+	return state.backgroundEffectsSettings ?? null;
 }
 
 /**

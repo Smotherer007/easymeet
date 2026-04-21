@@ -5,6 +5,7 @@
 import { VIDEO_LAYOUT_STORAGE, WINDOW_POSITIONS_STORAGE } from "../../shared/constants.js";
 import { mergeAndClampAllWindowPositions } from "../../ui/utils/viewportWindowClamp.js";
 import { hydrateAudioSettingsFromStorage } from "../../effects/storage/audioSettingsStorage.js";
+import { hydrateBackgroundEffectsSettingsFromStorage } from "../../effects/storage/backgroundEffectsSettingsStorage.js";
 
 /**
  * @param {import('../../store/index.js').dispatch} dispatch
@@ -16,6 +17,10 @@ export function initFromStorage(dispatch, readDeviceIds, readPeerVolumes) {
 	dispatch({
 		type: "storage/audioSettingsRestored",
 		payload: { audioSettings: hydrateAudioSettingsFromStorage() }
+	});
+	dispatch({
+		type: "storage/backgroundEffectsSettingsRestored",
+		payload: { backgroundEffectsSettings: hydrateBackgroundEffectsSettingsFromStorage() }
 	});
 	const volumes = readPeerVolumes();
 	if (Object.keys(volumes).length > 0) {

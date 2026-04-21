@@ -107,11 +107,10 @@ npm run dev:all
 
 **Hinweis:** Nur `npm run dev` startet **kein** Backend. Dann schlagen Aufrufe wie `/api/join` fehl (`vite http proxy error … ECONNREFUSED`). Immer **`npm run dev:all`** nutzen oder in einem zweiten Terminal **`npm run server`**. Ziel-URL des Proxys: `VITE_PROXY_API_TARGET` in **`.env`** im Repo-Root (Standard: `http://localhost:3001`).
 
-**Konfiguration (lokal):** **`cp .env.example .env`**, optional **`cp persistent-rooms.example.json persistent-rooms.json`**. Vite und der Server nutzen dieselbe **`.env`** im Repo-Root; **`EASYMEET_PERSISTENT_ROOMS`** ist relativ zum **Repo-Root** (Standard: `persistent-rooms.json`). Optional: **`server/.env`** überschreibt einzelne Variablen. Hattest du noch **`config/.env`** (ältere Struktur), Inhalt nach **`.env`** im Root übernehmen.
+**Konfiguration (lokal):** **`cp .env.example .env`**. Vite und der Server nutzen dieselbe **`.env`** im Repo-Root. Optional: **`server/.env`** überschreibt einzelne Variablen. Hattest du noch **`config/.env`** (ältere Struktur), Inhalt nach **`.env`** im Root übernehmen.
 
 **Troubleshooting (lokal):**
 
-- **`persistent-rooms: file missing …/config/persistent-rooms.json`:** In **`.env`** **`EASYMEET_PERSISTENT_ROOMS`** auf **`persistent-rooms.json`** setzen (nicht mehr unter **`config/`**), oder die Zeile entfernen und **`persistent-rooms.json`** im Repo-Root anlegen.
 - **`npm install` scheitert an mediasoup** (`SSL: CERTIFICATE_VERIFY_FAILED` beim Download von **libuv**, siehe `node_modules/mediasoup/worker/out/Release/build/meson-logs/meson-log.txt`): Zuerst versucht mediasoup einen **Prebuild** von GitHub (`mediasoup-worker-…-darwin-arm64.tgz`); schlägt das fehl, wird **lokal** mit **Python** gebaut — und genau dieser Python (oft **`/Library/Frameworks/Python.framework/...`** von **python.org**) hat auf dem Mac häufig **keine** Root-Zertifikate.
     1. **Empfohlen:** Im Finder **Applications → Python 3.x** das Skript **`Install Certificates.command`** ausführen (oder in der [Python-Doku](https://www.python.org/downloads/macos/) nach „Install Certificates“ suchen).
     2. **Alternative:** Python von **Homebrew** nutzen, das meist korrekte CAs mitbringt: `brew install python@3.12`, dann z. B. **`PYTHON=/opt/homebrew/bin/python3.12 npm install`** (Apple-Silicon; bei Intel oft **`/usr/local/bin/python3.12`**).
@@ -170,8 +169,6 @@ easymeet/
 │       └── …
 ├── .env.example            # Vorlage → .env (gitignored)
 ├── .env.production.example
-├── persistent-rooms.example.json
-├── persistent-rooms.default.json
 ├── Dockerfile
 ├── docker-compose.yml
 └── docs/
@@ -227,26 +224,14 @@ curl -X POST http://localhost:3001/api/rooms \
 
 **Response:** `{ "roomId": "ABC123", "hostPeerId": null }`
 
-**Join (then WebSocket):** `POST /api/join` with JSON `{ "identifier": "ABC123", "password": "" }` returns `{ "roomId", "peerId", "wsToken" }`. The client opens **`/ws?roomId=…&peerId=…&token=…`** with exactly those values; the token is **one-time** (~10 min TTL). Raum-Ersteller rufen nach `POST /api/rooms` dieselbe Join-Route auf, um `peerId`/`wsToken` zu erhalten.
+**Join (then WebSocket):** `POST /api/join` with JSON `{ "identifier": "ABC123", "password": "" }` returns `{ "roomId", "peerId", "wsToken" }`. The client opens **`/ws?roomId=…&peerId=…&token=…&clientId=…`** with exactly those values. Raum-Ersteller rufen nach `POST /api/rooms` dieselbe Join-Route auf, um `peerId`/`wsToken` zu erhalten.
 
-### Persistent rooms (config)
+### Join/WS token flow
 
-Fixed rooms can be created **on every server start** and are **not deleted** by the 24h TTL cleanup (dynamic rooms still expire).
-
-1. Set **`EASYMEET_PERSISTENT_ROOMS`** in **`.env`** to the JSON file path (**relative to the repository root** or absolute). See **`.env.example`** (default: `persistent-rooms.json`).
-2. Copy **`persistent-rooms.example.json`** → **`persistent-rooms.json`** (gitignored) and edit.
-
-```json
-{
-	"rooms": [{ "id": "OPENLOBBY" }, { "id": "STANDUP", "passwordEnv": "EASYMEET_ROOM_STANDUP_PASSWORD" }, { "id": "TEAM", "password": "only-if-deployment-is-trusted" }]
-}
-```
-
-- **`id`** or **`roomId`**: room code (same normalization as join: alphanumeric, uppercase).
-- **`password`**: optional; omit or empty for an open room.
-- **`passwordEnv`**: read the password from that environment variable (good for Docker secrets).
-
-At startup you should see: `persistent-rooms: N Raum/Räume … geladen (TTL ausgenommen)`.
+- `wsToken` wird nur von `POST /api/join` ausgestellt und an `roomId`, `peerId` und `clientId` gebunden.
+- Der Token ist **one-time** und läuft nach ca. 10 Minuten ab.
+- `/ws` akzeptiert nur unbenutzte, gültige Token und lehnt Reuse/Expired/Mismatch ab.
+- Bei `WS_TOKEN_INVALID` oder `WS_URL_TOKEN_MISMATCH`: erneut `POST /api/join` aufrufen und mit dem neuen `peerId`/`wsToken` verbinden.
 
 ---
 
@@ -299,10 +284,9 @@ Die Pipeline kann auch manuell unter **Actions → Build and Push Docker Image �
 | `MEDIASOUP_ANNOUNCED_IP`         | _(leer)_                                  | **Wichtig in Docker/Cloud:** öffentliche IP oder Hostname für ICE (sonst oft kein Video/Audio). Siehe [mediasoup WebRtcTransportOptions](https://mediasoup.org/documentation/v3/mediasoup/api/#WebRtcTransportOptions) |
 | `MEDIASOUP_LISTEN_IP`            | `0.0.0.0`                                 | Bind-Adresse des WebRTC-Transports                                                                                                                                                                                     |
 | `RTC_MIN_PORT` / `RTC_MAX_PORT`  | `40000`–`40200`                           | UDP-Portbereich für RTP (muss intern bis zum Container durchgereicht werden, z. B. Proxy)                                                                                                                              |
-| `EASYMEET_PERSISTENT_ROOMS`      | `persistent-rooms.json` in `.env.example` | Path to JSON with `{"rooms":[...]}` (**relative to repo root** or absolute). Omit to disable pinned rooms (unless JSON env is set).                                                                                    |
-| `EASYMEET_PERSISTENT_ROOMS_JSON` | _(leer)_                                  | Optional: entire rooms JSON in one env string (overrides file). For Docker Compose without mounting the JSON file.                                                                                                     |
+| `EASYMEET_DB_PATH`               | `/app/data/easymeet.sqlite`               | SQLite file path for server-admin and persistent-room metadata                                                                                                                                                         |
 
-**Docker / Compose:** **`env_file: ./.env`**. Das Image enthält eine Standard-**`persistent-rooms.json`** (Dockerfile); zum Überschreiben **ohne** Image-Rebuild: **`EASYMEET_PERSISTENT_ROOMS_JSON`** in **`.env`**. Weitere Werte in der YAML: **`environment:`** (siehe Kommentar in **`docker-compose.yml`**).
+**Docker / Compose:** **`env_file: ./.env`**. Persistente Räume und Server-Admin-Daten liegen in SQLite (`EASYMEET_DB_PATH`). Weitere Werte in der YAML: **`environment:`** (siehe Kommentar in **`docker-compose.yml`**).
 
 **Container startet nicht / Port 40000 belegt:** Das Repo hat **keine** `ports:` in `docker-compose.yml`. Häufig stammt das Mapping von **`docker-compose.override.yml`** (wird automatisch gemerged). Prüfen mit `docker compose config` – Details: [docs/docker-compose-troubleshooting.md](docs/docker-compose-troubleshooting.md).
 
@@ -311,21 +295,15 @@ Die Pipeline kann auch manuell unter **Actions → Build and Push Docker Image �
 ### Running with Docker
 
 ```bash
-# Nur .env (z. B. mit EASYMEET_PERSISTENT_ROOMS_JSON für feste Räume)
+# Nur .env
 docker run -p 3001:3001 -p 40000-40200:40000-40200/udp \
 	--env-file ./.env \
-	smotherer/easymeet:latest
-
-# Optional: JSON vom Host mounten statt EASYMEET_PERSISTENT_ROOMS_JSON in .env
-docker run -p 3001:3001 -p 40000-40200:40000-40200/udp \
-	--env-file ./.env \
-	-v "$(pwd)/persistent-rooms.json:/app/persistent-rooms.json:ro" \
 	smotherer/easymeet:latest
 ```
 
 ### docker-compose
 
-Die `docker-compose.yml` erwartet ein externes Netz **`frontend`**. Standard: nur **`./.env`** (`cp .env.example .env`). Feste Räume per **`EASYMEET_PERSISTENT_ROOMS_JSON`** in dieser Datei — **kein Volume nötig**.
+Die `docker-compose.yml` erwartet ein externes Netz **`frontend`**. Standard: nur **`./.env`** (`cp .env.example .env`).
 
 ```bash
 cp .env.example .env
@@ -333,8 +311,6 @@ docker network create frontend
 docker compose up -d
 # oder: npm run docker:up
 ```
-
-Willst du stattdessen **`persistent-rooms.json`** auf dem Host bearbeiten, in **`docker-compose.yml`** den **`volumes:`**-Block (Kommentar entfernen) aktivieren und die Datei aus **`persistent-rooms.example.json`** anlegen.
 
 Die **Compose-Datei veröffentlicht keine `ports:`** – der Dienst ist nur im Netz `frontend` erreichbar (z. B. Reverse-Proxy). **UDP 40000–40200** muss für WebRTC bis zu diesem Container durchgereicht werden (gleicher Bereich wie `RTC_*`).
 
@@ -351,7 +327,7 @@ Die **Compose-Datei veröffentlicht keine `ports:`** – der Dienst ist nur im N
 
 The production image:
 
-- **Keine** Konfig im Image — zur Laufzeit per Compose **`env_file`**; optional Bind **`persistent-rooms.json`** (Kommentar in **`docker-compose.yml`**) bzw. `docker run --env-file …` und nur bei Bedarf `-v …`
+- **Keine** Konfig im Image — zur Laufzeit per Compose **`env_file`** bzw. `docker run --env-file …`
 - Serves static files from `client/dist/`
 - Handles API routes under `/api`
 - Falls back to `index.html` for SPA routing

@@ -96,6 +96,7 @@ body {
 	overflow: hidden;
 	z-index: -1;
 	pointer-events: none;
+	display: none;
 }
 
 .bg-orb {
@@ -103,7 +104,7 @@ body {
 	border-radius: 50%;
 	filter: blur(80px);
 	opacity: 0.4;
-	animation: orbFloat 20s ease-in-out infinite alternate;
+	animation: none;
 }
 
 .bg-orb--1 {
@@ -419,6 +420,20 @@ body {
 	gap: 0.35rem;
 }
 
+.landing__pinned-create {
+	width: 2rem;
+	height: 2rem;
+	padding: 0;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+}
+
+.landing__pinned-create svg {
+	width: 1rem;
+	height: 1rem;
+}
+
 .landing__active-hint {
 	margin: 0.5rem 0 1rem;
 	font-size: 0.875rem;
@@ -481,6 +496,13 @@ body {
 	gap: 0.5rem;
 }
 
+.landing-active-room__actions {
+	display: inline-flex;
+	align-items: center;
+	gap: 0.3rem;
+	flex-shrink: 0;
+}
+
 .landing-active-room__top .landing-active-room__code {
 	min-width: 0;
 	word-break: break-word;
@@ -501,6 +523,33 @@ body {
 
 .landing-active-room__jump-svg {
 	display: block;
+}
+
+.landing-active-room__delete {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 1.5rem;
+	height: 1.5rem;
+	padding: 0;
+	border: 1px solid transparent;
+	border-radius: 0.45rem;
+	background: transparent;
+	color: var(--text-muted);
+	cursor: pointer;
+}
+
+.landing-active-room__delete:hover,
+.landing-active-room__delete:focus-visible {
+	color: #f87171;
+	border-color: rgba(248, 113, 113, 0.35);
+	background: rgba(248, 113, 113, 0.12);
+	outline: none;
+}
+
+.landing-active-room__delete svg {
+	width: 0.9rem;
+	height: 0.9rem;
 }
 
 .landing-active-room__meta {
@@ -1309,13 +1358,13 @@ body {
 	position: relative;
 }
 
-/* Raster-Layout: kein Frosted-Glass hinter Chat/Teilnehmer (volle Flächen) */
+/* Raster-Layout: Teilnehmerliste visuell wie Chat-Overlay (transparent/frosted). */
 .chat-view__body--meeting:not(.chat-view__body--floating) .chat__sidebar,
 .chat-view__body--meeting:not(.chat-view__body--floating) #chat-sidebar.chat__sidebar--overlay,
 .chat-view__body--meeting:not(.chat-view__body--floating) .chat__sidebar--voip.chat__sidebar--overlay {
-	backdrop-filter: none;
-	-webkit-backdrop-filter: none;
-	background: var(--bg-card);
+	background: rgba(18, 18, 26, 0.88);
+	backdrop-filter: blur(var(--glass-blur-strong)) saturate(1.15);
+	-webkit-backdrop-filter: blur(var(--glass-blur-strong)) saturate(1.15);
 }
 
 .chat-view__body--meeting:not(.chat-view__body--floating) .chat-panel--overlay {
@@ -1946,31 +1995,9 @@ body {
 	overflow: visible;
 }
 
-@media (prefers-reduced-motion: no-preference) {
-	.meeting-control-bar::before {
-		content: "";
-		position: absolute;
-		inset: 0;
-		border-radius: inherit;
-		background: linear-gradient(
-			100deg,
-			transparent 0%,
-			transparent 38%,
-			rgba(255, 255, 255, 0.09) 50%,
-			transparent 62%,
-			transparent 100%
-		);
-		background-size: 200% 100%;
-		background-position: 100% 0;
-		pointer-events: none;
-		opacity: 0;
-		z-index: 0;
-		transition: opacity 0.2s ease;
-	}
-
-	.meeting-control-bar:hover::before {
-		animation: easymeet-controlbar-sweep 1s ease-out;
-	}
+/* Removed sweep hover effect on control bar by request. */
+.meeting-control-bar::before {
+	content: none;
 }
 
 @keyframes easymeet-controlbar-sweep {
@@ -4135,6 +4162,7 @@ body {
 	height: 1rem;
 }
 
+
 .voip-view__volume-wrap {
 	position: relative;
 	display: inline-flex;
@@ -4723,6 +4751,7 @@ body {
 	display: none;
 }
 
+
 .settings-modal__body {
 	padding: 1.25rem;
 	overflow-y: auto;
@@ -5136,6 +5165,31 @@ body {
 	position: relative;
 }
 
+.lang-switcher__admin-trigger {
+	display: inline-flex;
+	align-items: center;
+	gap: 0.4rem;
+	padding: 0.4rem 0.65rem;
+	font-size: 0.85rem;
+	font-weight: 600;
+	border: 1px solid var(--border);
+	border-radius: var(--radius);
+	background: rgba(22, 22, 32, 0.96);
+	backdrop-filter: blur(16px);
+	-webkit-backdrop-filter: blur(16px);
+	color: var(--text);
+	cursor: pointer;
+	transition:
+		border-color 0.25s ease,
+		box-shadow 0.35s var(--ease-spring),
+		transform 0.25s ease;
+}
+
+.lang-switcher__admin-trigger:hover {
+	border-color: var(--accent);
+	box-shadow: 0 6px 20px rgba(0, 0, 0, 0.35);
+}
+
 .lang-switcher__trigger {
 	display: inline-flex;
 	align-items: center;
@@ -5336,6 +5390,94 @@ body {
 	flex-wrap: wrap;
 	gap: 0.65rem;
 	justify-content: flex-end;
+}
+
+.server-admin-modal {
+	position: fixed;
+	inset: 0;
+	z-index: 2150;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	padding: 1rem;
+}
+
+.server-admin-modal[hidden] {
+	display: none;
+}
+
+.server-admin-modal__backdrop {
+	position: absolute;
+	inset: 0;
+	background: rgba(0, 0, 0, 0.65);
+	backdrop-filter: blur(6px);
+	-webkit-backdrop-filter: blur(6px);
+}
+
+.server-admin-modal__panel {
+	position: relative;
+	width: 100%;
+	max-width: 420px;
+	padding: 1.5rem 1.75rem;
+	background: rgba(20, 20, 30, 0.92);
+	backdrop-filter: blur(20px);
+	-webkit-backdrop-filter: blur(20px);
+	border: 1px solid rgba(255, 255, 255, 0.08);
+	border-radius: var(--radius-lg);
+	box-shadow:
+		0 24px 64px rgba(0, 0, 0, 0.55),
+		0 0 0 1px rgba(255, 255, 255, 0.04);
+	animation: leaveModalIn 0.4s var(--ease-spring);
+}
+
+.server-admin-modal__title {
+	margin: 0 0 0.5rem;
+	font-family: var(--font-display);
+	font-size: 1.2rem;
+	font-weight: 600;
+	letter-spacing: -0.02em;
+}
+
+.server-admin-modal__body {
+	margin: 0 0 1.1rem;
+	font-size: 0.92rem;
+	color: var(--text-muted);
+	line-height: 1.45;
+}
+
+.server-admin-modal__field {
+	margin-bottom: 0.55rem;
+	display: flex;
+	flex-direction: column;
+	gap: 0.45rem;
+}
+
+.server-admin-modal__field label {
+	font-size: 0.82rem;
+	font-weight: 600;
+	letter-spacing: 0.02em;
+}
+
+.server-admin-modal__field input {
+	min-height: 2.65rem;
+}
+
+.server-admin-modal__status {
+	margin: 0.8rem 0 0;
+	font-size: 0.88rem;
+	color: #34d399;
+}
+
+.server-admin-modal__status--error {
+	color: #fda4af;
+}
+
+.server-admin-modal__actions {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.65rem;
+	justify-content: flex-end;
+	margin-top: 1rem;
 }
 
 .em-brand-spinner--sm {

@@ -29,6 +29,10 @@
 		"client",
 		"server"
 	],
+	"overrides": {
+		"path-to-regexp": "0.1.13",
+		"picomatch": "4.0.4"
+	},
 	"scripts": {
 		"dev": "npm run dev -w easymeet-client",
 		"server": "npm run start -w easymeet-server",

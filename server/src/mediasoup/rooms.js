@@ -35,6 +35,7 @@ const msRooms = new Map();
  * @property {boolean} videoEnabled
  * @property {string} backgroundEffect
  * @property {boolean} handRaised
+ * @property {{ windowStart: number; chatCount: number; fileChunkCount: number } | null} spamState
  */
 
 /**
@@ -179,7 +180,8 @@ export function createPeerState(peerId, nick) {
 		muted: true,
 		videoEnabled: false,
 		backgroundEffect: "none",
-		handRaised: false
+		handRaised: false,
+		spamState: null
 	};
 }
 

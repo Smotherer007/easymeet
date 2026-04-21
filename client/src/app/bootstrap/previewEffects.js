@@ -21,9 +21,9 @@ export function createApplyEffectToPreview(getState, dispatch) {
 		} catch (_) {}
 		dispatch({ type: "effects/previewEffectStop", payload: { stop: null } });
 		if (effect === "blur" && isBackgroundEffectsSupported()) {
-			await applyBlurEffect(dispatch, sourceStream, previewVideo, showLoading, hideLoading);
+			await applyBlurEffect(getState, dispatch, sourceStream, previewVideo, showLoading, hideLoading);
 		} else if (effect && effect !== "none" && isBackgroundEffectsSupported()) {
-			await applyVirtualBackgroundEffect(dispatch, sourceStream, effect, previewVideo, showLoading, hideLoading);
+			await applyVirtualBackgroundEffect(getState, dispatch, sourceStream, effect, previewVideo, showLoading, hideLoading);
 		} else {
 			previewVideo.srcObject = sourceStream;
 		}
@@ -33,10 +33,11 @@ export function createApplyEffectToPreview(getState, dispatch) {
 /**
  * @param {import('../../store/index.js').dispatch} dispatch
  */
-async function applyBlurEffect(dispatch, sourceStream, previewVideo, showLoading, hideLoading) {
+async function applyBlurEffect(getState, dispatch, sourceStream, previewVideo, showLoading, hideLoading) {
 	showLoading();
 	try {
-		const { stream, stop } = await createBlurredStream(sourceStream, { blurAmount: 15 });
+		const settings = selectors.selectBackgroundEffectsSettings(getState()) || {};
+		const { stream, stop } = await createBlurredStream(sourceStream, settings);
 		previewVideo.srcObject = stream;
 		dispatch({ type: "effects/previewEffectStop", payload: { stop } });
 	} catch {
@@ -49,7 +50,7 @@ async function applyBlurEffect(dispatch, sourceStream, previewVideo, showLoading
 /**
  * @param {import('../../store/index.js').dispatch} dispatch
  */
-async function applyVirtualBackgroundEffect(dispatch, sourceStream, effect, previewVideo, showLoading, hideLoading) {
+async function applyVirtualBackgroundEffect(getState, dispatch, sourceStream, effect, previewVideo, showLoading, hideLoading) {
 	const customResult = getCustomBackgrounds();
 	const allBackgrounds = [...BACKGROUND_IMAGES, ...(customResult.success ? customResult.data : [])];
 	const bg = allBackgrounds.find((b) => b.id === effect);
@@ -59,7 +60,8 @@ async function applyVirtualBackgroundEffect(dispatch, sourceStream, effect, prev
 	}
 	showLoading();
 	try {
-		const { stream, stop } = await createVirtualBackgroundStream(sourceStream, bg.url);
+		const settings = selectors.selectBackgroundEffectsSettings(getState()) || {};
+		const { stream, stop } = await createVirtualBackgroundStream(sourceStream, bg.url, settings);
 		previewVideo.srcObject = stream;
 		dispatch({ type: "effects/previewEffectStop", payload: { stop } });
 	} catch {

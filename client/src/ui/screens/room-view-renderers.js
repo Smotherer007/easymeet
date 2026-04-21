@@ -716,9 +716,17 @@ export function renderSettingsModalContent(state) {
 		backgroundEffect,
 		backgroundImages
 	} = state;
+	const fx = state.backgroundEffectsSettings || {};
+	const fxTemporal = Number.isFinite(fx.smoothingFactor) ? fx.smoothingFactor : 0.8;
+	const fxStepMin = Number.isFinite(fx.smoothstepMin) ? fx.smoothstepMin : 0.6;
+	const fxStepMax = Number.isFinite(fx.smoothstepMax) ? fx.smoothstepMax : 0.9;
+	const fxBorders = Number.isFinite(fx.smoothBorders) ? fx.smoothBorders : 0;
+	const fxBgBlur = Number.isFinite(fx.backgroundBlur) ? fx.backgroundBlur : 0;
+	const fxBgBlurRadius = Number.isFinite(fx.backgroundBlurRadius) ? fx.backgroundBlurRadius : 30;
 	const audioSettings = state.audioSettings && typeof state.audioSettings === "object" ? { ...DEFAULT_AUDIO_SETTINGS, ...state.audioSettings } : { ...DEFAULT_AUDIO_SETTINGS };
 	const st = audioSettings.speakingThreshold;
 	const stSensitivityPct = speakingThresholdToSensitivityPercent(st);
+	const appSoundVolume = Number.isFinite(audioSettings.appSoundVolume) ? audioSettings.appSoundVolume : DEFAULT_AUDIO_SETTINGS.appSoundVolume;
 	const effectTiles = hasBackgroundBlur
 		? `<div class="effect-tiles" id="effect-tiles"><button type="button" class="effect-tile ${backgroundEffect === "none" ? "effect-tile--selected" : ""}" data-effect="none" title="${escapeAttr(t("backgroundNone"))}"><span class="effect-tile__preview effect-tile__preview--none">${iconVideo()}</span><span class="effect-tile__label">${t("backgroundNone")}</span></button><button type="button" class="effect-tile ${backgroundEffect === "blur" ? "effect-tile--selected" : ""}" data-effect="blur" title="${escapeAttr(t("backgroundBlur"))}"><span class="effect-tile__preview effect-tile__preview--blur"></span><span class="effect-tile__label">${t("backgroundBlur")}</span></button>${renderEffectTilesFirst(backgroundImages, backgroundEffect)}</div>${renderEffectTilesMore(backgroundImages, backgroundEffect)}<input type="file" id="background-upload-input" accept="image/*" hidden /><button type="button" class="effect-tiles-upload-btn" id="effect-tiles-upload-btn" title="${escapeAttr(t("uploadCustomBackground"))}">${iconUpload()} ${t("uploadCustomBackground")}</button>`
 		: `<p class="effect-preview-unsupported" id="effect-preview-unsupported">${t("backgroundEffectsNotSupported")}</p>`;
@@ -745,10 +753,64 @@ export function renderSettingsModalContent(state) {
             </div>
             ${effectTiles}
           </div>`;
+	const effectsTuningPanel = `
+          <div class="settings-modal__section settings-modal__section--audio-advanced">
+            <h4>${t("backgroundTuningTitle")}</h4>
+            <div class="settings-modal__range-row">
+              <label class="settings-modal__range-label" for="bgfx-smoothing-factor">${t("backgroundTuningTemporalSmoothing")}</label>
+              <div class="settings-modal__range-controls">
+                <input type="range" id="bgfx-smoothing-factor" min="0.05" max="0.95" step="0.01" value="${fxTemporal}" />
+                <span class="settings-modal__range-value" id="bgfx-smoothing-factor-value">${fxTemporal.toFixed(2)}</span>
+              </div>
+            </div>
+            <div class="settings-modal__range-row">
+              <label class="settings-modal__range-label" for="bgfx-smoothstep-min">${t("backgroundTuningSmoothstepMin")}</label>
+              <div class="settings-modal__range-controls">
+                <input type="range" id="bgfx-smoothstep-min" min="0" max="1" step="0.01" value="${fxStepMin}" />
+                <span class="settings-modal__range-value" id="bgfx-smoothstep-min-value">${fxStepMin.toFixed(2)}</span>
+              </div>
+            </div>
+            <div class="settings-modal__range-row">
+              <label class="settings-modal__range-label" for="bgfx-smoothstep-max">${t("backgroundTuningSmoothstepMax")}</label>
+              <div class="settings-modal__range-controls">
+                <input type="range" id="bgfx-smoothstep-max" min="0" max="1" step="0.01" value="${fxStepMax}" />
+                <span class="settings-modal__range-value" id="bgfx-smoothstep-max-value">${fxStepMax.toFixed(2)}</span>
+              </div>
+            </div>
+            <div class="settings-modal__range-row">
+              <label class="settings-modal__range-label" for="bgfx-smooth-borders">${t("backgroundTuningSmoothBorders")}</label>
+              <div class="settings-modal__range-controls">
+                <input type="range" id="bgfx-smooth-borders" min="0" max="12" step="0.5" value="${fxBorders}" />
+                <span class="settings-modal__range-value" id="bgfx-smooth-borders-value">${fxBorders}</span>
+              </div>
+            </div>
+            <div class="settings-modal__range-row">
+              <label class="settings-modal__range-label" for="bgfx-background-blur">${t("backgroundTuningBackgroundBlur")}</label>
+              <div class="settings-modal__range-controls">
+                <input type="range" id="bgfx-background-blur" min="0" max="1" step="0.01" value="${fxBgBlur}" />
+                <span class="settings-modal__range-value" id="bgfx-background-blur-value">${fxBgBlur.toFixed(2)}</span>
+              </div>
+            </div>
+            <div class="settings-modal__range-row">
+              <label class="settings-modal__range-label" for="bgfx-background-blur-radius">${t("backgroundTuningBackgroundBlurRadius")}</label>
+              <div class="settings-modal__range-controls">
+                <input type="range" id="bgfx-background-blur-radius" min="0" max="60" step="1" value="${fxBgBlurRadius}" />
+                <span class="settings-modal__range-value" id="bgfx-background-blur-radius-value">${fxBgBlurRadius}</span>
+              </div>
+            </div>
+          </div>`;
 	const advancedPanel = `
           <div class="settings-modal__section settings-modal__section--audio-advanced">
             <h4>${t("audioAdvancedTitle")}</h4>
             <p class="settings-modal__hint settings-modal__hint--sm">${t("audioAdvancedHint")}</p>
+            <div class="settings-modal__range-row">
+              <label class="settings-modal__range-label" for="audio-app-sound-volume">${t("appSoundVolumeLabel")}</label>
+              <div class="settings-modal__range-controls">
+                <input type="range" id="audio-app-sound-volume" min="0" max="100" step="1" value="${appSoundVolume}" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${appSoundVolume}" aria-valuetext="${appSoundVolume}%" />
+                <span class="settings-modal__range-value settings-modal__range-value--pct" id="audio-app-sound-volume-value">${appSoundVolume}%</span>
+              </div>
+            </div>
+            <p class="settings-modal__hint settings-modal__hint--sm">${t("appSoundVolumeHint")}</p>
             <div class="settings-modal__range-row">
               <label class="settings-modal__range-label" for="audio-speaking-threshold">${t("speakingThresholdLabel")}</label>
               <div class="settings-modal__range-controls">
@@ -789,7 +851,7 @@ export function renderSettingsModalContent(state) {
         </div>
         <div class="settings-modal__body" id="settings-panel">
           <div class="settings-modal__tab-panel" id="settings-panel-media" role="tabpanel" aria-labelledby="settings-tab-media" data-panel="media">${mediaPanel}</div>
-          <div class="settings-modal__tab-panel" id="settings-panel-effects" role="tabpanel" aria-labelledby="settings-tab-effects" data-panel="effects" hidden>${effectsPanel}</div>
+          <div class="settings-modal__tab-panel" id="settings-panel-effects" role="tabpanel" aria-labelledby="settings-tab-effects" data-panel="effects" hidden>${effectsPanel}${effectsTuningPanel}</div>
           <div class="settings-modal__tab-panel" id="settings-panel-advanced" role="tabpanel" aria-labelledby="settings-tab-advanced" data-panel="advanced" hidden>${advancedPanel}</div>
         </div>
         <div class="settings-modal__resize-handle" data-resize-handle title="${escapeAttr(t("resize"))}"></div>

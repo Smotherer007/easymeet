@@ -19,6 +19,7 @@ import {
 	selectBackgroundEffect,
 	selectPeerVideoState,
 	selectPeerBackgroundEffect,
+	selectBackgroundEffectsSettings,
 	selectHostPeer,
 	selectViewerConn,
 	selectInputDeviceId,
@@ -378,7 +379,7 @@ async function applyEffectToCallStreamInternal(
 				return;
 			}
 			const { stream, stop } = await createBlurredStream(src.stream, {
-				blurAmount: 15,
+				...(selectBackgroundEffectsSettings(getState()) || {}),
 				stopSourceVideoTrackOnCleanup: src.stopSourceCleanup
 			});
 			patchEffectResult(stream, stop, src.rawCanonical);
@@ -393,6 +394,7 @@ async function applyEffectToCallStreamInternal(
 					return;
 				}
 				const { stream, stop } = await createVirtualBackgroundStream(src.stream, bg.url, {
+					...(selectBackgroundEffectsSettings(getState()) || {}),
 					stopSourceVideoTrackOnCleanup: src.stopSourceCleanup
 				});
 				patchEffectResult(stream, stop, src.rawCanonical);

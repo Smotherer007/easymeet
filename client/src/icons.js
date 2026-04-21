@@ -42,12 +42,15 @@ import {
 	Globe,
 	RefreshCw,
 	Lock,
+	Trash2,
+	Plus,
 	Minus,
 	Maximize2,
 	ArrowRight,
 	Hand,
 	BarChart2,
-	Radio
+	Radio,
+	Shield
 } from "lucide";
 
 const defaultAttrs = { "stroke-width": 1.75, class: "icon" };
@@ -103,12 +106,15 @@ export const iconGithub = () => createElement(Github, smAttrs).outerHTML;
 export const iconGlobe = () => createElement(Globe, smAttrs).outerHTML;
 export const iconRefreshCw = () => createElement(RefreshCw, smAttrs).outerHTML;
 export const iconLockInline = () => createElement(Lock, lockInlineAttrs).outerHTML;
+export const iconTrash2 = () => createElement(Trash2, smAttrs).outerHTML;
+export const iconPlus = () => createElement(Plus, smAttrs).outerHTML;
 /** Pinned rooms: tap-to-join hint (no live presence). */
 export const iconPinnedRoomJump = () => createElement(ArrowRight, jumpInlineAttrs).outerHTML;
 export const iconHand = () => createElement(Hand, smAttrs).outerHTML;
 export const iconBarChart2 = () => createElement(BarChart2, smAttrs).outerHTML;
 /** “No live rooms” — subtle Lucide icon instead of illustration */
 export const iconLandingActiveRoomsEmpty = () => createElement(Radio, landingEmptyStateAttrs).outerHTML;
+export const iconShield = () => createElement(Shield, { ...defaultAttrs, width: "0.9rem", height: "0.9rem" }).outerHTML;
 
 export const iconLogo = () => `
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="4rem" height="4rem" class="icon logo-icon logo-icon--hero">

@@ -6,8 +6,10 @@ import {
 	iconGithub,
 	iconGlobe,
 	iconRefreshCw,
+	iconPlus,
 	iconLockInline,
 	iconPinnedRoomJump,
+	iconTrash2,
 	iconLandingActiveRoomsEmpty,
 	iconLoader2
 } from "../../icons.js";
@@ -72,6 +74,15 @@ export function renderLanding() {
       <section class="landing__pinned" aria-labelledby="pinned-rooms-heading">
         <div class="landing__active-head">
           <h2 id="pinned-rooms-heading" class="landing__active-title">${t("pinnedRoomsTitle")}</h2>
+          <button
+            type="button"
+            class="btn btn--ghost btn--sm landing__pinned-create"
+            data-action="persistent-room-open"
+            title="Create persistent room"
+            aria-label="Create persistent room"
+          >
+            ${iconPlus()}
+          </button>
         </div>
         <p class="landing__active-hint">${t("pinnedRoomsHint")}</p>
         <p class="landing__active-error" id="pinned-rooms-error" hidden></p>
@@ -111,6 +122,69 @@ export function renderLanding() {
           <span>Patrick Weppelmann</span>
         </a>
       </footer>
+      <div class="server-admin-modal" id="server-admin-modal" hidden>
+        <div class="server-admin-modal__backdrop" data-action="server-admin-close"></div>
+        <div class="server-admin-modal__panel" role="dialog" aria-modal="true" aria-labelledby="server-admin-modal-title">
+          <h3 class="server-admin-modal__title" id="server-admin-modal-title">Server Admin Login</h3>
+          <p class="server-admin-modal__body">Enter the bootstrap token from the server logs.</p>
+          <div class="input-group server-admin-modal__field">
+            <label for="server-admin-token">Bootstrap Token</label>
+            <input id="server-admin-token" type="password" autocomplete="off" placeholder="Paste token" />
+          </div>
+          <p class="server-admin-modal__status" id="server-admin-status" hidden></p>
+          <div class="server-admin-modal__actions">
+            <button type="button" class="btn btn--ghost" data-action="server-admin-close">Cancel</button>
+            <button type="button" class="btn btn--secondary" data-action="server-admin-login">Login</button>
+          </div>
+        </div>
+      </div>
+      <div class="server-admin-modal" id="persistent-room-modal" hidden>
+        <div class="server-admin-modal__backdrop" data-action="persistent-room-close"></div>
+        <div class="server-admin-modal__panel" role="dialog" aria-modal="true" aria-labelledby="persistent-room-modal-title">
+          <h3 class="server-admin-modal__title" id="persistent-room-modal-title">Create Persistent Room</h3>
+          <p class="server-admin-modal__body">This action is available to server admins only.</p>
+          <div class="input-group server-admin-modal__field">
+            <label for="persistent-room-code">Room Code</label>
+            <input id="persistent-room-code" type="text" autocomplete="off" placeholder="e.g. STANDUP" />
+          </div>
+          <div class="input-group server-admin-modal__field">
+            <label for="persistent-room-name">Name</label>
+            <input id="persistent-room-name" type="text" autocomplete="off" placeholder="Optional room name" />
+          </div>
+          <div class="input-group server-admin-modal__field">
+            <label for="persistent-room-description">Description</label>
+            <input id="persistent-room-description" type="text" autocomplete="off" placeholder="Optional description" />
+          </div>
+          <div class="input-group server-admin-modal__field">
+            <label for="persistent-room-welcome">Welcome Message</label>
+            <input id="persistent-room-welcome" type="text" autocomplete="off" placeholder="Optional welcome text" />
+          </div>
+          <div class="input-group server-admin-modal__field">
+            <label for="persistent-room-password">Password</label>
+            <input id="persistent-room-password" type="password" autocomplete="off" placeholder="Optional password" />
+          </div>
+          <p class="server-admin-modal__status" id="persistent-room-status" hidden></p>
+          <div class="server-admin-modal__actions">
+            <button type="button" class="btn btn--ghost" data-action="persistent-room-close">Cancel</button>
+            <button type="button" class="btn btn--primary" data-action="persistent-room-create">Create Room</button>
+          </div>
+        </div>
+      </div>
+      <div class="leave-room-modal" id="persistent-room-delete-modal" hidden role="dialog" aria-modal="true" aria-labelledby="persistent-room-delete-title">
+        <div class="leave-room-modal__backdrop" data-action="persistent-room-delete-cancel"></div>
+        <div class="leave-room-modal__panel">
+          <h2 class="leave-room-modal__title" id="persistent-room-delete-title">Delete Persistent Room</h2>
+          <p class="leave-room-modal__body">
+            Do you really want to delete
+            <strong id="persistent-room-delete-room-id"></strong>?
+            This cannot be undone.
+          </p>
+          <div class="leave-room-modal__actions">
+            <button type="button" class="btn btn--secondary" data-action="persistent-room-delete-cancel">Cancel</button>
+            <button type="button" class="btn btn--danger" data-action="persistent-room-delete-confirm">Delete</button>
+          </div>
+        </div>
+      </div>
     </div>
   `;
 }
@@ -140,10 +214,10 @@ function formatActiveRoomParticipantLine(participants) {
 }
 
 /**
- * @param {{ showJumpIcon?: boolean }} [options] – pinned rooms: jump arrow (no online status)
+ * @param {{ showJumpIcon?: boolean; showDelete?: boolean; onDeleteRoom?: (roomId: string) => void }} [options]
  */
 function appendRoomListItem(listEl, r, metaMainText, onPickRoom, options = {}) {
-	const { showJumpIcon = false } = options;
+	const { showJumpIcon = false, showDelete = false, onDeleteRoom } = options;
 	const li = document.createElement("li");
 	li.className = showJumpIcon ? "landing-active-room landing-active-room--pinned" : "landing-active-room";
 	li.setAttribute("role", "button");
@@ -167,12 +241,32 @@ function appendRoomListItem(listEl, r, metaMainText, onPickRoom, options = {}) {
 		const top = document.createElement("div");
 		top.className = "landing-active-room__top";
 		top.appendChild(code);
+		const actions = document.createElement("div");
+		actions.className = "landing-active-room__actions";
 		const jump = document.createElement("span");
 		jump.className = "landing-active-room__jump";
 		jump.setAttribute("aria-hidden", "true");
 		jump.setAttribute("title", t("pinnedRoomsJumpHint"));
 		jump.innerHTML = iconPinnedRoomJump();
-		top.appendChild(jump);
+		actions.appendChild(jump);
+		if (showDelete) {
+			const delBtn = document.createElement("button");
+			delBtn.type = "button";
+			delBtn.className = "landing-active-room__delete";
+			delBtn.title = "Delete persistent room";
+			delBtn.setAttribute("aria-label", "Delete persistent room");
+			delBtn.innerHTML = iconTrash2();
+			delBtn.addEventListener("click", (e) => {
+				e.preventDefault();
+				e.stopPropagation();
+				onDeleteRoom?.(String(r.roomId || ""));
+			});
+			delBtn.addEventListener("keydown", (e) => {
+				e.stopPropagation();
+			});
+			actions.appendChild(delBtn);
+		}
+		top.appendChild(actions);
 		li.appendChild(top);
 	} else {
 		li.appendChild(code);
@@ -199,8 +293,10 @@ function appendRoomListItem(listEl, r, metaMainText, onPickRoom, options = {}) {
 /**
  * @param {HTMLElement} container
  * @param {(roomId: string, hasPassword: boolean) => void} onPickRoom
+ * @param {{ canDelete?: boolean; onDeleteRoom?: (roomId: string) => void }} [options]
  */
-export async function refreshPinnedRoomsPanel(container, onPickRoom) {
+export async function refreshPinnedRoomsPanel(container, onPickRoom, options = {}) {
+	const { canDelete = false, onDeleteRoom } = options;
 	const listEl = container.querySelector("#pinned-rooms-list");
 	const emptyEl = container.querySelector("#pinned-rooms-empty");
 	const errEl = container.querySelector("#pinned-rooms-error");
@@ -230,7 +326,11 @@ export async function refreshPinnedRoomsPanel(container, onPickRoom) {
 
 	if (emptyEl) emptyEl.setAttribute("hidden", "");
 	for (const r of rooms) {
-		appendRoomListItem(listEl, r, t("pinnedRoomsMeta"), onPickRoom, { showJumpIcon: true });
+		appendRoomListItem(listEl, r, t("pinnedRoomsMeta"), onPickRoom, {
+			showJumpIcon: true,
+			showDelete: !!canDelete,
+			onDeleteRoom
+		});
 	}
 }
 
@@ -281,7 +381,7 @@ export async function refreshActiveRoomsPanel(container, onPickRoom) {
  * @param {{ onCreateRoom: () => void; onJoinRoom: () => void; onPickActiveRoom: (roomId: string, hasPassword: boolean) => void }} handlers
  */
 export function attachLandingListeners(container, handlers) {
-	const { onCreateRoom, onJoinRoom, onPickActiveRoom } = handlers;
+	const { onCreateRoom, onJoinRoom, onPickActiveRoom, onServerAdminLogin, onCreatePersistentRoom, onDeletePersistentRoom, isServerAdmin } = handlers;
 	teardownLandingAutoRefresh(container);
 	landingRoomPanelsRefreshChain = Promise.resolve();
 
@@ -308,12 +408,147 @@ export function attachLandingListeners(container, handlers) {
 			});
 		return landingRoomPanelsRefreshChain;
 	};
+	const getServerAdminStatus = () => {
+		if (typeof isServerAdmin === "function") return !!isServerAdmin();
+		return !!isServerAdmin;
+	};
+	const deleteModal = container.querySelector("#persistent-room-delete-modal");
+	const deleteRoomIdEl = container.querySelector("#persistent-room-delete-room-id");
+	let pendingDeleteRoomId = "";
+	const openDeleteModal = (roomId) => {
+		pendingDeleteRoomId = String(roomId || "").trim().toUpperCase();
+		if (deleteRoomIdEl) deleteRoomIdEl.textContent = pendingDeleteRoomId;
+		deleteModal?.removeAttribute("hidden");
+	};
+	const closeDeleteModal = () => {
+		pendingDeleteRoomId = "";
+		deleteModal?.setAttribute("hidden", "");
+	};
+	deleteModal
+		?.querySelectorAll('[data-action="persistent-room-delete-cancel"]')
+		.forEach((el) => el.addEventListener("click", closeDeleteModal));
+	const refreshPinnedRoomsForRole = async () => {
+		await refreshPinnedRoomsPanel(container, onPickActiveRoom, {
+			canDelete: getServerAdminStatus(),
+			onDeleteRoom: deletePersistentRoom
+		});
+	};
+	const deletePersistentRoom = async (roomId) => {
+		if (!getServerAdminStatus()) {
+			window.alert("Only server admins can delete persistent rooms.");
+			return;
+		}
+		openDeleteModal(roomId);
+	};
+	deleteModal?.querySelector('[data-action="persistent-room-delete-confirm"]')?.addEventListener("click", async () => {
+		if (!pendingDeleteRoomId) return;
+		const result = await onDeletePersistentRoom?.(pendingDeleteRoomId);
+		if (!result?.success) {
+			window.alert(result?.error?.message || "Could not delete persistent room.");
+			return;
+		}
+		closeDeleteModal();
+		await refreshPinnedRoomsForRole();
+	});
 
 	container.querySelector('[data-action="refresh-active-rooms"]')?.addEventListener("click", () => void runActiveRoomsRefresh());
 	container.querySelector('[data-action="join-empty-cta"]')?.addEventListener("click", runLandingNav(onJoinRoom));
+	const adminModal = container.querySelector("#server-admin-modal");
+	const openAdminModal = () => {
+		adminModal?.removeAttribute("hidden");
+		container.querySelector("#server-admin-token")?.focus();
+	};
+	const closeAdminModal = () => {
+		adminModal?.setAttribute("hidden", "");
+	};
+	adminModal?.querySelectorAll('[data-action="server-admin-close"]').forEach((el) => el.addEventListener("click", closeAdminModal));
+
+	const persistentRoomModal = container.querySelector("#persistent-room-modal");
+	const openPersistentRoomModal = () => {
+		const status = container.querySelector("#persistent-room-status");
+		if (!getServerAdminStatus()) {
+			if (status) {
+				status.textContent = "Only server admins can create persistent rooms.";
+				status.classList.add("server-admin-modal__status--error");
+				status.removeAttribute("hidden");
+			}
+			return;
+		}
+		if (status) {
+			status.textContent = "";
+			status.classList.remove("server-admin-modal__status--error");
+			status.setAttribute("hidden", "");
+		}
+		persistentRoomModal?.removeAttribute("hidden");
+		container.querySelector("#persistent-room-code")?.focus();
+	};
+	const closePersistentRoomModal = () => {
+		persistentRoomModal?.setAttribute("hidden", "");
+	};
+	persistentRoomModal
+		?.querySelectorAll('[data-action="persistent-room-close"]')
+		.forEach((el) => el.addEventListener("click", closePersistentRoomModal));
+
+	document.getElementById("server-admin-open-btn")?.addEventListener("click", openAdminModal);
+	container.querySelector('[data-action="persistent-room-open"]')?.addEventListener("click", openPersistentRoomModal);
+
+	container.querySelector('[data-action="server-admin-login"]')?.addEventListener("click", async () => {
+		const input = container.querySelector("#server-admin-token");
+		const status = container.querySelector("#server-admin-status");
+		const token = input?.value?.trim() || "";
+		if (!token) return;
+		const ok = await onServerAdminLogin?.(token);
+		if (!status) return;
+		status.removeAttribute("hidden");
+		status.textContent = ok ? "Server admin is now active on this browser." : "Server admin login failed.";
+		status.classList.toggle("server-admin-modal__status--error", !ok);
+		if (ok && input) {
+			input.value = "";
+			await refreshPinnedRoomsForRole();
+			setTimeout(closeAdminModal, 500);
+		}
+	});
+
+	container.querySelector('[data-action="persistent-room-create"]')?.addEventListener("click", async () => {
+		const status = container.querySelector("#persistent-room-status");
+		if (!getServerAdminStatus()) {
+			if (status) {
+				status.textContent = "Only server admins can create persistent rooms.";
+				status.classList.add("server-admin-modal__status--error");
+				status.removeAttribute("hidden");
+			}
+			return;
+		}
+		const roomCode = container.querySelector("#persistent-room-code")?.value?.trim() || "";
+		const name = container.querySelector("#persistent-room-name")?.value?.trim() || "";
+		const description = container.querySelector("#persistent-room-description")?.value?.trim() || "";
+		const welcomeMessage = container.querySelector("#persistent-room-welcome")?.value?.trim() || "";
+		const password = container.querySelector("#persistent-room-password")?.value || "";
+		if (!roomCode) {
+			if (status) {
+				status.textContent = "Room code is required.";
+				status.classList.add("server-admin-modal__status--error");
+				status.removeAttribute("hidden");
+			}
+			return;
+		}
+		const result = await onCreatePersistentRoom?.({ roomCode, name, description, welcomeMessage, password });
+		if (!status) return;
+		if (!result?.success) {
+			status.textContent = result?.error?.message || "Could not create persistent room.";
+			status.classList.add("server-admin-modal__status--error");
+			status.removeAttribute("hidden");
+			return;
+		}
+		status.textContent = "Persistent room created successfully.";
+		status.classList.remove("server-admin-modal__status--error");
+		status.removeAttribute("hidden");
+		await refreshPinnedRoomsForRole();
+		setTimeout(closePersistentRoomModal, 600);
+	});
 
 	void (async () => {
-		await refreshPinnedRoomsPanel(container, onPickActiveRoom);
+		await refreshPinnedRoomsForRole();
 		await refreshActiveRoomsPanel(container, onPickActiveRoom);
 	})();
 
@@ -325,19 +560,9 @@ export function attachLandingListeners(container, handlers) {
 	container._easymeetLandingVisibilityHandler = onVis;
 	document.addEventListener("visibilitychange", onVis);
 
-	if (!window._easymeetOrbParallax) {
-		window._easymeetOrbParallax = true;
-		const orbs = document.querySelector(".bg-orbs");
-		if (orbs) {
-			let raf = 0;
-			document.addEventListener("pointermove", (e) => {
-				cancelAnimationFrame(raf);
-				raf = requestAnimationFrame(() => {
-					const x = (e.clientX / window.innerWidth - 0.5) * 24;
-					const y = (e.clientY / window.innerHeight - 0.5) * 24;
-					orbs.style.transform = `translate3d(${x}px, ${y}px, 0)`;
-				});
-			});
-		}
-	}
+	/* Orb parallax intentionally disabled to keep landing background static. */
+
+	return {
+		refreshPinnedRoomsForRole
+	};
 }
