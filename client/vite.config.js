@@ -40,12 +40,18 @@ export default defineConfig(({ mode }) => {
 			 * mediapipe bundles, and the emoji picker can stream in lazily. */
 			rollupOptions: {
 				output: {
-					manualChunks: {
-						mediasoup: ["mediasoup-client", "protoo-client", "awaitqueue"],
-						mediapipe: ["@mediapipe/tasks-vision", "@mediapipe/selfie_segmentation"],
-						icons: ["lucide"],
-						qrcode: ["qrcode"],
-						fflate: ["fflate"]
+					manualChunks(id) {
+						if (!id.includes("node_modules")) return undefined;
+						if (id.includes("/mediasoup-client/") || id.includes("/protoo-client/") || id.includes("/awaitqueue/")) {
+							return "mediasoup";
+						}
+						if (id.includes("/@mediapipe/tasks-vision/") || id.includes("/@mediapipe/selfie_segmentation/")) {
+							return "mediapipe";
+						}
+						if (id.includes("/lucide/")) return "icons";
+						if (id.includes("/qrcode/")) return "qrcode";
+						if (id.includes("/fflate/")) return "fflate";
+						return undefined;
 					}
 				}
 			}
