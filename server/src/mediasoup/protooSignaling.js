@@ -324,19 +324,27 @@ async function consumeProducerForPeer(consumerPeer, producer, room) {
 }
 
 async function notifyExistingProducersToNewPeer(room, joiningPeer) {
+	/* Previously this was a nested serial await loop — join time grew
+	 * O(peers × producers). Each consume is independent, so kick them off
+	 * concurrently and wait for the batch. allSettled() prevents one slow
+	 * peer from stalling the rest of the join. */
+	const tasks = [];
 	for (const other of room.peers.values()) {
 		if (other.peerId === joiningPeer.peerId || !other.joined) continue;
 		for (const producer of other.producers.values()) {
-			await consumeProducerForPeer(joiningPeer, producer, room);
+			tasks.push(consumeProducerForPeer(joiningPeer, producer, room));
 		}
 	}
+	if (tasks.length) await Promise.allSettled(tasks);
 }
 
 async function notifyNewProducerToOthers(room, producingPeerId, producer) {
+	const tasks = [];
 	for (const other of room.peers.values()) {
 		if (other.peerId === producingPeerId || !other.joined) continue;
-		await consumeProducerForPeer(other, producer, room);
+		tasks.push(consumeProducerForPeer(other, producer, room));
 	}
+	if (tasks.length) await Promise.allSettled(tasks);
 }
 
 function attachPeerToRoom(roomId, room, msPeer, protooPeer) {

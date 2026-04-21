@@ -33,6 +33,22 @@ export default defineConfig(({ mode }) => {
 		},
 		optimizeDeps: {
 			include: ["protoo-client"]
+		},
+		build: {
+			/* Split the big, rarely-changing dependencies into their own chunks so
+			 * app-code edits don't bust caches for the ~MBs of media/mediasoup/
+			 * mediapipe bundles, and the emoji picker can stream in lazily. */
+			rollupOptions: {
+				output: {
+					manualChunks: {
+						mediasoup: ["mediasoup-client", "protoo-client", "awaitqueue"],
+						mediapipe: ["@mediapipe/tasks-vision", "@mediapipe/selfie_segmentation"],
+						icons: ["lucide"],
+						qrcode: ["qrcode"],
+						fflate: ["fflate"]
+					}
+				}
+			}
 		}
 	};
 });

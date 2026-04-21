@@ -34,6 +34,9 @@ export function createApp(opts) {
 	}
 	const apiRateLimitMax = Math.max(20, Number(process.env.EASYMEET_API_RATE_LIMIT_MAX || 120));
 	const joinRateLimitMax = Math.max(5, Number(process.env.EASYMEET_JOIN_RATE_LIMIT_MAX || 30));
+	/* Dedicated brute-force budget for the admin bootstrap login (48-char hex
+	 * token → plenty entropy, but no reason to allow 120 guesses/min). */
+	const bootstrapLoginRateLimitMax = Math.max(3, Number(process.env.EASYMEET_BOOTSTRAP_LOGIN_RATE_LIMIT_MAX || 5));
 
 	const app = express();
 	app.set("trust proxy", 1);
@@ -62,9 +65,14 @@ export function createApp(opts) {
 					fontSrc: ["'self'", "data:"],
 					objectSrc: ["'none'"],
 					baseUri: ["'self'"],
-					formAction: ["'self'"]
+					formAction: ["'self'"],
+					/* Prevent clickjacking / UI redressing — app is a standalone SFU UI. */
+					frameAncestors: ["'self'"]
 				}
-			}
+			},
+			/* Same-origin opener policy hardens popup-based oauth / postMessage surfaces;
+			 * harmless for the SFU UI and improves isolation. */
+			crossOriginOpenerPolicy: { policy: "same-origin" }
 		})
 	);
 	app.use(
@@ -91,6 +99,17 @@ export function createApp(opts) {
 		rateLimit({
 			windowMs: 60 * 1000,
 			max: joinRateLimitMax,
+			standardHeaders: true,
+			legacyHeaders: false
+		})
+	);
+	/* Stricter limiter in front of the one-time bootstrap login; mounted before
+	 * the route handler so it applies cleanly without changing router wiring. */
+	app.use(
+		"/api/admin/bootstrap-login",
+		rateLimit({
+			windowMs: 60 * 1000,
+			max: bootstrapLoginRateLimitMax,
 			standardHeaders: true,
 			legacyHeaders: false
 		})

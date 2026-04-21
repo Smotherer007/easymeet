@@ -26,8 +26,25 @@ export function attachStaticSpaIfPresent(app, opts) {
 
 	if (finalDistPath) {
 		logInfo("static SPA", finalDistPath);
-		app.use(express.static(finalDistPath));
+		/* Vite emits content-hashed filenames in /assets (e.g. app-abcd1234.js).
+		 * Those can be cached aggressively; index.html must stay fresh so new
+		 * builds are picked up on the next navigation. */
+		app.use(
+			express.static(finalDistPath, {
+				index: false,
+				setHeaders: (res, filePath) => {
+					if (/\.html$/i.test(filePath)) {
+						res.setHeader("Cache-Control", "no-cache");
+					} else if (/[/\\]assets[/\\]/.test(filePath)) {
+						res.setHeader("Cache-Control", "public, max-age=31536000, immutable");
+					} else {
+						res.setHeader("Cache-Control", "public, max-age=3600");
+					}
+				}
+			})
+		);
 		app.get("/{*splat}", (req, res) => {
+			res.setHeader("Cache-Control", "no-cache");
 			res.sendFile(path.join(finalDistPath, "index.html"));
 		});
 	} else {

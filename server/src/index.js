@@ -16,11 +16,16 @@ dotenv.config({ path: path.join(repoRoot, ".env") });
 dotenv.config({ path: path.join(serverRoot, ".env"), override: true });
 
 const roomStore = createRoomStore();
-setInterval(() => roomStore.cleanupExpiredRooms(), 60 * 60 * 1000);
+/* .unref() lets the process exit cleanly during tests / SIGINT — the timer
+ * itself never holds the event loop open. */
+setInterval(() => roomStore.cleanupExpiredRooms(), 60 * 60 * 1000).unref?.();
 const adminDb = createAdminDb({ dbPath: process.env.EASYMEET_DB_PATH });
-const bootstrapAdminToken = adminDb.getOrCreateBootstrapToken();
+const { token: bootstrapAdminToken, created: bootstrapTokenCreated } = adminDb.getOrCreateBootstrapToken();
 
-const tenorApiKey = process.env.TENOR_API_KEY || "LIVDSRZULELA";
+const tenorApiKey = process.env.TENOR_API_KEY || "";
+if (!tenorApiKey) {
+	logInfo("TENOR_API_KEY not set — GIF search will fall back to Tenor demo key (rate-limited, public).");
+}
 const app = createApp({
 	roomStore,
 	adminDb,
@@ -46,11 +51,18 @@ async function startServer() {
 	attachProtooToHttpServer(server, { adminDb, roomStore });
 	server.listen(PORT, () => {
 		logInfo(`listening http://localhost:${PORT}`, { nodeEnv: process.env.NODE_ENV || "development" });
-		const marker = "######";
-		logInfo(marker.repeat(14));
-		logInfo(`${marker} SERVER ADMIN BOOTSTRAP TOKEN (ONE-TIME) ${marker}`);
-		logInfo(`${marker} ${bootstrapAdminToken} ${marker}`);
-		logInfo(marker.repeat(14));
+		if (bootstrapTokenCreated) {
+			/* Only log the token the single time it is generated; previously this
+			 * was printed on every restart, which turns the log retention window
+			 * into an attack surface for the admin bootstrap flow. */
+			const marker = "######";
+			logInfo(marker.repeat(14));
+			logInfo(`${marker} SERVER ADMIN BOOTSTRAP TOKEN (ONE-TIME) ${marker}`);
+			logInfo(`${marker} ${bootstrapAdminToken} ${marker}`);
+			logInfo(marker.repeat(14));
+		} else {
+			logInfo("server admin bootstrap token already exists (not re-logged; reset DB to regenerate)");
+		}
 	});
 }
 

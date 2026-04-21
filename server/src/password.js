@@ -5,7 +5,12 @@
 
 import bcrypt from "bcrypt";
 
-const SALT_ROUNDS = 10;
+/**
+ * bcrypt cost factor. 12 ≈ ~250 ms/hash on modern CPUs — comfortable
+ * margin against offline brute force in 2026 without hurting UX
+ * (hash/verify only runs during create-room / join).
+ */
+const SALT_ROUNDS = 12;
 
 /**
  * @param {string} password

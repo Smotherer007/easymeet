@@ -6,3 +6,4 @@ dist
 .env*
 persistent-rooms.json
 .DS_Store
+*.squlite*

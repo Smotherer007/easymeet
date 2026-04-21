@@ -315,13 +315,8 @@ export function listActiveRoomsPublic() {
 	return out;
 }
 
-const ROOM_TTL = 24 * 60 * 60 * 1000;
-setInterval(
-	() => {
-		const now = Date.now();
-		for (const [id, room] of msRooms.entries()) {
-			if (now - room.createdAt > ROOM_TTL) deleteRoom(id);
-		}
-	},
-	60 * 60 * 1000
-);
+/* Previously this module ran its own hourly 24 h TTL sweep in parallel with
+ * roomStore.cleanupExpiredRooms(). That duplicated work and could race on
+ * persistent rooms that live only in the HTTP store. Room lifecycle is now
+ * driven by closePeer() (auto-deletes empty rooms) and by the HTTP roomStore
+ * sweep scheduled in server/src/index.js. */

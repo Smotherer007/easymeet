@@ -52,6 +52,10 @@ export function createAdminDb(options = {}) {
 	ensureDirForFile(dbPath);
 	const db = new Database(dbPath);
 	db.pragma("journal_mode = WAL");
+	/* synchronous=NORMAL is the recommended/safe companion to WAL: fewer fsyncs
+	 * per write while preserving durability across crashes (just not power loss
+	 * mid-checkpoint). Noticeable on small repeated writes (admin grants). */
+	db.pragma("synchronous = NORMAL");
 
 	db.exec(`
 		CREATE TABLE IF NOT EXISTS schema_migrations (
@@ -156,12 +160,17 @@ export function createAdminDb(options = {}) {
 		return info.changes > 0;
 	}
 
+	/**
+	 * @returns {{ token: string; created: boolean }}
+	 *   created === true only on first generation — callers can gate
+	 *   one-time secret logging on that flag.
+	 */
 	function getOrCreateBootstrapToken() {
 		const existing = getBootstrapTokenStmt.get();
-		if (existing?.token) return String(existing.token);
+		if (existing?.token) return { token: String(existing.token), created: false };
 		const token = crypto.randomBytes(24).toString("hex");
 		setBootstrapTokenStmt.run(token, toIsoNow());
-		return token;
+		return { token, created: true };
 	}
 
 	return {

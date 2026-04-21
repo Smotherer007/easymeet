@@ -39,6 +39,10 @@ export function teardownLandingAutoRefresh(container) {
 		document.removeEventListener("visibilitychange", container._easymeetLandingVisibilityHandler);
 		container._easymeetLandingVisibilityHandler = undefined;
 	}
+	if (container._easymeetServerAdminOpenHandler) {
+		document.removeEventListener("click", container._easymeetServerAdminOpenHandler);
+		container._easymeetServerAdminOpenHandler = undefined;
+	}
 }
 
 export function renderLanding() {
@@ -489,7 +493,15 @@ export function attachLandingListeners(container, handlers) {
 		?.querySelectorAll('[data-action="persistent-room-close"]')
 		.forEach((el) => el.addEventListener("click", closePersistentRoomModal));
 
-	document.getElementById("server-admin-open-btn")?.addEventListener("click", openAdminModal);
+	if (!container._easymeetServerAdminOpenHandler) {
+		const onAdminOpenClick = (e) => {
+			const trigger = e.target?.closest?.("#server-admin-open-btn");
+			if (!trigger) return;
+			openAdminModal();
+		};
+		container._easymeetServerAdminOpenHandler = onAdminOpenClick;
+		document.addEventListener("click", onAdminOpenClick);
+	}
 	container.querySelector('[data-action="persistent-room-open"]')?.addEventListener("click", openPersistentRoomModal);
 
 	container.querySelector('[data-action="server-admin-login"]')?.addEventListener("click", async () => {
