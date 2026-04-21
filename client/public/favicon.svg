@@ -1,32 +1,15 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
   <defs>
-    <linearGradient id="primary" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#00f0c0" />
-      <stop offset="100%" stop-color="#00d4aa" />
+    <linearGradient id="logoPrimary" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#f8fafc" />
+      <stop offset="100%" stop-color="#94a3b8" />
     </linearGradient>
-    <linearGradient id="secondary" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#6366f1" />
-      <stop offset="100%" stop-color="#ec4899" />
+    <linearGradient id="logoSecondary" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#475569" />
+      <stop offset="100%" stop-color="#1e293b" />
     </linearGradient>
-    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#12121a" />
-      <stop offset="100%" stop-color="#0a0a0f" />
-    </linearGradient>
-    <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
-      <feGaussianBlur stdDeviation="12" result="blur" />
-      <feComposite in="SourceGraphic" in2="blur" operator="over" />
-    </filter>
   </defs>
-
-  <rect width="512" height="512" rx="112" fill="url(#bg)" stroke="#2a2a3a" stroke-width="6" />
-
-  <path d="M 144 96 h 128 c 35.3 0 64 28.7 64 64 v 96 c 0 35.3 -28.7 64 -64 64 h -32 l -48 48 v -48 h -48 c -35.3 0 -64 -28.7 -64 -64 v -96 c 0 -35.3 28.7 -64 64 -64 z" fill="url(#secondary)" opacity="0.85" filter="url(#glow)"/>
-  
-  <path d="M 240 144 h 128 c 35.3 0 64 28.7 64 64 v 96 c 0 35.3 -28.7 64 -64 64 h -32 l -48 48 v -48 h -48 c -35.3 0 -64 -28.7 -64 -64 v -96 c 0 -35.3 28.7 -64 64 -64 z" fill="url(#primary)" filter="url(#glow)"/>
-  
-  <g fill="#12121a">
-    <circle cx="264" cy="256" r="14" />
-    <circle cx="304" cy="256" r="14" />
-    <circle cx="344" cy="256" r="14" />
-  </g>
+  <rect x="120" y="120" width="240" height="240" rx="60" fill="url(#logoSecondary)" opacity="0.8" transform="rotate(-10 240 240)" />
+  <rect x="152" y="152" width="240" height="240" rx="60" fill="url(#logoPrimary)" opacity="0.9" transform="rotate(10 272 272)" />
+  <path d="M 220 200 q 40 -20 80 0 t 0 80 t -80 0 t 0 -80" fill="none" stroke="#ffffff" stroke-width="20" stroke-linecap="round" opacity="0.6" />
 </svg>

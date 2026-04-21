@@ -136,24 +136,22 @@ export const iconLogo = () => `
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="4rem" height="4rem" class="icon logo-icon logo-icon--hero">
   <defs>
     <linearGradient id="logoPrimary" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#00f0c0" />
-      <stop offset="100%" stop-color="#00d4aa" />
+      <stop offset="0%" stop-color="#f8fafc" />
+      <stop offset="100%" stop-color="#94a3b8" />
     </linearGradient>
     <linearGradient id="logoSecondary" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#6366f1" />
-      <stop offset="100%" stop-color="#ec4899" />
+      <stop offset="0%" stop-color="#475569" />
+      <stop offset="100%" stop-color="#1e293b" />
     </linearGradient>
-    <filter id="logoGlow" x="-20%" y="-20%" width="140%" height="140%">
-      <feGaussianBlur stdDeviation="12" result="blur" />
+    <filter id="logoGlow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="15" result="blur" />
       <feComposite in="SourceGraphic" in2="blur" operator="over" />
     </filter>
   </defs>
-  <path d="M 144 96 h 128 c 35.3 0 64 28.7 64 64 v 96 c 0 35.3 -28.7 64 -64 64 h -32 l -48 48 v -48 h -48 c -35.3 0 -64 -28.7 -64 -64 v -96 c 0 -35.3 28.7 -64 64 -64 z" fill="url(#logoSecondary)" opacity="0.85" filter="url(#logoGlow)"/>
-  <path d="M 240 144 h 128 c 35.3 0 64 28.7 64 64 v 96 c 0 35.3 -28.7 64 -64 64 h -32 l -48 48 v -48 h -48 c -35.3 0 -64 -28.7 -64 -64 v -96 c 0 -35.3 28.7 -64 64 -64 z" fill="url(#logoPrimary)" filter="url(#logoGlow)"/>
-  <g fill="#0a0a0f">
-    <circle cx="264" cy="256" r="14" />
-    <circle cx="304" cy="256" r="14" />
-    <circle cx="344" cy="256" r="14" />
+  <g filter="url(#logoGlow)">
+    <rect x="120" y="120" width="240" height="240" rx="60" fill="url(#logoSecondary)" opacity="0.8" transform="rotate(-10 240 240)" />
+    <rect x="152" y="152" width="240" height="240" rx="60" fill="url(#logoPrimary)" opacity="0.9" transform="rotate(10 272 272)" />
+    <path d="M 220 200 q 40 -20 80 0 t 0 80 t -80 0 t 0 -80" fill="none" stroke="#ffffff" stroke-width="20" stroke-linecap="round" opacity="0.6" />
   </g>
 </svg>
 `;
@@ -167,37 +165,32 @@ export const iconLogoWordmark = ({ width = "100%", height = "100%", extraClass =
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 520 150" width="${width}"${heightAttr} class="${cls}">
   <defs>
     <linearGradient id="logoPrimaryM" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#00f0c0" />
-      <stop offset="100%" stop-color="#00d4aa" />
+      <stop offset="0%" stop-color="#f8fafc" />
+      <stop offset="100%" stop-color="#94a3b8" />
     </linearGradient>
     <linearGradient id="logoSecondaryM" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#6366f1" />
-      <stop offset="100%" stop-color="#ec4899" />
+      <stop offset="0%" stop-color="#475569" />
+      <stop offset="100%" stop-color="#1e293b" />
     </linearGradient>
     <linearGradient id="textGradientM" x1="0%" y1="0%" x2="100%" y2="0%">
       <stop offset="0%" stop-color="#ffffff" />
       <stop offset="100%" stop-color="#b4b4c0" />
     </linearGradient>
-    <filter id="logoGlowM" x="-20%" y="-20%" width="140%" height="140%">
-      <feGaussianBlur stdDeviation="8" result="blur" />
+    <filter id="logoGlowM" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="6" result="blur" />
       <feComposite in="SourceGraphic" in2="blur" operator="over" />
     </filter>
   </defs>
   
-  <g transform="scale(0.24) translate(0, 50)">
-    <path d="M 144 96 h 128 c 35.3 0 64 28.7 64 64 v 96 c 0 35.3 -28.7 64 -64 64 h -32 l -48 48 v -48 h -48 c -35.3 0 -64 -28.7 -64 -64 v -96 c 0 -35.3 28.7 -64 64 -64 z" fill="url(#logoSecondaryM)" opacity="0.85" filter="url(#logoGlowM)"/>
-    <path d="M 240 144 h 128 c 35.3 0 64 28.7 64 64 v 96 c 0 35.3 -28.7 64 -64 64 h -32 l -48 48 v -48 h -48 c -35.3 0 -64 -28.7 -64 -64 v -96 c 0 -35.3 28.7 -64 64 -64 z" fill="url(#logoPrimaryM)" filter="url(#logoGlowM)"/>
-    <g fill="#0a0a0f">
-      <circle cx="264" cy="256" r="14" />
-      <circle cx="304" cy="256" r="14" />
-      <circle cx="344" cy="256" r="14" />
-    </g>
+  <g transform="translate(10, 25) scale(0.25)" filter="url(#logoGlowM)">
+    <rect x="0" y="0" width="300" height="300" rx="80" fill="url(#logoSecondaryM)" opacity="0.7" transform="rotate(-12 150 150)" />
+    <rect x="100" y="60" width="300" height="300" rx="80" fill="url(#logoPrimaryM)" opacity="0.9" transform="rotate(12 250 210)" />
   </g>
   
-  <text x="135" y="105" font-family="'Outfit', system-ui, sans-serif" font-weight="700" font-size="82" fill="url(#textGradientM)" letter-spacing="-1.5">
+  <text x="135" y="102" font-family="'Outfit', system-ui, sans-serif" font-weight="700" font-size="82" fill="#ffffff" letter-spacing="-1.5">
     EasyMeet
   </text>
-  <circle cx="505" cy="100" r="8" fill="#00d4aa" filter="url(#logoGlowM)" />
+  <circle cx="505" cy="98" r="8" fill="#cbd5e1" filter="url(#logoGlowM)" />
 </svg>
 `;
 };
