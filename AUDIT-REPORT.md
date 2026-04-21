@@ -10,9 +10,10 @@ direkt gefixt wurde und was als Empfehlung offen bleibt.
 
 ## 1. Direkt umgesetzte Fixes
 
-Alle Änderungen sind nicht-brechende Minimal-Edits (keine neuen Dependencies,
-keine Verhaltens­änderung für legitime Flows). Verifiziert via `node --check`
-für alle 8 geänderten Dateien.
+Alle Änderungen sind nicht-brechende Minimal-Edits (eine neue Dependency:
+`compression`). Verifiziert via `node --check` für alle geänderten JS-Dateien.
+
+### 1.1 Runde 1 (Audit-Start)
 
 | # | Bereich | Datei | Änderung |
 |---|---------|-------|----------|
@@ -28,45 +29,27 @@ für alle 8 geänderten Dateien.
 | P5 | Performance | `server/src/routes/staticSpa.js` | Differenzierte `Cache-Control`-Header: content-hashed `/assets/*` → `public, max-age=31536000, immutable`, `index.html` → `no-cache`, Rest → 1 h. Spart pro Return-Visit den gesamten Vite-Bundle-Transfer. |
 | P6 | Performance | `client/vite.config.js` | `rollupOptions.output.manualChunks` für mediasoup-client+protoo+awaitqueue, @mediapipe/*, lucide, qrcode, fflate. App-Code-Edits invalidieren nicht mehr den ~MB großen Vendor-Bundle-Cache. |
 
+### 1.2 Runde 2 (offene Empfehlungen umgesetzt)
+
+| # | Bereich | Datei | Änderung |
+|---|---------|-------|----------|
+| F6 | Sicherheit | `server/src/routes/gifs.js` | Tenor API v1 → v2 (`tenor.googleapis.com/v2/search`). v1 ist seit 2023 deprecated. Response-Shape angepasst (`media[0]` → `media_formats`); `client_key=easymeet` ergänzt. |
+| F7 | Sicherheit | `client/index.html`, `server/src/createApp.js` | Ungenutztes CDN-Script `https://code.iconify.design/iconify-icon/2.1.0/iconify-icon.min.js` entfernt (kein Code-Ref im Repo). CSP `script-src` auf `'self' 'wasm-unsafe-eval'` verengt — keine externe Host-Whitelist mehr. |
+| F8 | Sicherheit | `client/src/protocol/validate.js`, `client/src/effects/network/mediasoupClient.js` | Neue `sanitizeEasymeetPayload()` normalisiert alle Server-Notifications (chat, peers, polls, file, reactions): String-Length-Caps, Typ-Coercion, Array-Caps. Gedacht gegen kompromittierten Server / MITM. Kein harter Reject — unbekannte Types bleiben erhalten (Forward-Compat). |
+| F9 | Sicherheit | `client/src/effects/network/mediasoupClient.js` | Empfänger-seitiger File-Cap (`MAX_INCOMING_FILE_BYTES = 250 MB`, matched Server): `file_start` mit Oversize-Meta wird sofort abgelehnt, laufender Transfer beim Überschreiten abgebrochen inkl. Toast. Schützt Browser-RAM bei bösartigem Peer. |
+| F10 | Sicherheit | `Dockerfile` | `HEALTHCHECK` gegen `/api/rooms/active` ergänzt (30 s Intervall). Docker/Kubernetes erkennen hängende Prozesse. |
+| F11 | Dokumentation | `.env.example` | Rate-Limit-Variablen (`EASYMEET_API_RATE_LIMIT_MAX`, `EASYMEET_JOIN_RATE_LIMIT_MAX`, `EASYMEET_BOOTSTRAP_LOGIN_RATE_LIMIT_MAX`) und `EASYMEET_CORS_ORIGINS` dokumentiert; Tenor-Link auf v2 aktualisiert. |
+| P7 | Performance | `server/package.json`, `server/src/createApp.js` | `compression` Middleware (gzip) vor Route-Mounting. Greift bei Direct-Docker-Deploy ohne Reverse-Proxy; hinter Nginx/Caddy transparent idempotent. JSON-Responses + SPA-Bundle werden komprimiert ausgeliefert. |
+| P8 | Performance | `client/src/ui/screens/room-view.js` | 120 ms Debounce auf Emoji-Search (GIF-Search hatte bereits 300 ms). Spart synchrone Re-Renders von bis zu 500 Emoji-Buttons pro Tastenanschlag (~5–20 ms Blocking auf Mobile). |
+
 ---
 
 ## 2. Offene Empfehlungen (nicht direkt umgesetzt)
 
 Die folgenden Punkte wurden bewusst nicht angefasst, weil sie entweder eine
-neue Dependency, eine Verhaltens-/API-Änderung oder UI-Tests erfordern.
+Verhaltens-/API-Änderung an der UI oder noch zusätzliche UI-Tests erfordern.
 
 ### 2.1 Sicherheit
-
-**Mittel — Tenor API v1 ist deprecated**
-`server/src/routes/gifs.js:20` ruft `https://g.tenor.com/v1/search` auf. Tenor v1
-ist seit 2023 deprecated, Google-seitig mehrfach angekündigt. Upgrade auf v2
-(`https://tenor.googleapis.com/v2/search`) benötigt einen echten Google-Cloud
-API-Key; Response-Shape ist kompatibel bis auf `media` → `media_formats`. Empfehlung:
-Umstellung auf v2 inkl. `client_key`-Parameter (für Ratelimit-Zuordnung pro App).
-
-**Mittel — Externes CDN-Script ohne SRI**
-`client/index.html:5` lädt `https://code.iconify.design/iconify-icon/2.1.0/iconify-icon.min.js`
-ohne `integrity=`-Attribut. Wenn die CDN kompromittiert wird, lädt jeder Nutzer
-bösartigen JS-Code in den SFU-Kontext (Zugriff auf getUserMedia-Streams möglich).
-Zwei Optionen:
-1. **Self-hosting** über npm-Paket `iconify-icon` (bevorzugt, CSP wird strenger).
-2. **SRI-Hash hinzufügen**: `integrity="sha384-..." crossorigin="anonymous"`. Bricht,
-   sobald iconify das File aktualisiert — erfordert Pinning und Review.
-
-**Mittel — Unvalidierte Protoo-Server-Notifications im Client**
-`client/src/effects/network/mediasoupClient.js` dispatcht Server-Payloads
-(chat, polls, members, file chunks) ohne Schema-Check in den Store. Ein
-kompromittierter Server oder MITM könnte damit z. B. überlange Felder oder
-unerwartete Typen in die UI schieben. Empfehlung: zod/yup-Schemas in
-`client/src/protocol/validate.js` und harter Reject bei Mismatch.
-
-**Mittel — File-Transfer ohne Rx-Seite-Backpressure & Size-Cap**
-`client/src/effects/network/mediasoupClient.js:451` sammelt via
-`chunkQueue.push(binary.buffer)` ohne Obergrenze. Ein bösartiger Peer kann
-durch Dauerversand eines großen „Files" den Browser-RAM-Verbrauch treiben.
-Server-seitig greift bereits `FILE_TRANSFER_MAX_BYTES = 250 MB` und
-`WS_FILE_CHUNKS_PER_WINDOW` — den gleichen Hard-Cap sollte der Client
-bei eingehenden Daten ebenfalls enforcen (abbrechen + User-Toast).
 
 **Niedrig — CORS-Default-Liste enthält `localhost`-Origins auch in Prod**
 `server/src/createApp.js:29-34` fügt `localhost:5173/3001` zur CORS-Allowlist
@@ -88,18 +71,7 @@ Verbrauch die gesamte Map. Bei gleichzeitig 1000+ offenen Join-Tokens ist das
 vertretbar. Bei Skalierung über mehrere Nodes braucht das ohnehin Redis/Shared
 Cache.
 
-**Niedrig — Docker-Image ohne `HEALTHCHECK`**
-`Dockerfile` hat kein `HEALTHCHECK`-Directive. Orchestratoren (Kubernetes,
-Docker Swarm, auch reines `docker run --restart unless-stopped`) erkennen keine
-hängenden Server-Prozesse. Empfehlung: `HEALTHCHECK --interval=30s --timeout=5s CMD node -e "fetch('http://127.0.0.1:3001/api/rooms/active').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"`.
-
 ### 2.2 Performance
-
-**Hoch — `compression` Middleware fehlt**
-Keine gzip/brotli-Kompression auf JSON-/SPA-Antworten. Mit Reverse-Proxy
-davor (Nginx/Caddy) erledigt der Proxy das, aber bei Direct-Docker-Deploy
-(siehe `docker-compose.yml`) fällt das weg. Empfehlung: `npm i -w easymeet-server compression`
-und `app.use(compression())` in `createApp.js` vor `express.static`.
 
 **Mittel — Emoji-Grid rendert 500 Buttons up-front**
 `client/src/ui/screens/room-view-renderers.js:307` baut alle Emoji-Elemente
@@ -110,11 +82,6 @@ auf Mobilgeräten. Empfehlung: virtuelles Scrolling oder lazy-render pro Zeile.
 `client/src/effects/storage/customBackgroundStorage.js:16` — `JSON.parse` läuft
 bei jedem Render der Settings-UI. Mit wenigen Einträgen irrelevant, aber
 memoisiert per Modul-State + `storage`-Event-Listener wäre sauberer.
-
-**Mittel — Debounce für GIF/Emoji-Search fehlt**
-GIF- und Emoji-Suchfelder lösen pro Tastenanschlag einen Render bzw. Fetch aus.
-300 ms Debounce auf `input`-Events würde Tenor-API-Quota und DOM-Churn deutlich
-reduzieren.
 
 **Niedrig — Icons per `.outerHTML` bei jedem Re-Render**
 `client/src/icons.js` erzeugt SVG-Elemente und gibt `.outerHTML` zurück. Bei
@@ -141,26 +108,35 @@ nur lokal) + `npm outdated` quartalsweise.
 
 ## 4. Verifikation der Fixes
 
-- `node --check` auf allen 9 geänderten JS-Dateien → fehlerfrei.
+- `node --check` auf allen geänderten JS-Dateien (Runde 1 + 2) → fehlerfrei.
+- `package.json` JSON-Parse → OK.
 - Pre-existing lokale Änderung in `client/src/ui/screens/landing.js` (Server-
   Admin-Button-Listener) wurde **nicht** angefasst und bleibt wie sie war.
-- Git-Status: 9 Dateien geändert, +120/−27 Zeilen.
 
 Vor Produktiv-Deploy empfohlen:
 ```bash
-npm ci
-npm run build                 # Client-Bundle mit manualChunks validieren
-npm run server                # Server startet & loggt Bootstrap nur neu
+npm ci                         # installiert neue compression-Dependency
+npm run build                  # Client-Bundle mit manualChunks validieren
+npm run server                 # Server startet & loggt Bootstrap nur neu
+# Docker: docker build . und "docker inspect --format='{{.State.Health.Status}}'"
 ```
+
+Manueller Smoke-Test empfohlen (nicht automatisierbar im Sandbox):
+- Datei-Transfer knapp unter und knapp über 250 MB — Empfänger-Toast bei Overflow.
+- Emoji-Picker Suche öffnen, schnell tippen — sichtbar ruhigeres Rendern.
+- GIF-Suche mit gültigem `TENOR_API_KEY` — v2-Endpoint liefert Ergebnisse.
+- `curl -H "Accept-Encoding: gzip" -I https://…/api/rooms/active` → `Content-Encoding: gzip`.
 
 ---
 
-## 5. Neue Env-Variablen
+## 5. Neue Env-Variablen / Konfig
 
 | Variable | Default | Zweck |
 |----------|---------|-------|
 | `EASYMEET_BOOTSTRAP_LOGIN_RATE_LIMIT_MAX` | `5` (pro Minute) | Limit für `/api/admin/bootstrap-login`. |
-| `TENOR_API_KEY` | *(leer)* | Ersetzt den zuvor hartkodierten Demo-Fallback. |
+| `EASYMEET_API_RATE_LIMIT_MAX` | `120` | Allgemeines API-Limit (alt, nun dokumentiert). |
+| `EASYMEET_JOIN_RATE_LIMIT_MAX` | `30` | Limit auf `/api/join` (alt, nun dokumentiert). |
+| `EASYMEET_CORS_ORIGINS` | *(leer)* | Kommaseparierte Liste erlaubter Origins (alt, nun dokumentiert). |
+| `TENOR_API_KEY` | *(leer)* | Tenor v2 (Google Cloud) API-Key. Ersetzt den hartkodierten Demo-Fallback. |
 
-`.env.example` muss entsprechend ergänzt werden, wenn ihr die Variablen
-prominent machen wollt (optional — beide haben sinnvolle Defaults).
+Neue Dependency: `compression@^1.7.5` (in `server/package.json`).

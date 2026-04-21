@@ -416,6 +416,11 @@ export function attachLandingListeners(container, handlers) {
 		if (typeof isServerAdmin === "function") return !!isServerAdmin();
 		return !!isServerAdmin;
 	};
+	const syncPersistentRoomCreateVisibility = () => {
+		const btn = container.querySelector('[data-action="persistent-room-open"]');
+		if (!btn) return;
+		btn.hidden = !getServerAdminStatus();
+	};
 	const deleteModal = container.querySelector("#persistent-room-delete-modal");
 	const deleteRoomIdEl = container.querySelector("#persistent-room-delete-room-id");
 	let pendingDeleteRoomId = "";
@@ -432,6 +437,7 @@ export function attachLandingListeners(container, handlers) {
 		?.querySelectorAll('[data-action="persistent-room-delete-cancel"]')
 		.forEach((el) => el.addEventListener("click", closeDeleteModal));
 	const refreshPinnedRoomsForRole = async () => {
+		syncPersistentRoomCreateVisibility();
 		await refreshPinnedRoomsPanel(container, onPickActiveRoom, {
 			canDelete: getServerAdminStatus(),
 			onDeleteRoom: deletePersistentRoom
@@ -503,6 +509,7 @@ export function attachLandingListeners(container, handlers) {
 		document.addEventListener("click", onAdminOpenClick);
 	}
 	container.querySelector('[data-action="persistent-room-open"]')?.addEventListener("click", openPersistentRoomModal);
+	syncPersistentRoomCreateVisibility();
 
 	container.querySelector('[data-action="server-admin-login"]')?.addEventListener("click", async () => {
 		const input = container.querySelector("#server-admin-token");

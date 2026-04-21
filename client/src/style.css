@@ -429,6 +429,10 @@ body {
 	justify-content: center;
 }
 
+.landing__pinned-create[hidden] {
+	display: none !important;
+}
+
 .landing__pinned-create svg {
 	width: 1rem;
 	height: 1rem;

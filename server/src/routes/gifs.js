@@ -17,16 +17,24 @@ export function createGifsRouter(deps) {
 			return;
 		}
 		try {
-			const tenorRes = await fetch(
-				`https://g.tenor.com/v1/search?q=${encodeURIComponent(q)}&key=${tenorApiKey}&limit=${limit}`
-			);
+			/* Tenor v2 (googleapis.com). v1 (g.tenor.com) ist seit 2023 deprecated.
+			 * client_key ist optional, aber von Google empfohlen zur API-Identifikation. */
+			const params = new URLSearchParams({
+				q,
+				key: tenorApiKey || "",
+				client_key: "easymeet",
+				limit: String(limit),
+				media_filter: "gif,tinygif,mediumgif,nanogif"
+			});
+			const tenorRes = await fetch(`https://tenor.googleapis.com/v2/search?${params.toString()}`);
 			const data = await tenorRes.json();
 			const results = (data.results || [])
 				.map((g) => {
-					const m = g.media?.[0] || {};
-					const gif = m.gif || m.mediumgif || m.tinygif || m.nanogif;
+					/* v2: media_formats statt media[0]; selbe Keys innerhalb (url, dims, size). */
+					const mf = g.media_formats || {};
+					const gif = mf.gif || mf.mediumgif || mf.tinygif || mf.nanogif;
 					const url = gif?.url || "";
-					const preview = m.mediumgif?.url || m.tinygif?.url || m.nanogif?.url || url;
+					const preview = mf.mediumgif?.url || mf.tinygif?.url || mf.nanogif?.url || url;
 					return { id: g.id, url, preview };
 				})
 				.filter((g) => g.url);

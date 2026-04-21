@@ -2,7 +2,19 @@ import express from "express";
 import cors from "cors";
 import helmet from "helmet";
 import rateLimit from "express-rate-limit";
-import { logHttp } from "./logger.js";
+import { logHttp, logWarn } from "./logger.js";
+
+/* Optional: gzip-Kompression. Wenn das Paket nicht installiert ist (fresh-clone
+ * ohne `npm install` nach der Dependency-Ergänzung), fallen wir auf eine No-Op
+ * zurück, damit der Server trotzdem startet. Reverse-Proxies (Nginx/Caddy)
+ * komprimieren ohnehin selbst — die Middleware ist nur für Direct-Deploys. */
+let compression = () => (_req, _res, next) => next();
+try {
+	const mod = await import("compression");
+	compression = mod.default ?? mod;
+} catch (_err) {
+	logWarn("compression module not installed — responses will be uncompressed. Run `npm install` to enable gzip.");
+}
 import { requestLogContextMiddleware } from "./middleware/requestLogContext.js";
 import { createRoomsRouter } from "./routes/rooms.js";
 import { createJoinRouter } from "./routes/join.js";
@@ -48,7 +60,7 @@ export function createApp(opts) {
 				directives: {
 					defaultSrc: ["'self'"],
 					/* MediaPipe / @mediapipe/tasks-vision (background effects): WASM compile needs wasm-unsafe-eval, not full unsafe-eval. */
-					scriptSrc: ["'self'", "'wasm-unsafe-eval'", "https://code.iconify.design"],
+					scriptSrc: ["'self'", "'wasm-unsafe-eval'"],
 					styleSrc: ["'self'", "'unsafe-inline'"],
 					imgSrc: ["'self'", "data:", "blob:", "https:"],
 					connectSrc: ["'self'", "ws:", "wss:"],
@@ -84,6 +96,10 @@ export function createApp(opts) {
 			}
 		})
 	);
+	/* gzip for JSON responses & the SPA bundle when the server is exposed directly
+	 * (no reverse proxy). Skipped automatically for already-compressed content and
+	 * for small payloads (default threshold 1 KB). Safe + idempotent behind a proxy. */
+	app.use(compression());
 	app.use(express.json({ limit: "1mb" }));
 	app.use(
 		"/api",

@@ -44,5 +44,10 @@ ENV MEDIASOUP_LISTEN_IP=0.0.0.0
 ENV EASYMEET_PERSISTENT_ROOMS=/app/persistent-rooms.json
 
 # No EXPOSE: ports are bound internally (reverse proxy / overlay network), not published on the host by default.
+# Orchestrator-sichtbarer Liveness-Check: pingt den internen HTTP-Port. /api/rooms/active ist
+# rate-limited (120/min) — 2x/min Healthcheck bleibt deutlich unter der Schwelle.
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+	CMD node -e "fetch('http://127.0.0.1:'+(process.env.PORT||3001)+'/api/rooms/active').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+
 USER node
 CMD ["node", "server/src/index.js"]

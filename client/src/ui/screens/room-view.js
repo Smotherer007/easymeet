@@ -967,11 +967,18 @@ function attachRoomViewChatMoreListeners(container, callbacks) {
 function attachRoomViewEmojiListeners(container, input) {
 	container.querySelector('[data-action="close-emoji"]')?.addEventListener("click", () => container.querySelector("#emoji-picker")?.setAttribute("hidden", ""));
 	const emojiGrid = container.querySelector("#emoji-grid");
+	/* Debounce: searchEmojis(q, 500) rendert bis zu 500 <button>s synchron via
+	 * innerHTML. Pro Tastenanschlag ein Re-Render kostet ~5–20 ms auf Mobile;
+	 * 120 ms Debounce glättet die Eingabe spürbar. */
+	let emojiSearchTimer;
 	container.querySelector("#emoji-search")?.addEventListener("input", (e) => {
 		const q = e.target.value.trim();
-		const results = searchEmojis(q, 500);
-		if (emojiGrid)
-			emojiGrid.innerHTML = results.map(([em]) => `<button type="button" class="emoji-picker__btn" data-emoji="${escapeAttr(em)}">${escapeHtml(em)}</button>`).join("");
+		clearTimeout(emojiSearchTimer);
+		emojiSearchTimer = setTimeout(() => {
+			const results = searchEmojis(q, 500);
+			if (emojiGrid)
+				emojiGrid.innerHTML = results.map(([em]) => `<button type="button" class="emoji-picker__btn" data-emoji="${escapeAttr(em)}">${escapeHtml(em)}</button>`).join("");
+		}, 120);
 	});
 	emojiGrid?.addEventListener("click", (e) => {
 		const btn = e.target.closest(".emoji-picker__btn");

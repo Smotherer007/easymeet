@@ -13,6 +13,8 @@ import { logMsInfo, logMsWarn, logMsError } from "../../utils/easymeetLog.js";
 import { replaceEmojiShortcodes } from "../../utils/emojiShortcodes.js";
 import { getAudioProcessingConstraints } from "../storage/audioSettingsStorage.js";
 import { getClientId } from "../storage/clientIdentity.js";
+import { showToast } from "../../utils/toast.js";
+import { sanitizeEasymeetPayload } from "../../protocol/validate.js";
 import protooPkg from "protoo-client";
 
 const ProtooPeer = protooPkg.Peer;
@@ -20,6 +22,10 @@ const WebSocketTransport = protooPkg.WebSocketTransport;
 
 const CHUNK_SIZE = 16384;
 const CHUNK_DELAY_MS = 30;
+/* Matching server-side FILE_TRANSFER_MAX_BYTES (protooSignaling.js). Enforced
+ * on the receiver to prevent RAM exhaustion from a malicious peer whose chunks
+ * slipped past the server (e.g. due to a bug or a bypassed size field). */
+const MAX_INCOMING_FILE_BYTES = 250 * 1024 * 1024;
 
 /** Like mediasoup-demo RoomClient.js – empty object, placeholder for optional proprietaryConstraints */
 const PC_PROPRIETARY_CONSTRAINTS = {};
@@ -373,11 +379,47 @@ function createFileDataHandler(dispatch, roomId = "", password = "") {
 	let chunkQueue = [];
 	let chunkProcessing = false;
 	let currentFileId = "";
+	let bytesReceived = 0;
+	let aborted = false;
+
+	function resetFileState() {
+		fileBuffer = [];
+		chunkQueue = [];
+		fileMeta = null;
+		currentFileId = "";
+		bytesReceived = 0;
+		aborted = false;
+	}
+
+	function abortTransfer(reason) {
+		if (aborted) return;
+		aborted = true;
+		logMsWarn(`file transfer aborted: ${reason}`);
+		try {
+			showToast(`Datei-Empfang abgebrochen: ${reason}`, { type: "warning" });
+		} catch (_) {}
+		if (dispatch && fileMeta) {
+			dispatch({
+				type: "file/aborted",
+				payload: {
+					filename: fileMeta.filename,
+					reason,
+					fileId: currentFileId,
+					nick: fileMeta.fromNick
+				}
+			});
+		}
+		resetFileState();
+	}
 
 	async function processChunkQueue() {
 		if (chunkProcessing || !chunkQueue.length) return;
 		chunkProcessing = true;
 		while (chunkQueue.length) {
+			if (aborted) {
+				chunkQueue.length = 0;
+				break;
+			}
 			const data = chunkQueue.shift();
 			let chunk = data instanceof ArrayBuffer ? new Uint8Array(data) : new Uint8Array(data);
 			if (fileMeta?.encrypted && password && roomId) {
@@ -385,9 +427,14 @@ function createFileDataHandler(dispatch, roomId = "", password = "") {
 				const decrypted = await cryptoUtil.decrypt(chunk, key);
 				chunk = new Uint8Array(decrypted);
 			}
+			bytesReceived += chunk.byteLength || chunk.length || 0;
+			if (bytesReceived > MAX_INCOMING_FILE_BYTES) {
+				chunkProcessing = false;
+				abortTransfer(`Limit ${MAX_INCOMING_FILE_BYTES / (1024 * 1024)} MB überschritten`);
+				return;
+			}
 			fileBuffer.push(chunk);
 			if (dispatch && fileMeta?.size) {
-				const bytesReceived = fileBuffer.reduce((s, c) => s + (c.byteLength || c.length), 0);
 				dispatch({
 					type: "file/progress",
 					payload: {
@@ -407,6 +454,17 @@ function createFileDataHandler(dispatch, roomId = "", password = "") {
 	return (data) => {
 		if (typeof data === "object" && data !== null && !(data instanceof ArrayBuffer)) {
 			if (data.type === "file_start") {
+				/* Reject oversized files up-front based on the advertised size; later
+				 * chunks are still capped by bytesReceived in processChunkQueue(). */
+				const declaredSize = Number(data.size) || 0;
+				if (declaredSize > MAX_INCOMING_FILE_BYTES) {
+					logMsWarn(`file_start rejected: declared size ${declaredSize} > cap`);
+					try {
+						showToast(`Datei abgelehnt: ${Math.round(declaredSize / (1024 * 1024))} MB > ${MAX_INCOMING_FILE_BYTES / (1024 * 1024)} MB`, { type: "warning" });
+					} catch (_) {}
+					resetFileState();
+					return;
+				}
 				currentFileId = data.fileId || "";
 				fileMeta = {
 					filename: data.filename,
@@ -416,6 +474,8 @@ function createFileDataHandler(dispatch, roomId = "", password = "") {
 					fromNick: data.fromNick || "?"
 				};
 				fileBuffer = [];
+				bytesReceived = 0;
+				aborted = false;
 				if (dispatch && fileMeta.size) {
 					dispatch({
 						type: "file/progress",
@@ -432,8 +492,11 @@ function createFileDataHandler(dispatch, roomId = "", password = "") {
 				return;
 			}
 			if (data.type === "file_end" && fileMeta) {
+				if (aborted) {
+					resetFileState();
+					return;
+				}
 				const blob = new Blob(fileBuffer, { type: fileMeta.mimeType });
-				fileBuffer = [];
 				dispatch?.({
 					type: "file/received",
 					payload: {
@@ -444,11 +507,11 @@ function createFileDataHandler(dispatch, roomId = "", password = "") {
 						fromNick: fileMeta.fromNick
 					}
 				});
-				fileMeta = null;
-				currentFileId = "";
+				resetFileState();
 				return;
 			}
 			if (data.type === "file_chunk" && data.chunk) {
+				if (aborted) return;
 				const binary = Uint8Array.from(atob(data.chunk), (c) => c.charCodeAt(0));
 				chunkQueue.push(binary.buffer);
 				processChunkQueue();
@@ -456,6 +519,7 @@ function createFileDataHandler(dispatch, roomId = "", password = "") {
 			}
 		}
 		if (data instanceof ArrayBuffer || ArrayBuffer.isView(data)) {
+			if (aborted) return;
 			chunkQueue.push(data);
 			processChunkQueue();
 		}
@@ -536,7 +600,11 @@ export async function setupRoomParticipant(peerObj, nick, localStream, callbacks
 	/** Like mediasoup-demo RoomClient: AwaitQueue for newConsumer */
 	const consumingAwaitQueue = new AwaitQueue();
 
-	function handleEasymeetPayload(msg) {
+	function handleEasymeetPayload(rawMsg) {
+		/* Sanitize every server-originated payload: caps string lengths, coerces
+		 * types, drops structurally broken entries. Protects the UI/store from a
+		 * compromised server or MITM pushing overlong fields or wrong types. */
+		const msg = sanitizeEasymeetPayload(rawMsg);
 		if (!msg?.type) return;
 		switch (msg.type) {
 			case "new_peer": {

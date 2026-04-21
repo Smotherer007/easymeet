@@ -51,18 +51,11 @@ async function startServer() {
 	attachProtooToHttpServer(server, { adminDb, roomStore });
 	server.listen(PORT, () => {
 		logInfo(`listening http://localhost:${PORT}`, { nodeEnv: process.env.NODE_ENV || "development" });
-		if (bootstrapTokenCreated) {
-			/* Only log the token the single time it is generated; previously this
-			 * was printed on every restart, which turns the log retention window
-			 * into an attack surface for the admin bootstrap flow. */
-			const marker = "######";
-			logInfo(marker.repeat(14));
-			logInfo(`${marker} SERVER ADMIN BOOTSTRAP TOKEN (ONE-TIME) ${marker}`);
-			logInfo(`${marker} ${bootstrapAdminToken} ${marker}`);
-			logInfo(marker.repeat(14));
-		} else {
-			logInfo("server admin bootstrap token already exists (not re-logged; reset DB to regenerate)");
-		}
+		const marker = "######";
+		logInfo(marker.repeat(14));
+		logInfo(`${marker} SERVER ADMIN BOOTSTRAP TOKEN ${bootstrapTokenCreated ? "(NEW)" : "(EXISTING)"} ${marker}`);
+		logInfo(`${marker} ${bootstrapAdminToken} ${marker}`);
+		logInfo(marker.repeat(14));
 	});
 }
 
