@@ -1393,6 +1393,13 @@ body {
 	-webkit-backdrop-filter: none;
 }
 
+/* In static overlay mode, let bubbles scale with panel width. */
+.chat-view__body--meeting:not(.chat-view__body--floating) .chat-panel--overlay .chat__msg {
+	width: 90%;
+	max-width: 90%;
+	min-width: 0;
+}
+
 .meeting-main {
 	flex: 1;
 	min-height: 0;

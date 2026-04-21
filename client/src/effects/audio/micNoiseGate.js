@@ -24,6 +24,7 @@ let loopOn = false;
 /** @type {Uint8Array | null} */
 let dataArray = null;
 let currentGain = 0;
+let visibilityListenerAttached = false;
 
 function disconnectSource() {
 	try {
@@ -36,6 +37,22 @@ function stopLoop() {
 	if (rafId) cancelAnimationFrame(rafId);
 	rafId = 0;
 	loopOn = false;
+}
+
+function onVisibilityChange() {
+	if (!gainNode) return;
+	if (document.hidden) {
+		/* Background tabs can throttle/pause RAF. Keep mic transmission alive by
+		 * forcing pass-through while hidden instead of freezing at gain=0. */
+		currentGain = 1;
+		gainNode.gain.value = 1;
+		return;
+	}
+	resumeCtx();
+	if (!loopOn && analyser && dataArray) {
+		loopOn = true;
+		rafId = requestAnimationFrame(runMeterLoop);
+	}
 }
 
 function runMeterLoop() {
@@ -68,6 +85,10 @@ function ensureGraph() {
 	analyser.fftSize = FFT_SIZE;
 	analyser.smoothingTimeConstant = SMOOTHING;
 	dataArray = new Uint8Array(analyser.frequencyBinCount);
+	if (!visibilityListenerAttached) {
+		document.addEventListener("visibilitychange", onVisibilityChange);
+		visibilityListenerAttached = true;
+	}
 }
 
 function resumeCtx() {
@@ -156,4 +177,8 @@ export function disposeMicNoiseGate() {
 	dest = null;
 	outputTrack = null;
 	dataArray = null;
+	if (visibilityListenerAttached) {
+		document.removeEventListener("visibilitychange", onVisibilityChange);
+		visibilityListenerAttached = false;
+	}
 }
