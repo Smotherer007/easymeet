@@ -24,11 +24,9 @@ services:
             frontend:
                 ipv4_address: 172.20.0.2
         volumes:
-            - easymeet_data:/app/data
+            - /opt/docker_files/easymeet_data:/app/data
 
 networks:
     frontend:
         external: true
 
-volumes:
-    easymeet_data:
