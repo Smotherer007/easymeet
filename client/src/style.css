@@ -89,65 +89,6 @@ body {
 	position: relative;
 }
 
-/* Background Animated Orbs */
-.bg-orbs {
-	position: fixed;
-	inset: 0;
-	overflow: hidden;
-	z-index: -1;
-	pointer-events: none;
-	display: none;
-}
-
-.bg-orb {
-	position: absolute;
-	border-radius: 50%;
-	filter: blur(80px);
-	opacity: 0.4;
-	animation: none;
-}
-
-.bg-orb--1 {
-	top: -10%;
-	right: -5%;
-	width: 50vw;
-	height: 50vw;
-	background: radial-gradient(circle, rgba(0, 212, 170, 0.4) 0%, transparent 70%);
-	animation-delay: 0s;
-}
-
-.bg-orb--2 {
-	bottom: -20%;
-	left: -10%;
-	width: 60vw;
-	height: 60vw;
-	background: radial-gradient(circle, rgba(99, 102, 241, 0.3) 0%, transparent 70%);
-	animation-delay: -5s;
-}
-
-.bg-orb--3 {
-	top: 40%;
-	left: 30%;
-	width: 40vw;
-	height: 40vw;
-	background: radial-gradient(circle, rgba(236, 72, 153, 0.15) 0%, transparent 70%);
-	animation-duration: 25s;
-}
-
-@keyframes orbFloat {
-	0% {
-		transform: translate(0, 0) scale(1);
-	}
-	33% {
-		transform: translate(10%, -10%) scale(1.1);
-	}
-	66% {
-		transform: translate(-5%, 15%) scale(0.9);
-	}
-	100% {
-		transform: translate(5%, 5%) scale(1.05);
-	}
-}
 
 #app {
 	min-height: 100vh;
@@ -276,8 +217,8 @@ body {
 }
 
 .landing__cards {
-	display: flex;
-	flex-direction: column;
+	display: grid;
+	grid-template-columns: 1fr;
 	gap: 1.25rem;
 }
 
@@ -319,13 +260,8 @@ body {
 
 @media (min-width: 640px) {
 	.landing__cards {
-		flex-direction: row;
+		grid-template-columns: 1fr 1fr;
 		align-items: stretch;
-	}
-
-	.landing__cards .card {
-		flex: 1;
-		min-width: 0;
 	}
 }
 
@@ -5412,9 +5348,6 @@ body {
 }
 
 /* —— Premium UX (Design-Optimierung) —— */
-.bg-orbs {
-	transition: transform 0.6s ease-out;
-}
 
 .lang-switcher__dropdown {
 	position: relative;
@@ -5838,7 +5771,4 @@ body {
 		transition-duration: 0.01ms !important;
 	}
 
-	.bg-orbs {
-		transition: none;
-	}
 }

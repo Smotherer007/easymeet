@@ -3,7 +3,7 @@
 **Browser video conferencing (mediasoup SFU)** – Chat, file sharing, screen sharing, and virtual backgrounds. No installation, no app – everything runs directly in the web browser; media and signaling go through your **EasyMeet server**.
 
 [![Node.js](https://img.shields.io/badge/Node.js-22+-green.svg)](https://nodejs.org/)
-[![Vite](https://img.shields.io/badge/Vite-7-646CFF.svg)](https://vitejs.dev/)
+[![Vite](https://img.shields.io/badge/Vite-8-646CFF.svg)](https://vitejs.dev/)
 [![mediasoup](https://img.shields.io/badge/mediasoup-SFU-orange.svg)](https://mediasoup.org/)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://www.apache.org/licenses/LICENSE-2.0)
 
@@ -63,7 +63,7 @@ The app provides a clear interface with:
 
 | Area                    | Technology                                                     |
 | ----------------------- | -------------------------------------------------------------- |
-| **Frontend**            | Vite 7, Vanilla JS (ES Modules), CSS                           |
+| **Frontend**            | Vite 8, Vanilla JS (ES Modules), CSS                           |
 | **Backend**             | Node.js, Express                                               |
 | **Realtime**            | mediasoup (SFU), Protoo-WebSocket (wie mediasoup-demo), WebRTC |
 | **UI**                  | Lucide Icons                                                   |
@@ -168,11 +168,9 @@ easymeet/
 │       ├── shared/         # roomApiPayloads (Duplikat zum Client)
 │       └── …
 ├── .env.example            # Vorlage → .env (gitignored)
-├── .env.production.example
 ├── Dockerfile
 ├── docker-compose.yml
-└── docs/
-    └── WIKI.md
+└── CONTRIBUTING.md
 ```
 
 **Logging:** Server: `EASYMEET_LOG_LEVEL` (`silent` \| `error` \| `warn` \| `info` \| `debug`, Standard `info`). Client: `VITE_LOG_LEVEL` in **`.env`** im Repo-Root (gleiche Stufen). Präfixe in der Konsole: `easymeet/server`, `easymeet/protoo`, `easymeet/mediasoup`, `easymeet/api`, `easymeet/ms`, `easymeet/app`.
@@ -207,12 +205,20 @@ easymeet/
 
 ## API Reference
 
-| Method  | Path                 | Description                                                          |
-| ------- | -------------------- | -------------------------------------------------------------------- |
-| `POST`  | `/api/rooms`         | Create a new room                                                    |
-| `PATCH` | `/api/rooms/:roomId` | Register host PeerId                                                 |
-| `POST`  | `/api/join`          | Join a room (returns server `peerId` + one-time `wsToken` for `/ws`) |
-| `GET`   | `/api/rooms/:roomId` | Check room status                                                    |
+| Method   | Path                              | Description                                                          |
+| -------- | --------------------------------- | -------------------------------------------------------------------- |
+| `POST`   | `/api/rooms`                      | Create a new room (optional `password`, `roomCode`)                  |
+| `GET`    | `/api/rooms`                      | Check room existence (`?identifier=…`)                               |
+| `GET`    | `/api/rooms/active`               | List active rooms with participant counts (rate-limited)              |
+| `GET`    | `/api/rooms/pinned`               | List persistent/pinned rooms                                         |
+| `GET`    | `/api/rooms/:roomId`              | Check single room status                                             |
+| `PATCH`  | `/api/rooms/:roomId`              | Register host PeerId (requires `hostSetupToken`)                     |
+| `POST`   | `/api/join`                       | Join a room (returns server `peerId` + one-time `wsToken` for `/ws`) |
+| `POST`   | `/api/admin/bootstrap-login`      | Authenticate with bootstrap token (rate-limited, 5/min)             |
+| `GET`    | `/api/admin/me`                   | Get current admin status                                             |
+| `POST`   | `/api/admin/persistent-rooms`     | Create a persistent room (admin only)                                |
+| `DELETE` | `/api/admin/persistent-rooms/:id` | Delete a persistent room (admin only)                                |
+| `GET`    | `/api/runtime-config.json`        | Returns runtime config (e.g. `giphyApiKey`); cached 60 s            |
 
 **Example – Create room:**
 
@@ -242,7 +248,7 @@ curl -X POST http://localhost:3001/api/rooms \
 The application uses a **multi-stage Docker build**:
 
 1. **Stage 1 (builder):** Builds the frontend with Vite, outputs `dist/`
-2. **Stage 2 (production):** Node.js Alpine image serving static files and the Express API from a single process
+2. **Stage 2 (production):** Node.js (bookworm-slim) image serving static files and the Express API from a single process
 
 In production, the Express server serves both the API (`/api/*`) and the static frontend (`dist/`) on one port.
 
@@ -276,21 +282,39 @@ Die Pipeline kann auch manuell unter **Actions → Build and Push Docker Image �
 
 ### Environment Variables
 
-| Variable                         | Default                                   | Description                                                                                                                                                                                                            |
-| -------------------------------- | ----------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `PORT`                           | `3001`                                    | Port the server listens on                                                                                                                                                                                             |
-| `NODE_ENV`                       | `production`                              | Set automatically in Dockerfile                                                                                                                                                                                        |
-| `GIPHY_API_KEY`                  | _(leer)_                                  | API key for GIF search via Giphy SDK/runtime config                                                                                                                                                                     |
-| `MEDIASOUP_ANNOUNCED_IP`         | _(leer)_                                  | **Wichtig in Docker/Cloud:** öffentliche IP oder Hostname für ICE (sonst oft kein Video/Audio). Siehe [mediasoup WebRtcTransportOptions](https://mediasoup.org/documentation/v3/mediasoup/api/#WebRtcTransportOptions) |
-| `MEDIASOUP_LISTEN_IP`            | `0.0.0.0`                                 | Bind-Adresse des WebRTC-Transports                                                                                                                                                                                     |
-| `RTC_MIN_PORT` / `RTC_MAX_PORT`  | `40000`–`40200`                           | UDP-Portbereich für RTP (muss intern bis zum Container durchgereicht werden, z. B. Proxy)                                                                                                                              |
-| `EASYMEET_DB_PATH`               | `/app/data/easymeet.sqlite`               | SQLite file path for server-admin and persistent-room metadata                                                                                                                                                         |
+**Server:**
+
+| Variable                                  | Default                     | Description                                                                                                                                                                                      |
+| ----------------------------------------- | --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `PORT`                                    | `3001`                      | Port the server listens on                                                                                                                                                                       |
+| `NODE_ENV`                                | `production`                | Set automatically in Dockerfile                                                                                                                                                                  |
+| `MEDIASOUP_ANNOUNCED_IP`                  | _(empty)_                   | **Required in Docker/Cloud:** public IP or hostname for ICE (otherwise video/audio often fails). See [mediasoup docs](https://mediasoup.org/documentation/v3/mediasoup/api/#WebRtcTransportOptions) |
+| `MEDIASOUP_LISTEN_IP`                     | `0.0.0.0`                   | Bind address for the WebRTC transport                                                                                                                                                            |
+| `RTC_MIN_PORT` / `RTC_MAX_PORT`           | `40000` / `40200`           | UDP port range for RTP (must be forwarded to the container)                                                                                                                                      |
+| `EASYMEET_DB_PATH`                        | `/app/data/easymeet.sqlite` | SQLite file path for server-admin and persistent-room metadata                                                                                                                                   |
+| `EASYMEET_LOG_LEVEL`                      | `info`                      | `silent` \| `error` \| `warn` \| `info` \| `debug`                                                                                                                                          |
+| `EASYMEET_CORS_ORIGINS`                   | _(empty)_                   | Comma-separated list of allowed origins (e.g. `https://meet.example.com`)                                                                                                                        |
+| `EASYMEET_API_RATE_LIMIT_MAX`             | `120`                       | Max requests per minute for `/api/*`                                                                                                                                                             |
+| `EASYMEET_JOIN_RATE_LIMIT_MAX`            | `30`                        | Max requests per minute for `/api/join`                                                                                                                                                          |
+| `EASYMEET_BOOTSTRAP_LOGIN_RATE_LIMIT_MAX` | `5`                         | Max requests per minute for `/api/admin/bootstrap-login`                                                                                                                                         |
+| `EASYMEET_WS_CHAT_PER_10S`               | `20`                        | Max chat messages per peer per 10 seconds (WebSocket)                                                                                                                                            |
+| `EASYMEET_WS_FILE_CHUNKS_PER_10S`        | `160`                       | Max file chunks per peer per 10 seconds (WebSocket)                                                                                                                                              |
+| `GIPHY_API_KEY`                           | _(empty)_                   | Optional API key for GIF search (served at runtime via `/api/runtime-config.json`, no image rebuild needed)                                                                                       |
+
+**Client (Vite, build-time – no secrets):**
+
+| Variable                        | Default                   | Description                                                         |
+| ------------------------------- | ------------------------- | ------------------------------------------------------------------- |
+| `VITE_LOG_LEVEL`                | `info`                    | `silent` \| `error` \| `warn` \| `info` \| `debug`             |
+| `VITE_PROXY_API_TARGET`         | `http://localhost:3001`   | Dev-server proxy target for `/api` and `/ws`                        |
+| `VITE_MEDIASOUP_PROTOO_DIRECT`  | `false`                   | Set `true` to connect Protoo directly (without reverse-proxy `/ws`) |
+| `VITE_MEDIASOUP_PROTOO_PORT`    | `3001`                    | Port used for direct Protoo connection                              |
 
 **Docker / Compose:** **`env_file: ./.env`**. Persistente Räume und Server-Admin-Daten liegen in SQLite (`EASYMEET_DB_PATH`). Weitere Werte in der YAML: **`environment:`** (siehe Kommentar in **`docker-compose.yml`**).
 
-**Container startet nicht / Port 40000 belegt:** Das Repo hat **keine** `ports:` in `docker-compose.yml`. Häufig stammt das Mapping von **`docker-compose.override.yml`** (wird automatisch gemerged). Prüfen mit `docker compose config` – Details: [docs/docker-compose-troubleshooting.md](docs/docker-compose-troubleshooting.md).
+**Container startet nicht / Port 40000 belegt:** Das Repo hat **keine** `ports:` in `docker-compose.yml`. Häufig stammt das Mapping von **`docker-compose.override.yml`** (wird automatisch gemerged). Prüfen mit `docker compose config`.
 
-**Nginx Proxy Manager / WebSocket:** [docs/nginx-proxy-manager-protoo.md](docs/nginx-proxy-manager-protoo.md) – `/ws` muss als WebSocket zum Backend (Port 3001 intern) durchgereicht werden.
+**Nginx Proxy Manager / WebSocket:** `/ws` muss als WebSocket-Upgrade zum Backend (Port 3001 intern) durchgereicht werden.
 
 ### Running with Docker
 
@@ -337,9 +361,8 @@ The production image:
 
 ## Documentation
 
-- **Wiki (Entwicklung):** EasyMeet – Entwickler- & Architektur-Dokumentation; Kurzverweis: [docs/WIKI.md](docs/WIKI.md)
-- Covers: Project structure, architecture, API reference, configuration, development, deployment
 - **[CONTRIBUTING.md](CONTRIBUTING.md)** – How to contribute
+- **[SECURITY.md](SECURITY.md)** – Security policy and responsible disclosure
 
 ---
 
