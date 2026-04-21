@@ -63,7 +63,7 @@ export function createApp(opts) {
 					scriptSrc: ["'self'", "'wasm-unsafe-eval'"],
 					styleSrc: ["'self'", "'unsafe-inline'"],
 					imgSrc: ["'self'", "data:", "blob:", "https:"],
-					connectSrc: ["'self'", "ws:", "wss:"],
+					connectSrc: ["'self'", "ws:", "wss:", "https://api.giphy.com", "https://pingback.giphy.com"],
 					frameSrc: [
 						"'self'",
 						"https://www.youtube.com",

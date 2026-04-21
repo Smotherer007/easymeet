@@ -1,7 +1,6 @@
 # Easymeet — Docker Compose (runtime config only, no image rebuild)
 #
-# Variables: env_file → container environment.
-# Reihenfolge wichtig: erst Root .env, dann server/.env als Override.
+# Variables: ./.env → container environment (env_file).
 # Optional: set values under `environment:` — overrides env_file.
 #
 # One-time: cp .env.example .env
@@ -13,8 +12,6 @@ services:
         image: smotherer/easymeet:latest
         env_file:
             - path: ./.env
-              required: false
-            - path: ./server/.env
               required: false
         # Optional: fixed values in YAML (override same keys from env_file)
         # environment:
