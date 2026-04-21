@@ -22,15 +22,15 @@ setInterval(() => roomStore.cleanupExpiredRooms(), 60 * 60 * 1000).unref?.();
 const adminDb = createAdminDb({ dbPath: process.env.EASYMEET_DB_PATH });
 const { token: bootstrapAdminToken, created: bootstrapTokenCreated } = adminDb.getOrCreateBootstrapToken();
 
-const tenorApiKey = process.env.TENOR_API_KEY || "";
-if (!tenorApiKey) {
-	logInfo("TENOR_API_KEY not set — GIF search will fall back to Tenor demo key (rate-limited, public).");
+const giphyApiKey = process.env.GIPHY_API_KEY || "";
+if (!giphyApiKey) {
+	logInfo("GIPHY_API_KEY not set — GIF picker will stay empty until a key is configured in .env.");
 }
 const app = createApp({
 	roomStore,
 	adminDb,
 	bootstrapAdminToken,
-	tenorApiKey,
+	giphyApiKey,
 	repoRoot
 });
 

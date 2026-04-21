@@ -50,7 +50,15 @@ import {
 	Hand,
 	BarChart2,
 	Radio,
-	Shield
+	Shield,
+	File,
+	FileText,
+	FileSpreadsheet,
+	FileArchive,
+	FileAudio,
+	FileVideo,
+	FileImage,
+	FileCode
 } from "lucide";
 
 const defaultAttrs = { "stroke-width": 1.75, class: "icon" };
@@ -115,6 +123,14 @@ export const iconBarChart2 = () => createElement(BarChart2, smAttrs).outerHTML;
 /** “No live rooms” — subtle Lucide icon instead of illustration */
 export const iconLandingActiveRoomsEmpty = () => createElement(Radio, landingEmptyStateAttrs).outerHTML;
 export const iconShield = () => createElement(Shield, { ...defaultAttrs, width: "0.9rem", height: "0.9rem" }).outerHTML;
+export const iconFile = () => createElement(File, smAttrs).outerHTML;
+export const iconFileText = () => createElement(FileText, smAttrs).outerHTML;
+export const iconFileSpreadsheet = () => createElement(FileSpreadsheet, smAttrs).outerHTML;
+export const iconFileArchive = () => createElement(FileArchive, smAttrs).outerHTML;
+export const iconFileAudio = () => createElement(FileAudio, smAttrs).outerHTML;
+export const iconFileVideo = () => createElement(FileVideo, smAttrs).outerHTML;
+export const iconFileImage = () => createElement(FileImage, smAttrs).outerHTML;
+export const iconFileCode = () => createElement(FileCode, smAttrs).outerHTML;
 
 export const iconLogo = () => `
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="4rem" height="4rem" class="icon logo-icon logo-icon--hero">

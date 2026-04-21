@@ -201,7 +201,8 @@ export function parsePeerEvent(data) {
 				nick: String(d.nick ?? "?"),
 				filename: String(d.filename ?? ""),
 				ts: Number(d.ts) || Date.now(),
-				fileId: d.fileId ? String(d.fileId) : undefined
+				fileId: d.fileId ? String(d.fileId) : undefined,
+				mimeType: d.mimeType ? String(d.mimeType) : undefined
 			});
 		case "members":
 			return ok({ type: "members", list: Array.isArray(d.list) ? d.list.map(String) : [] });

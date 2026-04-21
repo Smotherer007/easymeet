@@ -26,6 +26,9 @@ import {
 	renderStreamModalHostActionsInner,
 	renderLeaveRoomModal,
 	renderPollsDock,
+	renderImagePreviewModal,
+	renderYoutubePreviewModal,
+	renderVideoPreviewModal,
 	renderPollOptionRowHtml,
 	syncPollCreateOptionUi,
 	POLL_CREATE_MAX_OPTIONS
@@ -219,6 +222,9 @@ export function renderRoomView(state) {
       ${renderSettingsModalContent(settingsState)}
       ${renderFileModalContent()}
       ${renderPollsDock(pollsRect)}
+      ${renderImagePreviewModal()}
+      ${renderYoutubePreviewModal()}
+      ${renderVideoPreviewModal()}
       ${renderLeaveRoomModal()}
     </div>
   `;
@@ -321,7 +327,8 @@ export function updateFileShareMessage(container, fileId, filename, fromNick) {
 	if (!msg) return;
 	const body = msg.querySelector(".chat__file-share-body");
 	if (!body) return;
-	body.innerHTML = renderFileShareBody(fileId, fromNick, filename, true);
+	const fileMeta = container?._easymeetGetFileBlob?.(fileId) || null;
+	body.innerHTML = renderFileShareBody(fileId, fromNick, filename, fileMeta);
 }
 
 export function appendMessage(container, msg, opts = {}) {
@@ -354,8 +361,8 @@ export function appendMessage(container, msg, opts = {}) {
 		div.className = `chat__msg${selfClass}`;
 	} else if (msg.type === "file_share") {
 		const fileId = msg.fileId || "";
-		const hasBlob = receivedFileBlobs?.get?.(fileId);
-		const bodyHtml = renderFileShareBody(fileId, msg.nick, msg.filename, hasBlob);
+		const fileMeta = receivedFileBlobs?.get?.(fileId);
+		const bodyHtml = renderFileShareBody(fileId, msg.nick, msg.filename, fileMeta);
 		const isSelf = msg.nick === (opts.myNick ?? "");
 		const selfClass = isSelf ? " chat__msg--self" : "";
 		div.className = `chat__msg chat__msg--file-share${selfClass}`;
@@ -908,6 +915,30 @@ function attachRoomViewDownloadListeners(container, callbacks) {
 	});
 }
 
+function applyImagePreviewAnimationFromOrigin(content, originEl, mode = "in") {
+	if (!content || !originEl) return;
+	const originRect = originEl.getBoundingClientRect();
+	const modalRect = content.getBoundingClientRect();
+	if (!originRect.width || !originRect.height || !modalRect.width || !modalRect.height) return;
+	const originCx = originRect.left + originRect.width / 2;
+	const originCy = originRect.top + originRect.height / 2;
+	const modalCx = modalRect.left + modalRect.width / 2;
+	const modalCy = modalRect.top + modalRect.height / 2;
+	const dx = originCx - modalCx;
+	const dy = originCy - modalCy;
+	const scale = Math.max(0.1, Math.min(1, Math.min(originRect.width / modalRect.width, originRect.height / modalRect.height)));
+	content.style.setProperty("--preview-origin-x", `${dx}px`);
+	content.style.setProperty("--preview-origin-y", `${dy}px`);
+	content.style.setProperty("--preview-origin-scale", `${scale}`);
+	content.classList.remove("image-preview-modal__content--anim-in", "image-preview-modal__content--anim-out");
+	if (mode === "in") {
+		content.classList.add("image-preview-modal__content--anim-in");
+		requestAnimationFrame(() => content.classList.add("image-preview-modal__content--anim-in-run"));
+	} else {
+		content.classList.add("image-preview-modal__content--anim-out", "image-preview-modal__content--anim-out-run");
+	}
+}
+
 function attachRoomViewShareListeners(container, callbacks) {
 	container.addEventListener("click", (e) => {
 		const btn = e.target.closest('[data-action="open-stream-modal"]');
@@ -1088,10 +1119,149 @@ function clampAllDraggableWindows(container, callbacks) {
 }
 
 export function attachRoomViewListeners(container, callbacks) {
+	container._easymeetGetFileBlob = callbacks.getFileBlob || null;
 	container._easymeetViewportClampAbort?.abort();
 	const viewportClampAc = new AbortController();
 	container._easymeetViewportClampAbort = viewportClampAc;
 	const vSignal = viewportClampAc.signal;
+	const imagePreviewState = {
+		open: false,
+		currentTrigger: null,
+		queued: null
+	};
+	const youtubePreviewState = {
+		open: false,
+		currentTrigger: null,
+		queued: null
+	};
+	const videoPreviewState = {
+		open: false,
+		currentTrigger: null,
+		queued: null
+	};
+
+	const imagePreviewModal = container.querySelector("#image-preview-modal");
+	const imagePreviewContent = container.querySelector("#image-preview-content");
+	const imagePreviewImg = container.querySelector("#image-preview-img");
+	const closeImagePreview = () => {
+		if (!imagePreviewModal || !imagePreviewContent) return;
+		if (!imagePreviewState.open) return;
+		applyImagePreviewAnimationFromOrigin(imagePreviewContent, imagePreviewState.currentTrigger, "out");
+		window.setTimeout(() => {
+			imagePreviewModal.setAttribute("hidden", "");
+			imagePreviewState.open = false;
+			imagePreviewState.currentTrigger = null;
+			imagePreviewContent.classList.remove(
+				"image-preview-modal__content--anim-in",
+				"image-preview-modal__content--anim-in-run",
+				"image-preview-modal__content--anim-out",
+				"image-preview-modal__content--anim-out-run"
+			);
+			const next = imagePreviewState.queued;
+			imagePreviewState.queued = null;
+			if (next) openImagePreview(next.url, next.alt, next.trigger);
+		}, 190);
+	};
+	const openImagePreview = (url, alt, triggerEl) => {
+		if (!imagePreviewModal || !imagePreviewContent || !imagePreviewImg || !url) return;
+		if (imagePreviewState.open) {
+			imagePreviewState.queued = { url, alt, trigger: triggerEl };
+			closeImagePreview();
+			return;
+		}
+		imagePreviewImg.src = url;
+		imagePreviewImg.alt = alt || "";
+		imagePreviewModal.removeAttribute("hidden");
+		imagePreviewState.open = true;
+		imagePreviewState.currentTrigger = triggerEl || null;
+		requestAnimationFrame(() => applyImagePreviewAnimationFromOrigin(imagePreviewContent, triggerEl, "in"));
+	};
+	const youtubePreviewModal = container.querySelector("#youtube-preview-modal");
+	const youtubePreviewContent = container.querySelector("#youtube-preview-content");
+	const youtubePreviewIframe = container.querySelector("#youtube-preview-iframe");
+	const youtubePreviewOpenLink = container.querySelector("#youtube-preview-open-link");
+	const youtubeEmbedUrlFromId = (id) => {
+		const safeId = String(id || "").replace(/[^a-zA-Z0-9_-]/g, "");
+		if (!safeId) return "";
+		return `https://www.youtube.com/embed/${safeId}`;
+	};
+	const closeYoutubePreview = () => {
+		if (!youtubePreviewModal || !youtubePreviewContent || !youtubePreviewIframe) return;
+		if (!youtubePreviewState.open) return;
+		applyImagePreviewAnimationFromOrigin(youtubePreviewContent, youtubePreviewState.currentTrigger, "out");
+		window.setTimeout(() => {
+			youtubePreviewModal.setAttribute("hidden", "");
+			youtubePreviewState.open = false;
+			youtubePreviewState.currentTrigger = null;
+			youtubePreviewIframe.src = "";
+			youtubePreviewContent.classList.remove(
+				"image-preview-modal__content--anim-in",
+				"image-preview-modal__content--anim-in-run",
+				"image-preview-modal__content--anim-out",
+				"image-preview-modal__content--anim-out-run"
+			);
+			const next = youtubePreviewState.queued;
+			youtubePreviewState.queued = null;
+			if (next) openYoutubePreview(next.url, next.id, next.trigger);
+		}, 190);
+	};
+	const openYoutubePreview = (url, videoId, triggerEl) => {
+		if (!youtubePreviewModal || !youtubePreviewContent || !youtubePreviewIframe || !youtubePreviewOpenLink) return;
+		const embedUrl = youtubeEmbedUrlFromId(videoId);
+		if (!embedUrl || !url) return;
+		if (youtubePreviewState.open) {
+			youtubePreviewState.queued = { url, id: videoId, trigger: triggerEl };
+			closeYoutubePreview();
+			return;
+		}
+		youtubePreviewIframe.src = embedUrl;
+		youtubePreviewOpenLink.href = url;
+		youtubePreviewModal.removeAttribute("hidden");
+		youtubePreviewState.open = true;
+		youtubePreviewState.currentTrigger = triggerEl || null;
+		requestAnimationFrame(() => applyImagePreviewAnimationFromOrigin(youtubePreviewContent, triggerEl, "in"));
+	};
+	const videoPreviewModal = container.querySelector("#video-preview-modal");
+	const videoPreviewContent = container.querySelector("#video-preview-content");
+	const videoPreviewEl = container.querySelector("#video-preview-el");
+	const closeVideoPreview = () => {
+		if (!videoPreviewModal || !videoPreviewContent || !videoPreviewEl) return;
+		if (!videoPreviewState.open) return;
+		applyImagePreviewAnimationFromOrigin(videoPreviewContent, videoPreviewState.currentTrigger, "out");
+		window.setTimeout(() => {
+			videoPreviewModal.setAttribute("hidden", "");
+			videoPreviewState.open = false;
+			videoPreviewState.currentTrigger = null;
+			try {
+				videoPreviewEl.pause();
+			} catch (_) {}
+			videoPreviewEl.removeAttribute("src");
+			videoPreviewEl.load();
+			videoPreviewContent.classList.remove(
+				"image-preview-modal__content--anim-in",
+				"image-preview-modal__content--anim-in-run",
+				"image-preview-modal__content--anim-out",
+				"image-preview-modal__content--anim-out-run"
+			);
+			const next = videoPreviewState.queued;
+			videoPreviewState.queued = null;
+			if (next) openVideoPreview(next.url, next.alt, next.trigger);
+		}, 190);
+	};
+	const openVideoPreview = (url, alt, triggerEl) => {
+		if (!videoPreviewModal || !videoPreviewContent || !videoPreviewEl || !url) return;
+		if (videoPreviewState.open) {
+			videoPreviewState.queued = { url, alt, trigger: triggerEl };
+			closeVideoPreview();
+			return;
+		}
+		videoPreviewEl.src = url;
+		videoPreviewEl.setAttribute("aria-label", alt || "video");
+		videoPreviewModal.removeAttribute("hidden");
+		videoPreviewState.open = true;
+		videoPreviewState.currentTrigger = triggerEl || null;
+		requestAnimationFrame(() => applyImagePreviewAnimationFromOrigin(videoPreviewContent, triggerEl, "in"));
+	};
 
 	function closeReactionPopover() {
 		container.querySelector("#reaction-popover")?.setAttribute("hidden", "");
@@ -1105,6 +1275,45 @@ export function attachRoomViewListeners(container, callbacks) {
 			if (!pop || pop.hasAttribute("hidden")) return;
 			if (e.target.closest("#reaction-popover") || e.target.closest('[data-action="toggle-reaction-popover"]')) return;
 			closeReactionPopover();
+		},
+		{ signal: vSignal }
+	);
+
+	container.addEventListener(
+		"click",
+		(e) => {
+			const openBtn = e.target.closest('[data-action="open-image-preview"]');
+			if (openBtn?.dataset?.previewUrl) {
+				e.preventDefault();
+				openImagePreview(openBtn.dataset.previewUrl, openBtn.dataset.previewAlt || "", openBtn);
+				return;
+			}
+			if (e.target.closest('[data-action="close-image-preview"]')) {
+				e.preventDefault();
+				closeImagePreview();
+				return;
+			}
+			const ytBtn = e.target.closest('[data-action="open-youtube-preview"]');
+			if (ytBtn?.dataset?.youtubeUrl && ytBtn?.dataset?.youtubeId) {
+				e.preventDefault();
+				openYoutubePreview(ytBtn.dataset.youtubeUrl, ytBtn.dataset.youtubeId, ytBtn);
+				return;
+			}
+			if (e.target.closest('[data-action="close-youtube-preview"]')) {
+				e.preventDefault();
+				closeYoutubePreview();
+				return;
+			}
+			const videoBtn = e.target.closest('[data-action="open-video-preview"]');
+			if (videoBtn?.dataset?.previewUrl) {
+				e.preventDefault();
+				openVideoPreview(videoBtn.dataset.previewUrl, videoBtn.dataset.previewAlt || "", videoBtn);
+				return;
+			}
+			if (e.target.closest('[data-action="close-video-preview"]')) {
+				e.preventDefault();
+				closeVideoPreview();
+			}
 		},
 		{ signal: vSignal }
 	);
@@ -1427,6 +1636,18 @@ export function attachRoomViewListeners(container, callbacks) {
 	);
 	container.addEventListener("keydown", (e) => {
 		if (e.key === "Escape") {
+			if (imagePreviewState.open) {
+				closeImagePreview();
+				return;
+			}
+			if (youtubePreviewState.open) {
+				closeYoutubePreview();
+				return;
+			}
+			if (videoPreviewState.open) {
+				closeVideoPreview();
+				return;
+			}
 			const leaveM = container.querySelector("#leave-room-modal");
 			if (leaveM && !leaveM.hasAttribute("hidden")) {
 				leaveM.querySelector('[data-action="leave-cancel"]')?.click();

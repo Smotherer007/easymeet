@@ -115,7 +115,7 @@ export function renderChatContent(text, escapeFn, openLabel = "↗ Open") {
 	if (embeds.length === 0) return escaped;
 	const seen = new Set();
 	let html = escaped;
-	for (const { url } of embeds) {
+	for (const { url, id, rule } of embeds) {
 		if (seen.has(url)) continue;
 		seen.add(url);
 		const embedHtml = getEmbedHtml(url);
@@ -125,7 +125,11 @@ export function renderChatContent(text, escapeFn, openLabel = "↗ Open") {
 			const openControl = href
 				? `<a href="${escapeAttr(href)}" target="_blank" rel="noopener noreferrer" class="chat__link-preview__open">${openInner}</a>`
 				: `<span class="chat__link-preview__open chat__link-preview__open--nohref">${openInner}</span>`;
-			const block = `<span class="chat__link-preview"><span class="chat__link-preview__embed">${embedHtml}</span>${openControl}</span>`;
+			const modalControl =
+				rule?.name === "youtube" && href
+					? `<button type="button" class="chat__link-preview__expand" data-action="open-youtube-preview" data-youtube-url="${escapeAttr(href)}" data-youtube-id="${escapeAttr(String(id || ""))}" aria-label="${escapeAttr(openLabel)}">▶</button>`
+					: "";
+			const block = `<span class="chat__link-preview"><span class="chat__link-preview__embed">${embedHtml}${modalControl}</span>${openControl}</span>`;
 			html = html.replace(escapeFn(url), block);
 		}
 	}

@@ -672,7 +672,14 @@ export async function setupRoomParticipant(peerObj, nick, localStream, callbacks
 			case "file_share":
 				dispatch?.({
 					type: "chat/messageReceived",
-					payload: { type: "file_share", nick: msg.nick, filename: msg.filename, ts: msg.ts, fileId: msg.fileId }
+					payload: {
+						type: "file_share",
+						nick: msg.nick,
+						filename: msg.filename,
+						ts: msg.ts,
+						fileId: msg.fileId,
+						mimeType: msg.mimeType
+					}
 				});
 				break;
 			case "mute":
@@ -1124,9 +1131,12 @@ export async function setupRoomParticipant(peerObj, nick, localStream, callbacks
 		notifyEasymeet(protoo, { type: "screen_sharing_stopped", peerId: pid });
 	}
 
-	function broadcastFileShare(nickName, filename, ts, fileId) {
-		notifyEasymeet(protoo, { type: "file_share", nick: nickName, filename, ts, fileId });
-		dispatch?.({ type: "chat/messageReceived", payload: { type: "file_share", nick: nickName, filename, ts, fileId } });
+	function broadcastFileShare(nickName, filename, ts, fileId, mimeType) {
+		notifyEasymeet(protoo, { type: "file_share", nick: nickName, filename, ts, fileId, mimeType });
+		dispatch?.({
+			type: "chat/messageReceived",
+			payload: { type: "file_share", nick: nickName, filename, ts, fileId, mimeType }
+		});
 	}
 
 	function broadcastMute(pid, mutedState) {
@@ -1354,8 +1364,8 @@ export async function setupRoomParticipant(peerObj, nick, localStream, callbacks
 		notifyEasymeet(protoo, { type: "background_effect", effect: effect || "none" });
 	}
 
-	function sendFileShare(fileId, filename, ts) {
-		notifyEasymeet(protoo, { type: "file_share", nick, filename, ts, fileId });
+	function sendFileShare(fileId, filename, ts, mimeType) {
+		notifyEasymeet(protoo, { type: "file_share", nick, filename, ts, fileId, mimeType });
 	}
 
 	/** Mean RTT send/recv to SFU (WebRTC candidate-pair), for UI. */

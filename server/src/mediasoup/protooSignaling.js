@@ -55,7 +55,7 @@ function sanitizeReactionEffect(raw) {
 	return REACTION_EFFECT_ID_SET.has(s) ? s : "";
 }
 
-/** Tenor / Giphy CDNs only — blocks arbitrary tracking or XSS helper URLs in chat GIFs. */
+/** Giphy CDNs only in current flow; Tenor hosts remain allowlisted for legacy chat history URLs. */
 function isAllowedGiphyMediaUrl(raw) {
 	try {
 		const u = new URL(raw);
@@ -170,15 +170,16 @@ function buildSanitizedChatClientEntry(msg, msPeer) {
 }
 
 /**
- * @returns {{ type: 'file_share'; nick: string; filename: string; ts: number; fileId: string } | null}
+ * @returns {{ type: 'file_share'; nick: string; filename: string; ts: number; fileId: string; mimeType: string } | null}
  */
 function buildSanitizedFileShareClientEntry(msg, msPeer) {
 	const nick = typeof msg.nick === "string" ? msg.nick.trim().slice(0, 128) : msPeer.nick || "?";
 	const filename = typeof msg.filename === "string" ? msg.filename.trim().slice(0, 256) : "";
 	const fileId = typeof msg.fileId === "string" ? msg.fileId.trim().slice(0, 128) : "";
+	const mimeType = sanitizeMimeType(typeof msg.mimeType === "string" ? msg.mimeType : "");
 	const ts = Number(msg.ts) || Date.now();
 	if (!filename || !fileId) return null;
-	return { type: "file_share", nick, filename, ts, fileId };
+	return { type: "file_share", nick, filename, ts, fileId, mimeType };
 }
 
 function serializePollPublic(poll) {

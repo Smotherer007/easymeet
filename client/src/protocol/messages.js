@@ -8,7 +8,7 @@
 /** @typedef {{ type: 'join'; nick: string }} JoinMessage */
 /** @typedef {{ type: 'leave'; nick: string; peerId?: string }} LeaveMessage */
 /** @typedef {{ type: 'chat'; nick: string; text: string; ts: number; giphyUrl?: string; giphyUrls?: string[] }} ChatMessage */
-/** @typedef {{ type: 'file_share'; nick: string; filename: string; ts: number; fileId?: string }} FileShareMessage */
+/** @typedef {{ type: 'file_share'; nick: string; filename: string; ts: number; fileId?: string; mimeType?: string }} FileShareMessage */
 /** @typedef {{ type: 'members'; list: string[] }} MembersMessage */
 /** @typedef {{ type: 'peers'; list: string[]; members?: Array<{peerId: string; nick: string}> }} PeersMessage */
 /** @typedef {{ type: 'new_peer'; peerId: string; nick: string }} NewPeerMessage */

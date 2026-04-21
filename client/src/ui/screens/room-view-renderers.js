@@ -35,6 +35,15 @@ import {
 	iconHand,
 	iconBarChart2,
 	iconRefreshCw
+	,
+	iconFile,
+	iconFileText,
+	iconFileSpreadsheet,
+	iconFileArchive,
+	iconFileAudio,
+	iconFileVideo,
+	iconFileImage,
+	iconFileCode
 } from "../../icons.js";
 import { replaceEmojiShortcodes } from "../../utils/emojiShortcodes.js";
 import { renderChatContent } from "../../link-embed.js";
@@ -50,6 +59,44 @@ export function formatTime(ts) {
 	if (!ts) return "";
 	const d = new Date(ts);
 	return d.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
+}
+
+const blobUrlCache = new WeakMap();
+
+function getBlobUrl(blob) {
+	if (!blob) return "";
+	const existing = blobUrlCache.get(blob);
+	if (existing) return existing;
+	const url = URL.createObjectURL(blob);
+	blobUrlCache.set(blob, url);
+	return url;
+}
+
+function isImageMimeType(mimeType) {
+	return typeof mimeType === "string" && /^image\//i.test(mimeType.trim());
+}
+
+function isVideoMimeType(mimeType) {
+	return typeof mimeType === "string" && /^video\//i.test(mimeType.trim());
+}
+
+function pickFileTypeIcon(filename, mimeType, isImage, isVideo) {
+	if (isImage) return iconFileImage();
+	if (isVideo) return iconFileVideo();
+	const mt = String(mimeType || "").toLowerCase();
+	const ext = String(filename || "")
+		.toLowerCase()
+		.split(".")
+		.pop();
+	if (mt.includes("pdf") || ext === "pdf") return iconFileText();
+	if (mt.includes("zip") || mt.includes("compressed") || ["zip", "rar", "7z", "tar", "gz"].includes(ext)) return iconFileArchive();
+	if (mt.startsWith("audio/") || ["mp3", "wav", "ogg", "m4a", "flac"].includes(ext)) return iconFileAudio();
+	if (mt.includes("spreadsheet") || ["xls", "xlsx", "csv"].includes(ext)) return iconFileSpreadsheet();
+	if (mt.includes("word") || ["doc", "docx", "odt", "rtf"].includes(ext)) return iconFileText();
+	if (mt.includes("presentation") || ["ppt", "pptx", "key"].includes(ext)) return iconFileText();
+	if (mt.startsWith("text/") || ["txt", "md", "json", "xml", "yaml", "yml", "js", "ts", "py", "java", "c", "cpp", "html", "css"].includes(ext))
+		return iconFileCode();
+	return iconFile();
 }
 
 function renderJoinMessage(m) {
@@ -76,18 +123,69 @@ function renderChatMessage(m, myNick) {
 		: "";
 }
 
-export function renderFileShareBody(fileId, nick, filename, hasBlob) {
+export function renderFileShareBody(fileId, nick, filename, fileMeta) {
 	const label = `${escapeHtml(nick || "?")} ${t("fileShared")}: ${escapeHtml(filename || "?")}`;
+	const hasBlob = !!fileMeta?.blob;
+	const isImage = isImageMimeType(fileMeta?.mimeType);
+	const isVideo = isVideoMimeType(fileMeta?.mimeType);
+	const typeIcon = pickFileTypeIcon(filename, fileMeta?.mimeType, isImage, isVideo);
+	const previewUrl = hasBlob && (isImage || isVideo) ? getBlobUrl(fileMeta.blob) : "";
+	const previewHtml = isImage && previewUrl
+		? `<button type="button" class="chat__file-preview-link" data-action="open-image-preview" data-preview-url="${escapeAttr(previewUrl)}" data-preview-alt="${escapeAttr(filename || "image")}"><img class="chat__file-preview-img" src="${escapeAttr(previewUrl)}" alt="${escapeAttr(filename || "image")}" loading="lazy" /></button>`
+		: isVideo && previewUrl
+			? `<button type="button" class="chat__file-preview-link" data-action="open-video-preview" data-preview-url="${escapeAttr(previewUrl)}" data-preview-alt="${escapeAttr(filename || "video")}"><video class="chat__file-preview-video" src="${escapeAttr(previewUrl)}" muted playsinline preload="metadata"></video><span class="chat__file-preview-play">▶</span></button>`
+		: "";
 	const iconHtml = hasBlob
 		? `<button type="button" class="chat__file-download-btn" data-action="download-file" data-file-id="${escapeAttr(fileId)}" title="${escapeAttr(t("download"))}" aria-label="${escapeAttr(t("download"))}">${iconDownload()}</button>`
 		: `<span class="chat__file-loading">${iconLoader2()}</span>`;
-	return `<span class="chat__file-share-label">${label}</span>${iconHtml}`;
+	return `${previewHtml}<span class="chat__file-share-label"><span class="chat__file-type-icon" aria-hidden="true">${typeIcon}</span>${label}</span>${iconHtml}`;
+}
+
+export function renderImagePreviewModal() {
+	return `
+    <div class="image-preview-modal" id="image-preview-modal" hidden>
+      <div class="image-preview-modal__backdrop" data-action="close-image-preview"></div>
+      <div class="image-preview-modal__content" id="image-preview-content" role="dialog" aria-modal="true">
+        <button type="button" class="btn btn--ghost btn--sm image-preview-modal__close" data-action="close-image-preview" aria-label="${escapeAttr(t("close"))}">${iconX()}</button>
+        <img id="image-preview-img" class="image-preview-modal__img" alt="" />
+      </div>
+    </div>
+  `;
+}
+
+export function renderYoutubePreviewModal() {
+	return `
+    <div class="youtube-preview-modal" id="youtube-preview-modal" hidden>
+      <div class="youtube-preview-modal__backdrop" data-action="close-youtube-preview"></div>
+      <div class="youtube-preview-modal__content" id="youtube-preview-content" role="dialog" aria-modal="true">
+        <div class="youtube-preview-modal__header">
+          <a class="btn btn--ghost btn--sm" id="youtube-preview-open-link" href="#" target="_blank" rel="noopener noreferrer">${t("openInNewTab")}</a>
+          <button type="button" class="btn btn--ghost btn--sm" data-action="close-youtube-preview" aria-label="${escapeAttr(t("close"))}">${iconX()}</button>
+        </div>
+        <div class="youtube-preview-modal__body">
+          <iframe id="youtube-preview-iframe" class="youtube-preview-modal__iframe" src="" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+export function renderVideoPreviewModal() {
+	return `
+    <div class="video-preview-modal" id="video-preview-modal" hidden>
+      <div class="video-preview-modal__backdrop" data-action="close-video-preview"></div>
+      <div class="video-preview-modal__content" id="video-preview-content" role="dialog" aria-modal="true">
+        <button type="button" class="btn btn--ghost btn--sm video-preview-modal__close" data-action="close-video-preview" aria-label="${escapeAttr(t("close"))}">${iconX()}</button>
+        <video id="video-preview-el" class="video-preview-modal__video" controls playsinline></video>
+      </div>
+    </div>
+  `;
 }
 
 function renderFileShareMessage(m, getFileBlob, myNick) {
 	const fileId = m.fileId || "";
-	const hasBlob = getFileBlob?.(fileId);
-	const bodyHtml = renderFileShareBody(fileId, m.nick, m.filename, hasBlob);
+	const fileMeta = getFileBlob?.(fileId);
+	const bodyHtml = renderFileShareBody(fileId, m.nick, m.filename, fileMeta);
 	const isSelf = m.nick === (myNick ?? "");
 	const selfClass = isSelf ? " chat__msg--self" : "";
 	return `<div class="chat__msg chat__msg--file-share${selfClass}" data-file-id="${escapeAttr(fileId)}"><div class="chat__msg-header"><span class="chat__msg-nick">${escapeHtml(m.nick ?? "?")}</span><span class="chat__msg-time">${formatTime(m.ts)}</span></div><div class="chat__msg-body chat__file-share-body">${bodyHtml}</div></div>`;

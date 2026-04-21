@@ -18,7 +18,7 @@ try {
 import { requestLogContextMiddleware } from "./middleware/requestLogContext.js";
 import { createRoomsRouter } from "./routes/rooms.js";
 import { createJoinRouter } from "./routes/join.js";
-import { createGifsRouter } from "./routes/gifs.js";
+import { createRuntimeConfigRouter } from "./routes/runtimeConfig.js";
 import { attachStaticSpaIfPresent } from "./routes/staticSpa.js";
 import { getRequestClientId } from "./authz.js";
 
@@ -27,11 +27,11 @@ import { getRequestClientId } from "./authz.js";
  * @param {ReturnType<import('./roomStore.js').createRoomStore>} opts.roomStore
  * @param {ReturnType<import('./db/adminDb.js').createAdminDb>} opts.adminDb
  * @param {string} opts.bootstrapAdminToken
- * @param {string} opts.tenorApiKey
+ * @param {string} opts.giphyApiKey
  * @param {string} opts.repoRoot
  */
 export function createApp(opts) {
-	const { roomStore, adminDb, bootstrapAdminToken, tenorApiKey, repoRoot } = opts;
+	const { roomStore, adminDb, bootstrapAdminToken, giphyApiKey, repoRoot } = opts;
 	const corsOrigins = new Set(
 		(process.env.EASYMEET_CORS_ORIGINS || "")
 			.split(",")
@@ -146,7 +146,7 @@ export function createApp(opts) {
 
 	app.use("/api", createRoomsRouter({ roomStore, adminDb, bootstrapAdminToken }));
 	app.use("/api", createJoinRouter({ roomStore, adminDb }));
-	app.use("/api", createGifsRouter({ tenorApiKey }));
+	app.use("/api", createRuntimeConfigRouter({ giphyApiKey }));
 
 	attachStaticSpaIfPresent(app, { repoRoot });
 

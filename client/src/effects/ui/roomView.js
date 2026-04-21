@@ -7,7 +7,7 @@ import { getState, patchState } from "../../store/index.js";
 import * as selectors from "../../domain/selectors/index.js";
 import { t } from "../../i18n.js";
 import * as peer from "../network/mediasoupClient.js";
-import { hasTenorKey, searchGifs } from "../../tenor.js";
+import { getTrendingGifs, hasGiphyKey, searchGifs } from "../../giphy.js";
 import { extractDropData, processDropData, zipFileList } from "../../utils/folder-zip.js";
 import { addCustomBackground, removeCustomBackground } from "../storage/customBackgroundStorage.js";
 import { writeDeviceId } from "../storage/deviceStorage.js";
@@ -870,6 +870,7 @@ function buildRoomViewConfigNav(app, deps) {
 		onCustomBackgroundUpload: async (file) => handleCustomBackgroundUpload(app, file, navigate),
 		onRemoveCustomBackground: (id) => handleRemoveCustomBackground(app, id, navigate),
 		onDownloadFile: handleDownloadFile,
+		getFileBlob: (fileId) => selectors.selectReceivedFileBlob(getState(), fileId) || null,
 		onWindowMove: handleWindowMove,
 		onWindowResize: handleWindowResize,
 		getWindowPositions: () => selectors.selectWindowPositions(getState()),
@@ -895,14 +896,21 @@ function buildRoomViewConfigChat(getHandlers) {
 	const h = () => getHandlers();
 	return {
 		onSend: () => sendChatMessage(h()),
-		onGiphyOpen: () => {
-			if (!hasTenorKey()) h().setGiphyHint?.(t("giphyNoKey"));
+		onGiphyOpen: async () => {
+			/* Config kommt vom Server (runtime-config endpoint) — daher async.
+			 * Nur der Hinweis wartet darauf; das Suchfeld ist sofort bedienbar. */
+			if (!(await hasGiphyKey())) {
+				h().setGiphyHint?.(t("giphyNoKey"));
+				h().setGiphyResults?.([]);
+				return;
+			}
+			h().setGiphyHint?.("");
+			h().setGiphyResults?.(await getTrendingGifs());
 		},
-		onGiphySearch: hasTenorKey()
-			? async (q) => {
-					h().setGiphyResults?.(await searchGifs(q));
-				}
-			: undefined,
+		onGiphySearch: async (q) => {
+			/* searchGifs selbst prüft den Key und liefert [] wenn keiner da ist. */
+			h().setGiphyResults?.(await searchGifs(q));
+		},
 		onGiphySelect: (url, previewUrl) => {
 			const g = h()._pendingGifs ?? [];
 			g.push({ url, previewUrl: previewUrl || url });
@@ -1803,8 +1811,8 @@ async function sendSingleFile(app, file, hostPeer, viewerConn, nick, progressAre
 	const fileId = `file-${Date.now()}-${Math.random().toString(36).slice(2)}`;
 	const ts = Date.now();
 	const participant = hostPeer || viewerConn;
-	if (participant?.broadcastFileShare) participant.broadcastFileShare(nick, file.name, ts, fileId);
-	else if (participant?.sendFileShare) participant.sendFileShare(fileId, file.name, ts);
+	if (participant?.broadcastFileShare) participant.broadcastFileShare(nick, file.name, ts, fileId, file.type || "");
+	else if (participant?.sendFileShare) participant.sendFileShare(fileId, file.name, ts, file.type || "");
 	const updateProgress = createProgressUpdater(progressArea, file.name);
 	updateProgress();
 	if (participant?.sendFileToRoom) {
