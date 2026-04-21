@@ -26,21 +26,21 @@
 
 ## Features
 
-| Feature                 | Description                                                                          |
-| ----------------------- | ------------------------------------------------------------------------------------ |
-| **Video Conferencing**  | Audio/Video über **mediasoup** (SFU auf dem Server)                                  |
-| **Audio & Video**       | Microphone, camera, mute, video on/off                                               |
-| **Device Switching**    | Switch microphone and camera during calls (exact constraint for reliable selection)  |
-| **Screen Sharing**      | `getDisplayMedia` with optional system audio                                         |
-| **Chat**                | Text messages, emojis, GIFs (Giphy)                                                  |
-| **File Sharing**        | Files via **Protoo/easymeet** chunks to the room (server-vermittelt); folders as ZIP |
-| **Virtual Backgrounds** | Blur, preset images (e.g. The Office, Matrix), custom uploads                        |
-| **Speaking Indicator**  | Visual display of speaking activity                                                  |
-| **Voice Rooms**         | Audio-only mode for voice-only conferences                                           |
-| **Room Management**     | Password protection, optional room code, join via code or URL                        |
-| **Video Layout**        | Grid and free mode (draggable windows)                                               |
-| **Volume Slider**       | Per-participant volume in video tiles and participant list                           |
-| **i18n**                | German and English                                                                   |
+| Feature                 | Description                                                                         |
+| ----------------------- | ----------------------------------------------------------------------------------- |
+| **Video Conferencing**  | Audio/video via **mediasoup** SFU running on the server                             |
+| **Audio & Video**       | Microphone, camera, mute, video on/off                                              |
+| **Device Switching**    | Switch microphone and camera during calls (exact constraint for reliable selection) |
+| **Screen Sharing**      | `getDisplayMedia` with optional system audio                                        |
+| **Chat**                | Text messages, emojis, GIFs (Giphy)                                                 |
+| **File Sharing**        | Files sent as chunks via Protoo to all room participants; folders are zipped        |
+| **Virtual Backgrounds** | Blur, preset images (e.g. The Office, Matrix), custom uploads                       |
+| **Speaking Indicator**  | Visual display of speaking activity                                                 |
+| **Voice Rooms**         | Audio-only mode for voice-only conferences                                          |
+| **Room Management**     | Password protection, optional room code, join via code or URL                      |
+| **Video Layout**        | Grid and free mode (draggable windows)                                              |
+| **Volume Slider**       | Per-participant volume control in video tiles and participant list                  |
+| **i18n**                | German and English                                                                  |
 
 ---
 
@@ -61,15 +61,15 @@ The app provides a clear interface with:
 
 ## Tech Stack
 
-| Area                    | Technology                                                     |
-| ----------------------- | -------------------------------------------------------------- |
-| **Frontend**            | Vite 8, Vanilla JS (ES Modules), CSS                           |
-| **Backend**             | Node.js, Express                                               |
-| **Realtime**            | mediasoup (SFU), Protoo-WebSocket (wie mediasoup-demo), WebRTC |
-| **UI**                  | Lucide Icons                                                   |
-| **Virtual Backgrounds** | MediaPipe Tasks Vision, Selfie Segmentation                    |
-| **Other**               | bcrypt, qrcode, fflate, protoo-client                          |
-| **Deployment**          | Docker, docker-compose                                         |
+| Area                    | Technology                                                  |
+| ----------------------- | ----------------------------------------------------------- |
+| **Frontend**            | Vite 8, Vanilla JS (ES Modules), CSS                        |
+| **Backend**             | Node.js, Express                                            |
+| **Realtime**            | mediasoup (SFU), Protoo WebSocket, WebRTC                   |
+| **UI**                  | Lucide Icons                                                |
+| **Virtual Backgrounds** | MediaPipe Tasks Vision, Selfie Segmentation                 |
+| **Other**               | bcrypt, qrcode, fflate, protoo-client                       |
+| **Deployment**          | Docker, docker-compose                                      |
 
 ---
 
@@ -77,7 +77,7 @@ The app provides a clear interface with:
 
 ### Prerequisites
 
-- **Node.js** 22 or higher (Voraussetzung für aktuelle **mediasoup**-Versionen)
+- **Node.js** 22 or higher (required by current mediasoup versions)
 - **npm**
 
 ### Installation
@@ -105,75 +105,75 @@ npm run server
 npm run dev:all
 ```
 
-**Hinweis:** Nur `npm run dev` startet **kein** Backend. Dann schlagen Aufrufe wie `/api/join` fehl (`vite http proxy error … ECONNREFUSED`). Immer **`npm run dev:all`** nutzen oder in einem zweiten Terminal **`npm run server`**. Ziel-URL des Proxys: `VITE_PROXY_API_TARGET` in **`.env`** im Repo-Root (Standard: `http://localhost:3001`).
+> **Note:** Running only `npm run dev` does **not** start the backend. Calls like `/api/join` will fail with `ECONNREFUSED`. Always use **`npm run dev:all`** or start the server in a separate terminal with **`npm run server`**. The proxy target is configured via `VITE_PROXY_API_TARGET` in **`.env`** at the repo root (default: `http://localhost:3001`).
 
-**Konfiguration (lokal):** **`cp .env.example .env`**. Vite und der Server nutzen dieselbe **`.env`** im Repo-Root. Optional: **`server/.env`** überschreibt einzelne Variablen. Hattest du noch **`config/.env`** (ältere Struktur), Inhalt nach **`.env`** im Root übernehmen.
+**Local configuration:** Copy the environment file with **`cp .env.example .env`**. Vite and the server both read the same **`.env`** at the repo root. Optionally, **`server/.env`** can override individual variables.
 
-**Troubleshooting (lokal):**
+**Troubleshooting:**
 
-- **`npm install` scheitert an mediasoup** (`SSL: CERTIFICATE_VERIFY_FAILED` beim Download von **libuv**, siehe `node_modules/mediasoup/worker/out/Release/build/meson-logs/meson-log.txt`): Zuerst versucht mediasoup einen **Prebuild** von GitHub (`mediasoup-worker-…-darwin-arm64.tgz`); schlägt das fehl, wird **lokal** mit **Python** gebaut — und genau dieser Python (oft **`/Library/Frameworks/Python.framework/...`** von **python.org**) hat auf dem Mac häufig **keine** Root-Zertifikate.
-    1. **Empfohlen:** Im Finder **Applications → Python 3.x** das Skript **`Install Certificates.command`** ausführen (oder in der [Python-Doku](https://www.python.org/downloads/macos/) nach „Install Certificates“ suchen).
-    2. **Alternative:** Python von **Homebrew** nutzen, das meist korrekte CAs mitbringt: `brew install python@3.12`, dann z. B. **`PYTHON=/opt/homebrew/bin/python3.12 npm install`** (Apple-Silicon; bei Intel oft **`/usr/local/bin/python3.12`**).
-    3. Danach: **`rm -rf node_modules/mediasoup`** (bei halbinstalliertem Baum) und im Repo-Root erneut **`npm install`**, ggf. **`npm run rebuild:mediasoup`**.
-- **`mediasoup-worker` ENOENT** (Server startet, aber kein Binary): gleiche Ursache — Worker wurde nie fertig gebaut; obenstehende Schritte, dann **`npm install`** bzw. **`npm run rebuild:mediasoup`**.
+- **`npm install` fails on mediasoup** (`SSL: CERTIFICATE_VERIFY_FAILED` when downloading libuv): mediasoup first tries to download a prebuilt binary from GitHub; if that fails it builds locally using Python. Python installed from python.org on macOS often lacks root certificates.
+    1. **Recommended:** Open **Finder → Applications → Python 3.x** and run the **`Install Certificates.command`** script.
+    2. **Alternative:** Use Homebrew Python which ships with correct CAs: `brew install python@3.12`, then run **`PYTHON=/opt/homebrew/bin/python3.12 npm install`**.
+    3. Afterwards: **`rm -rf node_modules/mediasoup`** and run **`npm install`** again from the repo root, or use **`npm run rebuild:mediasoup`**.
+- **`mediasoup-worker` ENOENT** (server starts but no binary found): same root cause — the worker was never fully built. Follow the steps above, then run **`npm install`** or **`npm run rebuild:mediasoup`**.
 
 ### Production Build
 
 ```bash
 npm run build
-npm run preview # Preview the build
+npm run preview # Preview the build locally
 ```
 
 **URLs:**
 
 - Frontend: `http://localhost:5173`
-- API: `http://localhost:3001` (Vite proxy under `/api`)
+- API: `http://localhost:3001` (proxied under `/api` in dev)
 
-**Medien / Protoo:** Auf **Vite-Dev** (`:5173`) verbindet der Client **direkt** mit `ws(s)://<host>:3001/ws` (Subprotokoll `protoo` — Vite-WS-Proxy oft ungeeignet). Logs: **`[easymeet/ms]`**. Port: `VITE_MEDIASOUP_PROTOO_PORT`.
+**Media / Protoo:** In Vite dev mode (`:5173`), the client connects **directly** to `ws(s)://<host>:3001/ws` (subprotocol `protoo` — the Vite WS proxy is not suitable for this). Logs appear under **`[easymeet/ms]`**. Port is controlled by `VITE_MEDIASOUP_PROTOO_PORT`.
 
-**Production / Nginx Proxy Manager:** Protoo nutzt **`wss://<deine-domain>/ws`** (gleiche Origin wie die Seite, **kein** `:3001` in der URL). Der Proxy muss **WebSocket-Upgrade** für den Pfad **`/ws`** zum Node-Backend (z. B. `http://easymeet:3001`) durchreichen. `vite preview` o. Ä. ohne Proxy: optional **`VITE_MEDIASOUP_PROTOO_DIRECT=true`** in **`.env`** (Build-Zeit).
+**Production / Reverse Proxy:** Protoo uses **`wss://<your-domain>/ws`** (same origin as the page, no `:3001` in the URL). The reverse proxy must forward WebSocket upgrade requests for the `/ws` path to the Node backend (e.g. `http://easymeet:3001`). Without a reverse proxy, set **`VITE_MEDIASOUP_PROTOO_DIRECT=true`** in **`.env`** at build time.
 
 ---
 
 ## Project Structure
 
-**Monorepo (npm workspaces):** Root-`package.json` orchestriert **`client/`** (Vite-Frontend) und **`server/`** (Express + mediasoup). Die REST-Payload-Parser für Create/Join liegen **doppelt** unter `client/src/shared/roomApiPayloads.js` und `server/src/shared/roomApiPayloads.js` (bei Änderungen beide anpassen).
+**Monorepo (npm workspaces):** The root `package.json` orchestrates **`client/`** (Vite frontend) and **`server/`** (Express + mediasoup). The REST payload schemas for create/join are duplicated in `client/src/shared/roomApiPayloads.js` and `server/src/shared/roomApiPayloads.js` — keep both in sync when making changes.
 
 ```
 easymeet/
-├── package.json            # Workspaces, Scripts (dev, dev:all, build, …)
+├── package.json            # Workspaces, scripts (dev, dev:all, build, …)
 ├── client/                 # Vite SPA
 │   ├── package.json
-│   ├── vite.config.js      # Dev-Proxy /api, /ws
+│   ├── vite.config.js      # Dev proxy for /api and /ws
 │   ├── index.html
-│   ├── public/             # favicon, sounds, …
+│   ├── public/             # Favicon, sounds, …
 │   └── src/
 │       ├── main.js
-│       ├── app/            # bootstrap, Composition Root
+│       ├── app/            # Bootstrap, composition root
 │       ├── domain/
 │       ├── store/
 │       ├── effects/
 │       ├── protocol/
-│       ├── shared/         # result, constants, roomApiPayloads (…)
+│       ├── shared/         # Result helper, constants, roomApiPayloads
 │       ├── ui/screens/
 │       └── utils/
-├── server/                 # Express + mediasoup + Protoo (eigenes package.json)
+├── server/                 # Express + mediasoup + Protoo
 │   ├── package.json
-│   ├── .env.example        # optional: server/.env Overrides
+│   ├── .env.example        # Optional server-side overrides
 │   └── src/
 │       ├── index.js
 │       ├── logger.js
 │       ├── validate.js
 │       ├── mediasoup/
-│       ├── shared/         # roomApiPayloads (Duplikat zum Client)
+│       ├── shared/         # roomApiPayloads (duplicate of client)
 │       └── …
-├── .env.example            # Vorlage → .env (gitignored)
+├── .env.example            # Template → copy to .env (gitignored)
 ├── Dockerfile
 ├── docker-compose.yml
 └── CONTRIBUTING.md
 ```
 
-**Logging:** Server: `EASYMEET_LOG_LEVEL` (`silent` \| `error` \| `warn` \| `info` \| `debug`, Standard `info`). Client: `VITE_LOG_LEVEL` in **`.env`** im Repo-Root (gleiche Stufen). Präfixe in der Konsole: `easymeet/server`, `easymeet/protoo`, `easymeet/mediasoup`, `easymeet/api`, `easymeet/ms`, `easymeet/app`.
+**Logging:** Server log level is controlled by `EASYMEET_LOG_LEVEL` (`silent` \| `error` \| `warn` \| `info` \| `debug`, default `info`). Client log level is controlled by `VITE_LOG_LEVEL` in **`.env`** at the repo root (same levels). Console prefixes: `easymeet/server`, `easymeet/protoo`, `easymeet/mediasoup`, `easymeet/api`, `easymeet/ms`, `easymeet/app`.
 
 ---
 
@@ -182,9 +182,9 @@ easymeet/
 ### Flow
 
 1. **Host** creates a room (optional password)
-2. **Server** registers the room and startet einen **mediasoup-Router** pro Raum
-3. **Teilnehmer** joinen via Code/URL; **WebRTC** läuft Client ↔ Server (SFU), nicht rein P2P
-4. **Chat/Dateien** über Protoo-Notifications (`easymeet.*`); Medien über **Producer/Consumer** und server-getriebene **`newConsumer`** (übliches mediasoup/Protoo-Muster)
+2. **Server** registers the room and starts a **mediasoup Router** per room
+3. **Participants** join via code or URL; **WebRTC** runs client ↔ server (SFU), not pure P2P
+4. **Chat and files** are delivered via Protoo notifications (`easymeet.*`); media is handled via **Producer/Consumer** and server-driven **`newConsumer`** events (standard mediasoup/Protoo pattern)
 
 ### Four-Layer Model
 
@@ -209,7 +209,7 @@ easymeet/
 | -------- | --------------------------------- | -------------------------------------------------------------------- |
 | `POST`   | `/api/rooms`                      | Create a new room (optional `password`, `roomCode`)                  |
 | `GET`    | `/api/rooms`                      | Check room existence (`?identifier=…`)                               |
-| `GET`    | `/api/rooms/active`               | List active rooms with participant counts (rate-limited)              |
+| `GET`    | `/api/rooms/active`               | List active rooms with participant counts (rate-limited)             |
 | `GET`    | `/api/rooms/pinned`               | List persistent/pinned rooms                                         |
 | `GET`    | `/api/rooms/:roomId`              | Check single room status                                             |
 | `PATCH`  | `/api/rooms/:roomId`              | Register host PeerId (requires `hostSetupToken`)                     |
@@ -230,14 +230,14 @@ curl -X POST http://localhost:3001/api/rooms \
 
 **Response:** `{ "roomId": "ABC123", "hostPeerId": null }`
 
-**Join (then WebSocket):** `POST /api/join` with JSON `{ "identifier": "ABC123", "password": "" }` returns `{ "roomId", "peerId", "wsToken" }`. The client opens **`/ws?roomId=…&peerId=…&token=…&clientId=…`** with exactly those values. Raum-Ersteller rufen nach `POST /api/rooms` dieselbe Join-Route auf, um `peerId`/`wsToken` zu erhalten.
+**Join (then WebSocket):** `POST /api/join` with JSON `{ "identifier": "ABC123", "password": "" }` returns `{ "roomId", "peerId", "wsToken" }`. The client then opens **`/ws?roomId=…&peerId=…&token=…&clientId=…`** with those values. Room creators call the same join route after `POST /api/rooms` to obtain their `peerId` and `wsToken`.
 
-### Join/WS token flow
+### Join / WS Token Flow
 
-- `wsToken` wird nur von `POST /api/join` ausgestellt und an `roomId`, `peerId` und `clientId` gebunden.
-- Der Token ist **one-time** und läuft nach ca. 10 Minuten ab.
-- `/ws` akzeptiert nur unbenutzte, gültige Token und lehnt Reuse/Expired/Mismatch ab.
-- Bei `WS_TOKEN_INVALID` oder `WS_URL_TOKEN_MISMATCH`: erneut `POST /api/join` aufrufen und mit dem neuen `peerId`/`wsToken` verbinden.
+- `wsToken` is issued exclusively by `POST /api/join` and is bound to `roomId`, `peerId`, and `clientId`.
+- The token is **one-time use** and expires after approximately 10 minutes.
+- `/ws` only accepts unused, valid tokens and rejects reuse, expiry, and mismatches.
+- On `WS_TOKEN_INVALID` or `WS_URL_TOKEN_MISMATCH`: call `POST /api/join` again and reconnect with the new `peerId` and `wsToken`.
 
 ---
 
@@ -250,7 +250,7 @@ The application uses a **multi-stage Docker build**:
 1. **Stage 1 (builder):** Builds the frontend with Vite, outputs `dist/`
 2. **Stage 2 (production):** Node.js (bookworm-slim) image serving static files and the Express API from a single process
 
-In production, the Express server serves both the API (`/api/*`) and the static frontend (`dist/`) on one port.
+In production, the Express server serves both the API (`/api/*`) and the static frontend (`dist/`) on a single port.
 
 ### Build & Push
 
@@ -261,7 +261,7 @@ npm run docker:build
 # Push to registry
 npm run docker:push
 
-# Build and push
+# Build and push in one step
 npm run docker:build:and:push
 ```
 
@@ -269,16 +269,16 @@ npm run docker:build:and:push
 
 ### GitHub Actions (CI/CD)
 
-Bei jedem Push auf `main` baut und pusht eine GitHub Action automatisch das Docker-Image zu Docker Hub.
+On every push to `main`, a GitHub Action automatically builds and pushes the Docker image to Docker Hub.
 
-**Einrichtung:** In den GitHub Repository Settings → Secrets and variables → Actions zwei Secrets anlegen:
+**Setup:** Go to GitHub Repository Settings → Secrets and variables → Actions and add two secrets:
 
-| Secret               | Beschreibung                                                                                          |
-| -------------------- | ----------------------------------------------------------------------------------------------------- |
-| `DOCKERHUB_USERNAME` | Dein Docker Hub Benutzername (z.B. `smotherer`)                                                       |
-| `DOCKERHUB_TOKEN`    | Access Token von [Docker Hub → Account Settings → Security](https://hub.docker.com/settings/security) |
+| Secret               | Description                                                                                        |
+| -------------------- | -------------------------------------------------------------------------------------------------- |
+| `DOCKERHUB_USERNAME` | Your Docker Hub username (e.g. `smotherer`)                                                        |
+| `DOCKERHUB_TOKEN`    | Access token from [Docker Hub → Account Settings → Security](https://hub.docker.com/settings/security) |
 
-Die Pipeline kann auch manuell unter **Actions → Build and Push Docker Image → Run workflow** gestartet werden.
+The pipeline can also be triggered manually under **Actions → Build and Push Docker Image → Run workflow**.
 
 ### Environment Variables
 
@@ -292,7 +292,7 @@ Die Pipeline kann auch manuell unter **Actions → Build and Push Docker Image �
 | `MEDIASOUP_LISTEN_IP`                     | `0.0.0.0`                   | Bind address for the WebRTC transport                                                                                                                                                            |
 | `RTC_MIN_PORT` / `RTC_MAX_PORT`           | `40000` / `40200`           | UDP port range for RTP (must be forwarded to the container)                                                                                                                                      |
 | `EASYMEET_DB_PATH`                        | `/app/data/easymeet.sqlite` | SQLite file path for server-admin and persistent-room metadata                                                                                                                                   |
-| `EASYMEET_LOG_LEVEL`                      | `info`                      | `silent` \| `error` \| `warn` \| `info` \| `debug`                                                                                                                                          |
+| `EASYMEET_LOG_LEVEL`                      | `info`                      | `silent` \| `error` \| `warn` \| `info` \| `debug`                                                                                                                                              |
 | `EASYMEET_CORS_ORIGINS`                   | _(empty)_                   | Comma-separated list of allowed origins (e.g. `https://meet.example.com`)                                                                                                                        |
 | `EASYMEET_API_RATE_LIMIT_MAX`             | `120`                       | Max requests per minute for `/api/*`                                                                                                                                                             |
 | `EASYMEET_JOIN_RATE_LIMIT_MAX`            | `30`                        | Max requests per minute for `/api/join`                                                                                                                                                          |
@@ -305,21 +305,20 @@ Die Pipeline kann auch manuell unter **Actions → Build and Push Docker Image �
 
 | Variable                        | Default                   | Description                                                         |
 | ------------------------------- | ------------------------- | ------------------------------------------------------------------- |
-| `VITE_LOG_LEVEL`                | `info`                    | `silent` \| `error` \| `warn` \| `info` \| `debug`             |
+| `VITE_LOG_LEVEL`                | `info`                    | `silent` \| `error` \| `warn` \| `info` \| `debug`                 |
 | `VITE_PROXY_API_TARGET`         | `http://localhost:3001`   | Dev-server proxy target for `/api` and `/ws`                        |
 | `VITE_MEDIASOUP_PROTOO_DIRECT`  | `false`                   | Set `true` to connect Protoo directly (without reverse-proxy `/ws`) |
 | `VITE_MEDIASOUP_PROTOO_PORT`    | `3001`                    | Port used for direct Protoo connection                              |
 
-**Docker / Compose:** **`env_file: ./.env`**. Persistente Räume und Server-Admin-Daten liegen in SQLite (`EASYMEET_DB_PATH`). Weitere Werte in der YAML: **`environment:`** (siehe Kommentar in **`docker-compose.yml`**).
+**Docker / Compose:** Load variables via **`env_file: ./.env`**. Persistent rooms and server-admin data are stored in SQLite at `EASYMEET_DB_PATH`. Fixed values can also be set directly under `services.app.environment:` in the Compose file (these override `env_file`).
 
-**Container startet nicht / Port 40000 belegt:** Das Repo hat **keine** `ports:` in `docker-compose.yml`. Häufig stammt das Mapping von **`docker-compose.override.yml`** (wird automatisch gemerged). Prüfen mit `docker compose config`.
+**Container does not start / port 40000 in use:** The repo's `docker-compose.yml` has no `ports:` entries. Port mappings typically come from a **`docker-compose.override.yml`** (merged automatically). Inspect the effective config with `docker compose config`.
 
-**Nginx Proxy Manager / WebSocket:** `/ws` muss als WebSocket-Upgrade zum Backend (Port 3001 intern) durchgereicht werden.
+**Nginx / WebSocket:** The reverse proxy must forward WebSocket upgrade requests for the `/ws` path to the backend at port 3001.
 
 ### Running with Docker
 
 ```bash
-# Nur .env
 docker run -p 3001:3001 -p 40000-40200:40000-40200/udp \
 	--env-file ./.env \
 	smotherer/easymeet:latest
@@ -327,35 +326,33 @@ docker run -p 3001:3001 -p 40000-40200:40000-40200/udp \
 
 ### docker-compose
 
-Die `docker-compose.yml` erwartet ein externes Netz **`frontend`**. Standard: nur **`./.env`** (`cp .env.example .env`).
+The `docker-compose.yml` expects an external network named **`frontend`**. Default setup uses only **`./.env`**.
 
 ```bash
 cp .env.example .env
 docker network create frontend
 docker compose up -d
-# oder: npm run docker:up
+# or: npm run docker:up
 ```
 
-Die **Compose-Datei veröffentlicht keine `ports:`** – der Dienst ist nur im Netz `frontend` erreichbar (z. B. Reverse-Proxy). **UDP 40000–40200** muss für WebRTC bis zu diesem Container durchgereicht werden (gleicher Bereich wie `RTC_*`).
+The Compose file does **not** publish any `ports:` — the service is only reachable within the `frontend` network (intended for use behind a reverse proxy). **UDP 40000–40200** must be forwarded to the container for WebRTC to work.
 
-**Nur YAML:** Unter `services.app.environment:` feste Werte eintragen (überschreiben **`env_file`**).
-
-**Lokal mit Host-Ports** – optional `ports:` ergänzen, z. B. `"3001:3001"` und `40000-40200:40000-40200/udp`.
+To run locally with exposed ports, add them manually to the Compose file, e.g. `"3001:3001"` and `"40000-40200:40000-40200/udp"`.
 
 ### Dockerfile Details
 
-| Stage      | Base Image              | Purpose                                                                         |
-| ---------- | ----------------------- | ------------------------------------------------------------------------------- |
-| `builder`  | `node:22-bookworm-slim` | Workspaces `npm ci`, `npm run build` → `client/dist/`                           |
-| Production | `node:22-bookworm-slim` | mediasoup-Prebuild (glibc); Fallback-Build: `python3`, `pip`, `build-essential` |
+| Stage        | Base Image              | Purpose                                                                         |
+| ------------ | ----------------------- | ------------------------------------------------------------------------------- |
+| `builder`    | `node:22-bookworm-slim` | Runs `npm ci` across workspaces, then `npm run build` → `client/dist/`          |
+| `production` | `node:22-bookworm-slim` | mediasoup prebuild (glibc); fallback build requires `python3`, `build-essential` |
 
 The production image:
 
-- **Keine** Konfig im Image — zur Laufzeit per Compose **`env_file`** bzw. `docker run --env-file …`
+- No config baked in — all configuration is injected at runtime via `env_file` or `docker run --env-file`
 - Serves static files from `client/dist/`
 - Handles API routes under `/api`
 - Falls back to `index.html` for SPA routing
-- **Keine `EXPOSE`** im Dockerfile; lauscht intern auf `PORT` (Standard 3001)
+- No `EXPOSE` directive; listens internally on `PORT` (default `3001`)
 
 ---
 
