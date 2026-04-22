@@ -1,22 +1,33 @@
 /**
- * Einheitliches Server-Logging (HTTP-API, mediasoup, persistent rooms).
- * Steuerung: EASYMEET_LOG_LEVEL = silent | error | warn | info | debug (Standard: info).
- * Kontext: AsyncLocalStorage (requestId, connectionId, roomId, peerId) via runWithLogContext.
+ * Unified server logging (HTTP API, mediasoup, persistent rooms).
+ * Controlled via EASYMEET_LOG_LEVEL = silent | error | warn | info | debug (default: info).
+ * Uses AsyncLocalStorage context (requestId, connectionId, roomId, peerId) via runWithLogContext.
  */
 
 import { AsyncLocalStorage } from "node:async_hooks";
+import pino from "pino";
 
-const LEVELS = { silent: 0, error: 1, warn: 2, info: 3, debug: 4 };
+const rawLevel = (process.env.EASYMEET_LOG_LEVEL || "info").toLowerCase();
 
-const raw = (process.env.EASYMEET_LOG_LEVEL || "info").toLowerCase();
-const current = LEVELS[raw] ?? LEVELS.info;
-
-const PREFIX = "[easymeet/server]";
-const PROTOO_PREFIX = "[easymeet/protoo]";
-const MS_PREFIX = "[easymeet/mediasoup]";
+const baseLogger = pino({
+	level: rawLevel,
+	base: null,
+	messageKey: "msg",
+	timestamp: pino.stdTimeFunctions.isoTime,
+	formatters: {
+		level(label) {
+			return { level: label };
+		}
+	}
+});
 
 /** @type {AsyncLocalStorage<Record<string, string>>} */
 const logContextStore = new AsyncLocalStorage();
+
+const serverLogger = baseLogger.child({ channel: "server" });
+const protooLogger = baseLogger.child({ channel: "protoo" });
+const mediasoupLogger = baseLogger.child({ channel: "mediasoup" });
+const httpLogger = baseLogger.child({ channel: "http" });
 
 /**
  * @param {Record<string, string>} store
@@ -45,88 +56,145 @@ export function getLogContext() {
 	return logContextStore.getStore() || {};
 }
 
-function should(level) {
-	return current >= LEVELS[level];
+function contextFields() {
+	const ctx = getLogContext();
+	if (!ctx) return {};
+	const out = {};
+	if (ctx.requestId) out.requestId = ctx.requestId;
+	if (ctx.connectionId) out.connectionId = ctx.connectionId;
+	if (ctx.roomId) out.roomId = ctx.roomId;
+	if (ctx.peerId) out.peerId = ctx.peerId;
+	return out;
 }
 
-function shortId(s) {
-	if (typeof s !== "string") return s;
-	return s.length > 12 ? `${s.slice(0, 8)}…` : s;
+/**
+ * @param {unknown[]} args
+ */
+function normalizeArgs(args) {
+	let msg;
+	let error;
+	const meta = {};
+	const extras = [];
+
+	for (const arg of args) {
+		if (arg instanceof Error) {
+			error = arg;
+			continue;
+		}
+		if (typeof arg === "string" && msg === undefined) {
+			msg = arg;
+			continue;
+		}
+		if (arg && typeof arg === "object" && !Array.isArray(arg)) {
+			Object.assign(meta, arg);
+			continue;
+		}
+		if (arg !== undefined) {
+			extras.push(arg);
+		}
+	}
+
+	if (error) {
+		meta.err = pino.stdSerializers.err(error);
+	}
+	if (extras.length > 0) {
+		meta.extra = extras.length === 1 ? extras[0] : extras;
+	}
+
+	return { msg, meta };
 }
 
-function metaSuffix() {
-	const c = getLogContext();
-	const parts = [];
-	if (c.requestId) parts.push(`req=${shortId(c.requestId)}`);
-	if (c.connectionId) parts.push(`conn=${shortId(c.connectionId)}`);
-	if (c.roomId) parts.push(`room=${c.roomId}`);
-	if (c.peerId) parts.push(`peer=${shortId(c.peerId)}`);
-	if (!parts.length) return "";
-	return ` [${parts.join(" ")}]`;
+function logWithLevel(targetLogger, level, args) {
+	if (!targetLogger || typeof targetLogger[level] !== "function") return;
+	if (!args.length) return;
+	const { msg, meta } = normalizeArgs(args);
+	const fields = { ...contextFields(), ...meta };
+	const hasFields = Object.keys(fields).length > 0;
+
+	if (hasFields && msg !== undefined) {
+		targetLogger[level](fields, msg);
+		return;
+	}
+	if (hasFields) {
+		targetLogger[level](fields);
+		return;
+	}
+	if (msg !== undefined) {
+		targetLogger[level](msg);
+	}
 }
 
 /** @param {...unknown} args */
 export function logError(...args) {
-	if (should("error")) console.error(PREFIX + metaSuffix(), ...args);
+	logWithLevel(serverLogger, "error", args);
 }
 
 /** @param {...unknown} args */
 export function logWarn(...args) {
-	if (should("warn")) console.warn(PREFIX + metaSuffix(), ...args);
+	logWithLevel(serverLogger, "warn", args);
 }
 
 /** @param {...unknown} args */
 export function logInfo(...args) {
-	if (should("info")) console.info(PREFIX + metaSuffix(), ...args);
+	logWithLevel(serverLogger, "info", args);
 }
 
 /** @param {...unknown} args */
 export function logDebug(...args) {
-	if (should("debug")) console.info(PREFIX + metaSuffix(), "[debug]", ...args);
+	logWithLevel(serverLogger, "debug", args);
 }
 
 /** @param {...unknown} args */
 export function logProtooInfo(...args) {
-	if (should("info")) console.info(PROTOO_PREFIX + metaSuffix(), ...args);
+	logWithLevel(protooLogger, "info", args);
 }
 
 /** @param {...unknown} args */
 export function logProtooWarn(...args) {
-	if (should("warn")) console.warn(PROTOO_PREFIX + metaSuffix(), ...args);
+	logWithLevel(protooLogger, "warn", args);
 }
 
 /** @param {...unknown} args */
 export function logProtooError(...args) {
-	if (should("error")) console.error(PROTOO_PREFIX + metaSuffix(), ...args);
+	logWithLevel(protooLogger, "error", args);
 }
 
 /** @param {...unknown} args */
 export function logProtooDebug(...args) {
-	if (should("debug")) console.info(PROTOO_PREFIX + metaSuffix(), "[debug]", ...args);
+	logWithLevel(protooLogger, "debug", args);
 }
 
 /** @param {...unknown} args */
 export function logMediasoupInfo(...args) {
-	if (should("info")) console.info(MS_PREFIX + metaSuffix(), ...args);
+	logWithLevel(mediasoupLogger, "info", args);
 }
 
 /** @param {...unknown} args */
 export function logMediasoupWarn(...args) {
-	if (should("warn")) console.warn(MS_PREFIX + metaSuffix(), ...args);
+	logWithLevel(mediasoupLogger, "warn", args);
 }
 
 /** @param {...unknown} args */
 export function logMediasoupError(...args) {
-	if (should("error")) console.error(MS_PREFIX + metaSuffix(), ...args);
+	logWithLevel(mediasoupLogger, "error", args);
 }
 
 /**
- * HTTP-Zugriffslog: Methode, Pfad, Status, Dauer ms, optional Request-Id.
+ * HTTP access log: method, path, status, duration ms, optional requestId override.
  * @param {string} [requestId]
  */
 export function logHttp(method, url, statusCode, durationMs, requestId) {
-	if (!should("info")) return;
-	const id = requestId || getLogContext().requestId;
-	const rid = id ? ` [req=${shortId(id)}]` : "";
-	console.info(PREFIX + rid, method, url, statusCode, `${durationMs}ms`);
+	const fields = {
+		...contextFields(),
+		method,
+		url,
+		statusCode,
+		durationMs
+	};
+
+	if (requestId && requestId !== fields.requestId) {
+		fields.requestId = requestId;
+	}
+
+	httpLogger.info(fields, "http_request");
 }
