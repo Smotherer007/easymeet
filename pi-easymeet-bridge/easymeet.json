@@ -1,10 +1,10 @@
 {
-  "serverUrl": "http://localhost:3001",
+  "serverUrl": "https://easymeet.easyroomtools.tech/",
   "roomCode": "ZOCKERTAG",
   "displayName": "Pi Assistant",
   "password": "",
   "clientId": "",
-  "requireMention": true,
+  "requireMention": false,
   "respondToQuestions": true,
-  "wakeWords": ["pi", "assistant"]
+  "wakeWords": []
 }

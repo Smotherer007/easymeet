@@ -377,26 +377,26 @@ A lightweight pi extension is included under `pi-easymeet-bridge/` to bridge Eas
 3. **Configure the bridge** – the extension reads `~/.pi/agent/easymeet.json` (copied automatically from `pi-easymeet-bridge/easymeet.json` on first run). Example:
    ```json
    {
-     "serverUrl": "http://localhost:3001",
-     "roomCode": "ROOM123",
+     "serverUrl": "https://easymeet.easyroomtools.tech/",
+     "roomCode": "ZOCKERTAG",
      "displayName": "Pi Assistant",
      "password": "",
      "clientId": "",
-     "requireMention": true,
+     "requireMention": false,
      "respondToQuestions": true,
-     "wakeWords": ["pi", "assistant"]
+     "wakeWords": []
    }
    ```
    | Field                | Description                                                                            |
    |----------------------|----------------------------------------------------------------------------------------|
-   | `serverUrl`          | Base URL of the EasyMeet server (e.g. `http://localhost:3001`)                          |
+   | `serverUrl`          | Base URL of the EasyMeet server (e.g. `https://easymeet.easyroomtools.tech/`)          |
    | `roomCode`           | Join code / identifier of the target room                                              |
    | `displayName`        | Name shown for the bridge participant inside EasyMeet                                  |
    | `password`           | Optional room password                                                                 |
    | `clientId`           | Unique client identifier (empty → generated on first connect)                          |
-   | `requireMention`     | `true` (default) → only forward messages that mention a wake word                      |
+   | `requireMention`     | `true` (default) → only forward messages that mention a wake word. Set `false` to respond to every message (sample above). |
    | `respondToQuestions` | `true` (default) → allow question-mark messages through even without a mention         |
-   | `wakeWords`          | Additional aliases that count as mentions (case-insensitive); `displayName` is included |
+   | `wakeWords`          | Additional aliases that count as mentions (case-insensitive). Leave empty when `requireMention` is `false`. |
 4. **Use the commands inside pi**:
    | Command               | Purpose                                |
    |-----------------------|----------------------------------------|
