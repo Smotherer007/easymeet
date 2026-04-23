@@ -182,6 +182,17 @@ function wasLastUserMessageFromEasymeet(messages: AgentMessage[]): boolean {
   return false;
 }
 
+const RESTRICTED_TOOLS = new Set([
+  "bash",
+  "write",
+  "edit",
+  "apply_patch",
+  "delete",
+  "copy",
+  "python",
+  "node",
+]);
+
 class EasymeetBridge {
   private config: EasymeetConfig | null = null;
 
@@ -207,6 +218,8 @@ class EasymeetBridge {
 
   private closing = false;
 
+  private turnIsFromEasymeet = false;
+
   constructor(private readonly pi: ExtensionAPI) {}
 
   getStatusLines(): string[] {
@@ -218,6 +231,23 @@ class EasymeetBridge {
 
   setAgentActive(active: boolean): void {
     this.agentActive = active;
+  }
+
+  handleBeforeAgentStart(prompt: unknown): void {
+    const text = typeof prompt === "string" ? prompt : "";
+    this.turnIsFromEasymeet = text.trim().startsWith(PROTOCOL_PREFIX);
+  }
+
+  resetTurnFlag(): void {
+    this.turnIsFromEasymeet = false;
+  }
+
+  isTurnFromEasymeet(): boolean {
+    return this.turnIsFromEasymeet;
+  }
+
+  shouldBlockTool(toolName: string): boolean {
+    return this.turnIsFromEasymeet && RESTRICTED_TOOLS.has(toolName);
   }
 
   async loadConfig(): Promise<EasymeetConfig> {
@@ -603,6 +633,11 @@ export default function registerEasymeetBridge(pi: ExtensionAPI): void {
     await bridge.disconnect(ctx);
   });
 
+  pi.on("before_agent_start", (event) => {
+    const prompt = (event as { prompt?: unknown })?.prompt;
+    bridge.handleBeforeAgentStart(prompt);
+  });
+
   pi.on("agent_start", () => {
     bridge.setAgentActive(true);
   });
@@ -610,7 +645,19 @@ export default function registerEasymeetBridge(pi: ExtensionAPI): void {
   pi.on("agent_end", async (event) => {
     bridge.setAgentActive(false);
     const messages = (event as { messages?: AgentMessage[] }).messages;
-    if (!messages) return;
-    await bridge.handleAgentEnd(messages);
+    if (messages) {
+      await bridge.handleAgentEnd(messages);
+    }
+    bridge.resetTurnFlag();
+  });
+
+  pi.on("tool_call", (event) => {
+    const toolName = String((event as { toolName?: unknown })?.toolName || "");
+    if (!toolName) return undefined;
+    if (!bridge.shouldBlockTool(toolName)) return undefined;
+    return {
+      block: true,
+      reason: "EasyMeet bridge: system-level tools are disabled for chat prompts.",
+    };
   });
 }

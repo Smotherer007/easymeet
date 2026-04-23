@@ -79,6 +79,7 @@ When the bridge is connected:
 - A message is only forwarded as a prompt when it contains one of the configured wake words (case-insensitive) or – if `respondToQuestions` is enabled – looks like a question. That way the agent stays silent unless addressed or it truly needs to respond.
 - Forwarded messages appear in pi prefixed with `[easymeet] <nick>:` and can trigger a reply.
 - Pi's assistant replies are sent back to the EasyMeet chat under the configured `displayName`.
+- System tools such as `bash`, `write`, `edit`, `apply_patch`, `delete`, `copy`, `python`, and `node` are blocked automatically for EasyMeet-driven turns to protect the host environment.
 - If pi is already busy when a chat message arrives, the bridge queues it and delivers it as a follow-up once the current turn finishes.
 
 ## Limitations & Notes

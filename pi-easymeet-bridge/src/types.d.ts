@@ -26,7 +26,7 @@ declare module "@mariozechner/pi-coding-agent" {
         handler(args: string | undefined, ctx: ExtensionCommandContext): Promise<void> | void;
       },
     ): void;
-    on(event: string, handler: (...args: any[]) => void): void;
+    on(event: string, handler: (event: Record<string, unknown>, ctx: ExtensionContext) => unknown): void;
     sendUserMessage(
       content: string,
       options?: { deliverAs?: "steer" | "followUp" | "nextTurn" },

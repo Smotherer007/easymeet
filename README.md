@@ -410,6 +410,7 @@ When connected:
 - All chat lines are stored as hidden observations so the agent can follow the conversation without necessarily replying.
 - Messages are only forwarded as prompts when they contain a wake word (case-insensitive) or, if `respondToQuestions` is enabled, look like a question. That keeps responses focused on messages that actually address the agent.
 - Forwarded messages show up in pi prefixed with `[easymeet] <nick>: …` and may trigger a reply.
+- During EasyMeet-driven turns, system-level tools (`bash`, `write`, `edit`, `apply_patch`, `delete`, `copy`, `python`, `node`) are blocked automatically to keep shared conversations from executing host-side commands.
 - Assistant replies are sent back to the EasyMeet room under the configured `displayName`.
 
 ---
