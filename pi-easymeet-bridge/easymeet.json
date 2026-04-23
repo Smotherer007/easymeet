@@ -1,7 +1,10 @@
 {
   "serverUrl": "http://localhost:3001",
-  "roomCode": "ZOCKERTAG",
+  "roomCode": "ROOM123",
   "displayName": "Pi Assistant",
   "password": "",
-  "clientId": ""
+  "clientId": "",
+  "requireMention": true,
+  "respondToQuestions": true,
+  "wakeWords": ["pi", "assistant"]
 }

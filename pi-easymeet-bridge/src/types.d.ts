@@ -27,6 +27,10 @@ declare module "@mariozechner/pi-coding-agent" {
       },
     ): void;
     on(event: string, handler: (...args: any[]) => void): void;
-    sendUserMessage(content: string, options?: { deliverAs?: "steer" | "followUp" }): void;
+    sendUserMessage(
+      content: string,
+      options?: { deliverAs?: "steer" | "followUp" | "nextTurn" },
+    ): void;
+    sendMessage(message: any, options?: { deliverAs?: "steer" | "followUp" | "nextTurn"; triggerTurn?: boolean }): void;
   }
 }

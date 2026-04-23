@@ -381,16 +381,22 @@ A lightweight pi extension is included under `pi-easymeet-bridge/` to bridge Eas
      "roomCode": "ROOM123",
      "displayName": "Pi Assistant",
      "password": "",
-     "clientId": ""
+     "clientId": "",
+     "requireMention": true,
+     "respondToQuestions": true,
+     "wakeWords": ["pi", "assistant"]
    }
    ```
-   | Field         | Description                                                   |
-   |---------------|---------------------------------------------------------------|
-   | `serverUrl`   | Base URL of the EasyMeet server (e.g. `http://localhost:3001`) |
-   | `roomCode`    | Join code / identifier of the target room                     |
-   | `displayName` | Name shown for the bridge participant inside EasyMeet         |
-   | `password`    | Optional room password                                        |
-   | `clientId`    | Unique client identifier (empty → generated on first connect) |
+   | Field                | Description                                                                            |
+   |----------------------|----------------------------------------------------------------------------------------|
+   | `serverUrl`          | Base URL of the EasyMeet server (e.g. `http://localhost:3001`)                          |
+   | `roomCode`           | Join code / identifier of the target room                                              |
+   | `displayName`        | Name shown for the bridge participant inside EasyMeet                                  |
+   | `password`           | Optional room password                                                                 |
+   | `clientId`           | Unique client identifier (empty → generated on first connect)                          |
+   | `requireMention`     | `true` (default) → only forward messages that mention a wake word                      |
+   | `respondToQuestions` | `true` (default) → allow question-mark messages through even without a mention         |
+   | `wakeWords`          | Additional aliases that count as mentions (case-insensitive); `displayName` is included |
 4. **Use the commands inside pi**:
    | Command               | Purpose                                |
    |-----------------------|----------------------------------------|
@@ -399,7 +405,12 @@ A lightweight pi extension is included under `pi-easymeet-bridge/` to bridge Eas
    | `/easymeet-disconnect`| Leave the room / stop the bridge       |
    | `/easymeet-status`    | Show current bridge status             |
 
-When connected, EasyMeet chat messages arrive in pi prefixed with `[easymeet] <nick>: …`, and assistant replies are sent back to the room under the configured `displayName`.
+When connected:
+
+- All chat lines are stored as hidden observations so the agent can follow the conversation without necessarily replying.
+- Messages are only forwarded as prompts when they contain a wake word (case-insensitive) or, if `respondToQuestions` is enabled, look like a question. That keeps responses focused on messages that actually address the agent.
+- Forwarded messages show up in pi prefixed with `[easymeet] <nick>: …` and may trigger a reply.
+- Assistant replies are sent back to the EasyMeet room under the configured `displayName`.
 
 ---
 

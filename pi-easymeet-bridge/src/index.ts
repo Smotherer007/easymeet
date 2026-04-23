@@ -18,6 +18,9 @@ interface EasymeetConfig {
   displayName: string;
   password?: string;
   clientId?: string;
+  requireMention?: boolean;
+  respondToQuestions?: boolean;
+  wakeWords?: string[];
 }
 
 interface JoinInfo {
@@ -68,8 +71,18 @@ async function readEasymeetConfig(): Promise<EasymeetConfig> {
       roomCode: String(parsed?.roomCode ?? "").trim(),
       displayName: String(parsed?.displayName ?? "").trim(),
       password: typeof parsed?.password === "string" ? parsed?.password : "",
-      clientId: typeof parsed?.clientId === "string" && parsed?.clientId.trim().length
-        ? parsed?.clientId.trim()
+      clientId:
+        typeof parsed?.clientId === "string" && parsed?.clientId.trim().length
+          ? parsed?.clientId.trim()
+          : undefined,
+      requireMention:
+        typeof parsed?.requireMention === "boolean" ? parsed.requireMention : undefined,
+      respondToQuestions:
+        typeof parsed?.respondToQuestions === "boolean"
+          ? parsed.respondToQuestions
+          : undefined,
+      wakeWords: Array.isArray(parsed?.wakeWords)
+        ? parsed?.wakeWords.map((w) => String(w || "").trim()).filter(Boolean)
         : undefined,
     };
   } catch (error) {
@@ -79,6 +92,9 @@ async function readEasymeetConfig(): Promise<EasymeetConfig> {
       displayName: "",
       password: "",
       clientId: undefined,
+      requireMention: undefined,
+      respondToQuestions: undefined,
+      wakeWords: undefined,
     };
   }
 }
@@ -91,7 +107,10 @@ async function writeEasymeetConfig(config: EasymeetConfig): Promise<void> {
     displayName: config.displayName,
     password: config.password ?? "",
     clientId: config.clientId ?? "",
-  } satisfies EasymeetConfig;
+    requireMention: config.requireMention ?? true,
+    respondToQuestions: config.respondToQuestions ?? true,
+    wakeWords: config.wakeWords ?? [],
+  };
   await writeFile(CONFIG_PATH, `${JSON.stringify(payload, null, 2)}\n`, "utf-8");
 }
 
@@ -206,8 +225,17 @@ class EasymeetBridge {
     const config = await readEasymeetConfig();
     if (!config.clientId || config.clientId.trim().length === 0) {
       config.clientId = randomUUID();
-      await writeEasymeetConfig(config);
     }
+    config.requireMention = config.requireMention !== false;
+    config.respondToQuestions = config.respondToQuestions !== false;
+    const wakeWords = Array.isArray(config.wakeWords) ? config.wakeWords : [];
+    const normalizedWakeWords = [...wakeWords];
+    if (config.displayName) normalizedWakeWords.push(config.displayName);
+    config.wakeWords = normalizedWakeWords
+      .map((w) => String(w || "").trim())
+      .filter(Boolean)
+      .filter((value, index, array) => array.indexOf(value) === index);
+    await writeEasymeetConfig(config);
     this.config = config;
     this.configLoaded = true;
     return config;
@@ -297,6 +325,8 @@ class EasymeetBridge {
     if (!trimmed) return;
     const extras = giphyUrls.filter((url) => typeof url === "string" && url.trim().length > 0);
     const combined = extras.length ? `${trimmed}\n${extras.join("\n")}` : trimmed;
+    this.recordObservation(nick, combined);
+    if (!this.shouldForwardMessage(combined)) return;
     const prefix = `${PROTOCOL_PREFIX} ${nick}: `;
     const outbound = `${prefix}${combined}`;
     try {
@@ -467,6 +497,37 @@ class EasymeetBridge {
       });
     } catch (error) {
       console.error("EasyMeet bridge: failed to send chat message", error);
+    }
+  }
+
+  private shouldForwardMessage(text: string): boolean {
+    const config = this.config;
+    if (!config) return true;
+    if (config.requireMention === false) return true;
+    const lower = text.toLowerCase();
+    const wakeWords = Array.isArray(config.wakeWords) ? config.wakeWords : [];
+    const hasWakeWord = wakeWords
+      .map((w) => w.toLowerCase())
+      .some((word) => word.length > 0 && lower.includes(word));
+    if (hasWakeWord) return true;
+    if (config.respondToQuestions && /[?？！⁇]/.test(text)) return true;
+    return false;
+  }
+
+  private recordObservation(nick: string, text: string): void {
+    try {
+      const rendered = `${PROTOCOL_PREFIX} ${nick}: ${text}`;
+      this.pi.sendMessage(
+        {
+          customType: "easymeet-observe",
+          display: false,
+          content: [{ type: "text", text: rendered }],
+          timestamp: Date.now(),
+        },
+        { deliverAs: "nextTurn" },
+      );
+    } catch (error) {
+      console.warn("EasyMeet bridge: failed to record observation", error);
     }
   }
 
