@@ -356,6 +356,53 @@ The production image:
 
 ---
 
+## Pi EasyMeet Bridge
+
+A lightweight pi extension is included under `pi-easymeet-bridge/` to bridge EasyMeet chat with a running pi session.
+
+1. **Install deps once**
+   ```bash
+   cd pi-easymeet-bridge
+   npm install
+   ```
+2. **Register the extension** – add this path to `~/.pi/agent/settings.json`:
+   ```json
+   {
+     "extensions": [
+       "/Users/patrickweppelmann/Documents/Workspace/easymeet/pi-easymeet-bridge/src/index.ts"
+     ]
+   }
+   ```
+   (Merge with existing settings; only the extension entry is required.)
+3. **Configure the bridge** – the extension reads `~/.pi/agent/easymeet.json` (copied automatically from `pi-easymeet-bridge/easymeet.json` on first run). Example:
+   ```json
+   {
+     "serverUrl": "http://localhost:3001",
+     "roomCode": "ROOM123",
+     "displayName": "Pi Assistant",
+     "password": "",
+     "clientId": ""
+   }
+   ```
+   | Field         | Description                                                   |
+   |---------------|---------------------------------------------------------------|
+   | `serverUrl`   | Base URL of the EasyMeet server (e.g. `http://localhost:3001`) |
+   | `roomCode`    | Join code / identifier of the target room                     |
+   | `displayName` | Name shown for the bridge participant inside EasyMeet         |
+   | `password`    | Optional room password                                        |
+   | `clientId`    | Unique client identifier (empty → generated on first connect) |
+4. **Use the commands inside pi**:
+   | Command               | Purpose                                |
+   |-----------------------|----------------------------------------|
+   | `/easymeet-setup`     | Edit server URL, room code, password   |
+   | `/easymeet-connect`   | Join the configured EasyMeet room      |
+   | `/easymeet-disconnect`| Leave the room / stop the bridge       |
+   | `/easymeet-status`    | Show current bridge status             |
+
+When connected, EasyMeet chat messages arrive in pi prefixed with `[easymeet] <nick>: …`, and assistant replies are sent back to the room under the configured `displayName`.
+
+---
+
 ## Documentation
 
 - **[CONTRIBUTING.md](CONTRIBUTING.md)** – How to contribute
