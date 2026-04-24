@@ -388,7 +388,8 @@ A lightweight pi extension is included under `pi-easymeet-bridge/` to bridge Eas
        "pi"
      ],
      "respondOnlyTo": [],
-     "ignoreParticipants": []
+     "ignoreParticipants": [],
+     "toolBlockingEnabled": true
    }
    ```
    | Field                | Description                                                                            |
@@ -403,6 +404,7 @@ A lightweight pi extension is included under `pi-easymeet-bridge/` to bridge Eas
    | `wakeWords`          | Additional aliases that count as mentions (case-insensitive). Default includes `"pi"`. Leave empty when `requireMention` is `false`. |
    | `respondOnlyTo`      | Optional allowlist of participant nicknames. When set, only messages from these names are forwarded. |
    | `ignoreParticipants` | Optional blocklist of participant nicknames. Messages from these names are never forwarded. |
+   | `toolBlockingEnabled`| `true` (default) → block system tools during EasyMeet prompts. Set `false` to allow tool usage even for bridged messages. |
 4. **Use the commands inside pi**:
    | Command               | Purpose                                |
    |-----------------------|----------------------------------------|
@@ -418,7 +420,7 @@ When connected:
 - The default wake word list already contains `pi`, so messages addressing “pi” will be forwarded when mentions are required.
 - Messages are only forwarded as prompts when they contain a wake word (case-insensitive) or, if `respondToQuestions` is enabled, look like a question. That keeps responses focused on messages that actually address the agent.
 - Forwarded messages show up in pi prefixed with `[easymeet] <nick>: …` and may trigger a reply.
-- During EasyMeet-driven turns, system-level tools (`bash`, `write`, `edit`, `apply_patch`, `delete`, `copy`, `python`, `node`) are blocked automatically to keep shared conversations from executing host-side commands.
+- During EasyMeet-driven turns, system-level tools (`bash`, `write`, `edit`, `apply_patch`, `delete`, `copy`, `python`, `node`) are blocked automatically to keep shared conversations from executing host-side commands (unless `toolBlockingEnabled` is set to `false`).
 - Assistant replies are sent back to the EasyMeet room under the configured `displayName`.
 
 ---

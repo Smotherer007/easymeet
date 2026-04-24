@@ -55,6 +55,7 @@ pi-easymeet-bridge/
    | `wakeWords`          | Additional aliases that count as mentions (case-insensitive). Default includes `"pi"`. Leave empty when `requireMention` is `false`. |
    | `respondOnlyTo`      | Optional allowlist of participant nicknames. When set, only messages from these names are forwarded. |
    | `ignoreParticipants` | Optional blocklist of participant nicknames. Messages from these names are never forwarded. |
+   | `toolBlockingEnabled`| `true` (default) → block system tools during EasyMeet prompts. Set `false` to allow tool usage even for bridged messages. |
 
    Example configuration:
    ```json
@@ -70,7 +71,8 @@ pi-easymeet-bridge/
        "pi"
      ],
      "respondOnlyTo": [],
-     "ignoreParticipants": []
+     "ignoreParticipants": [],
+     "toolBlockingEnabled": true
    }
    ```
 
@@ -101,7 +103,7 @@ When the bridge is connected:
 - A message is only forwarded as a prompt when it contains one of the configured wake words (case-insensitive) or – if `respondToQuestions` is enabled – looks like a question. That way the agent stays silent unless addressed or it truly needs to respond.
 - Forwarded messages appear in pi prefixed with `[easymeet] <nick>:` and can trigger a reply.
 - Pi's assistant replies are sent back to the EasyMeet chat under the configured `displayName`.
-- System tools such as `bash`, `write`, `edit`, `apply_patch`, `delete`, `copy`, `python`, and `node` are blocked automatically for EasyMeet-driven turns to protect the host environment.
+- System tools such as `bash`, `write`, `edit`, `apply_patch`, `delete`, `copy`, `python`, and `node` are blocked automatically for EasyMeet-driven turns (unless `toolBlockingEnabled` is set to `false`).
 - If pi is already busy when a chat message arrives, the bridge queues it and delivers it as a follow-up once the current turn finishes.
 
 ## Limitations & Notes

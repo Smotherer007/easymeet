@@ -23,6 +23,7 @@ interface EasymeetConfig {
   wakeWords?: string[];
   respondOnlyTo?: string[];
   ignoreParticipants?: string[];
+  toolBlockingEnabled?: boolean;
 }
 
 interface JoinInfo {
@@ -92,6 +93,10 @@ async function readEasymeetConfig(): Promise<EasymeetConfig> {
       ignoreParticipants: Array.isArray(parsed?.ignoreParticipants)
         ? parsed.ignoreParticipants.map((w) => String(w || "").trim()).filter(Boolean)
         : undefined,
+      toolBlockingEnabled:
+        typeof parsed?.toolBlockingEnabled === "boolean"
+          ? parsed.toolBlockingEnabled
+          : undefined,
     };
   } catch (error) {
     return {
@@ -105,6 +110,7 @@ async function readEasymeetConfig(): Promise<EasymeetConfig> {
       wakeWords: undefined,
       respondOnlyTo: undefined,
       ignoreParticipants: undefined,
+      toolBlockingEnabled: undefined,
     };
   }
 }
@@ -122,6 +128,7 @@ async function writeEasymeetConfig(config: EasymeetConfig): Promise<void> {
     wakeWords: config.wakeWords ?? [],
     respondOnlyTo: config.respondOnlyTo ?? [],
     ignoreParticipants: config.ignoreParticipants ?? [],
+    toolBlockingEnabled: config.toolBlockingEnabled ?? true,
   };
   await writeFile(CONFIG_PATH, `${JSON.stringify(payload, null, 2)}\n`, "utf-8");
 }
@@ -282,7 +289,8 @@ class EasymeetBridge {
   }
 
   shouldBlockTool(toolName: string): boolean {
-    return this.turnIsFromEasymeet && RESTRICTED_TOOLS.has(toolName);
+    const toolBlockingEnabled = this.config?.toolBlockingEnabled ?? true;
+    return toolBlockingEnabled && this.turnIsFromEasymeet && RESTRICTED_TOOLS.has(toolName);
   }
 
   async loadConfig(): Promise<EasymeetConfig> {
@@ -292,7 +300,8 @@ class EasymeetBridge {
       config.clientId = randomUUID();
     }
     config.requireMention = config.requireMention !== false;
-    config.respondToQuestions = config.respondToQuestions !== false;
+    config.respondToQuestions = config.respondToQuestions === true;
+    config.toolBlockingEnabled = config.toolBlockingEnabled !== false;
     const wakeWords = Array.isArray(config.wakeWords) ? config.wakeWords : [];
     const normalizedWakeWords = [...wakeWords];
     if (config.displayName) normalizedWakeWords.push(config.displayName);
@@ -346,6 +355,16 @@ class EasymeetBridge {
       (current.ignoreParticipants ?? []).join(", "),
     );
 
+    const toolBlockingDefault = (current.toolBlockingEnabled ?? true) ? "yes" : "no";
+    const toolBlockingInput = (await ctx.ui.input(
+      "Block system tools during EasyMeet prompts? (yes/no)",
+      toolBlockingDefault,
+    ))?.trim();
+    const toolBlockingEnabled =
+      toolBlockingInput === undefined || toolBlockingInput.length === 0
+        ? current.toolBlockingEnabled ?? true
+        : /^(y|yes|ja|true|1)$/i.test(toolBlockingInput);
+
     const respondOnlyTo = normalizeStringList(
       parseCommaSeparatedList(respondOnlyToRaw, current.respondOnlyTo ?? []),
     );
@@ -364,6 +383,7 @@ class EasymeetBridge {
       wakeWords: current.wakeWords ?? [],
       respondOnlyTo,
       ignoreParticipants,
+      toolBlockingEnabled,
     };
     this.config = nextConfig;
     this.configLoaded = true;
