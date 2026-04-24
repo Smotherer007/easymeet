@@ -382,9 +382,11 @@ A lightweight pi extension is included under `pi-easymeet-bridge/` to bridge Eas
      "displayName": "Pi Assistant",
      "password": "",
      "clientId": "",
-     "requireMention": false,
-     "respondToQuestions": true,
-     "wakeWords": [],
+     "requireMention": true,
+     "respondToQuestions": false,
+     "wakeWords": [
+       "pi"
+     ],
      "respondOnlyTo": [],
      "ignoreParticipants": []
    }
@@ -397,7 +399,7 @@ A lightweight pi extension is included under `pi-easymeet-bridge/` to bridge Eas
    | `password`           | Optional room password                                                                 |
    | `clientId`           | Unique client identifier (empty → generated on first connect)                          |
    | `requireMention`     | `true` (default) → only forward messages that mention a wake word. Set `false` to respond to every message (sample above). |
-   | `respondToQuestions` | `true` (default) → allow question-mark messages through even without a mention         |
+   | `respondToQuestions` | `false` (default) → set to `true` to allow question-mark messages through even without a mention |
    | `wakeWords`          | Additional aliases that count as mentions (case-insensitive). Default includes `"pi"`. Leave empty when `requireMention` is `false`. |
    | `respondOnlyTo`      | Optional allowlist of participant nicknames. When set, only messages from these names are forwarded. |
    | `ignoreParticipants` | Optional blocklist of participant nicknames. Messages from these names are never forwarded. |

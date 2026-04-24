@@ -5,7 +5,7 @@
   "password": "",
   "clientId": "",
   "requireMention": true,
-  "respondToQuestions": true,
+  "respondToQuestions": false,
   "wakeWords": [
     "pi"
   ],
