@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { readFile, writeFile, mkdir, stat, copyFile } from "node:fs/promises";
 import { homedir } from "node:os";
-import { dirname, join } from "node:path";
+import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import type { AgentMessage } from "@mariozechner/pi-agent-core";
@@ -21,6 +21,8 @@ interface EasymeetConfig {
   requireMention?: boolean;
   respondToQuestions?: boolean;
   wakeWords?: string[];
+  respondOnlyTo?: string[];
+  ignoreParticipants?: string[];
 }
 
 interface JoinInfo {
@@ -84,6 +86,12 @@ async function readEasymeetConfig(): Promise<EasymeetConfig> {
       wakeWords: Array.isArray(parsed?.wakeWords)
         ? parsed?.wakeWords.map((w) => String(w || "").trim()).filter(Boolean)
         : undefined,
+      respondOnlyTo: Array.isArray(parsed?.respondOnlyTo)
+        ? parsed.respondOnlyTo.map((w) => String(w || "").trim()).filter(Boolean)
+        : undefined,
+      ignoreParticipants: Array.isArray(parsed?.ignoreParticipants)
+        ? parsed.ignoreParticipants.map((w) => String(w || "").trim()).filter(Boolean)
+        : undefined,
     };
   } catch (error) {
     return {
@@ -95,6 +103,8 @@ async function readEasymeetConfig(): Promise<EasymeetConfig> {
       requireMention: undefined,
       respondToQuestions: undefined,
       wakeWords: undefined,
+      respondOnlyTo: undefined,
+      ignoreParticipants: undefined,
     };
   }
 }
@@ -110,8 +120,18 @@ async function writeEasymeetConfig(config: EasymeetConfig): Promise<void> {
     requireMention: config.requireMention ?? true,
     respondToQuestions: config.respondToQuestions ?? true,
     wakeWords: config.wakeWords ?? [],
+    respondOnlyTo: config.respondOnlyTo ?? [],
+    ignoreParticipants: config.ignoreParticipants ?? [],
   };
   await writeFile(CONFIG_PATH, `${JSON.stringify(payload, null, 2)}\n`, "utf-8");
+}
+
+function parseCommaSeparatedList(value: string | undefined, fallback: string[] = []): string[] {
+  if (value === undefined) return fallback;
+  return value
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean);
 }
 
 function normalizeBaseUrl(url: string): string {
@@ -180,6 +200,21 @@ function wasLastUserMessageFromEasymeet(messages: AgentMessage[]): boolean {
     return text.startsWith(PROTOCOL_PREFIX);
   }
   return false;
+}
+
+function normalizeStringList(values: unknown): string[] {
+  if (!Array.isArray(values)) return [];
+  const seen = new Set<string>();
+  const result: string[] = [];
+  for (const value of values) {
+    const trimmed = String(value ?? "").trim();
+    if (!trimmed) continue;
+    const key = trimmed.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    result.push(trimmed);
+  }
+  return result;
 }
 
 const RESTRICTED_TOOLS = new Set([
@@ -261,10 +296,10 @@ class EasymeetBridge {
     const wakeWords = Array.isArray(config.wakeWords) ? config.wakeWords : [];
     const normalizedWakeWords = [...wakeWords];
     if (config.displayName) normalizedWakeWords.push(config.displayName);
-    config.wakeWords = normalizedWakeWords
-      .map((w) => String(w || "").trim())
-      .filter(Boolean)
-      .filter((value, index, array) => array.indexOf(value) === index);
+    normalizedWakeWords.push("pi");
+    config.wakeWords = normalizeStringList(normalizedWakeWords);
+    config.respondOnlyTo = normalizeStringList(config.respondOnlyTo);
+    config.ignoreParticipants = normalizeStringList(config.ignoreParticipants);
     await writeEasymeetConfig(config);
     this.config = config;
     this.configLoaded = true;
@@ -291,12 +326,44 @@ class EasymeetBridge {
       current.password ?? "",
     ))?.trim();
 
+    const requireMentionDefault = (current.requireMention ?? true) ? "yes" : "no";
+    const requireMentionInput = (await ctx.ui.input(
+      "Require mention to respond? (yes/no)",
+      requireMentionDefault,
+    ))?.trim();
+    const requiresMention =
+      requireMentionInput === undefined || requireMentionInput.length === 0
+        ? current.requireMention ?? true
+        : /^(y|yes|ja|true|1)$/i.test(requireMentionInput);
+
+    const respondOnlyToRaw = await ctx.ui.input(
+      "Respond only to participants (comma-separated, optional)",
+      (current.respondOnlyTo ?? []).join(", "),
+    );
+
+    const ignoreParticipantsRaw = await ctx.ui.input(
+      "Ignore participants (comma-separated, optional)",
+      (current.ignoreParticipants ?? []).join(", "),
+    );
+
+    const respondOnlyTo = normalizeStringList(
+      parseCommaSeparatedList(respondOnlyToRaw, current.respondOnlyTo ?? []),
+    );
+    const ignoreParticipants = normalizeStringList(
+      parseCommaSeparatedList(ignoreParticipantsRaw, current.ignoreParticipants ?? []),
+    );
+
     const nextConfig: EasymeetConfig = {
       serverUrl,
       roomCode,
       displayName,
       password: password ?? "",
       clientId: current.clientId ?? randomUUID(),
+      requireMention: requiresMention,
+      respondToQuestions: current.respondToQuestions,
+      wakeWords: current.wakeWords ?? [],
+      respondOnlyTo,
+      ignoreParticipants,
     };
     this.config = nextConfig;
     this.configLoaded = true;
@@ -356,7 +423,7 @@ class EasymeetBridge {
     const extras = giphyUrls.filter((url) => typeof url === "string" && url.trim().length > 0);
     const combined = extras.length ? `${trimmed}\n${extras.join("\n")}` : trimmed;
     this.recordObservation(nick, combined);
-    if (!this.shouldForwardMessage(combined)) return;
+    if (!this.shouldForwardMessage(nick, combined)) return;
     const prefix = `${PROTOCOL_PREFIX} ${nick}: `;
     const outbound = `${prefix}${combined}`;
     try {
@@ -530,9 +597,21 @@ class EasymeetBridge {
     }
   }
 
-  private shouldForwardMessage(text: string): boolean {
+  private shouldForwardMessage(nick: string, text: string): boolean {
     const config = this.config;
     if (!config) return true;
+
+    const normalizedNick = nick.trim().toLowerCase();
+    const ignoreList = Array.isArray(config.ignoreParticipants) ? config.ignoreParticipants : [];
+    if (ignoreList.some((entry) => entry.toLowerCase() === normalizedNick)) {
+      return false;
+    }
+
+    const allowList = Array.isArray(config.respondOnlyTo) ? config.respondOnlyTo : [];
+    if (allowList.length > 0 && !allowList.some((entry) => entry.toLowerCase() === normalizedNick)) {
+      return false;
+    }
+
     if (config.requireMention === false) return true;
     const lower = text.toLowerCase();
     const wakeWords = Array.isArray(config.wakeWords) ? config.wakeWords : [];

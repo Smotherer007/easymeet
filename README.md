@@ -384,7 +384,9 @@ A lightweight pi extension is included under `pi-easymeet-bridge/` to bridge Eas
      "clientId": "",
      "requireMention": false,
      "respondToQuestions": true,
-     "wakeWords": []
+     "wakeWords": [],
+     "respondOnlyTo": [],
+     "ignoreParticipants": []
    }
    ```
    | Field                | Description                                                                            |
@@ -396,7 +398,9 @@ A lightweight pi extension is included under `pi-easymeet-bridge/` to bridge Eas
    | `clientId`           | Unique client identifier (empty → generated on first connect)                          |
    | `requireMention`     | `true` (default) → only forward messages that mention a wake word. Set `false` to respond to every message (sample above). |
    | `respondToQuestions` | `true` (default) → allow question-mark messages through even without a mention         |
-   | `wakeWords`          | Additional aliases that count as mentions (case-insensitive). Leave empty when `requireMention` is `false`. |
+   | `wakeWords`          | Additional aliases that count as mentions (case-insensitive). Default includes `"pi"`. Leave empty when `requireMention` is `false`. |
+   | `respondOnlyTo`      | Optional allowlist of participant nicknames. When set, only messages from these names are forwarded. |
+   | `ignoreParticipants` | Optional blocklist of participant nicknames. Messages from these names are never forwarded. |
 4. **Use the commands inside pi**:
    | Command               | Purpose                                |
    |-----------------------|----------------------------------------|
@@ -408,6 +412,8 @@ A lightweight pi extension is included under `pi-easymeet-bridge/` to bridge Eas
 When connected:
 
 - All chat lines are stored as hidden observations so the agent can follow the conversation without necessarily replying.
+- You can allowlist or ignore specific EasyMeet nicknames via `respondOnlyTo` and `ignoreParticipants`.
+- The default wake word list already contains `pi`, so messages addressing “pi” will be forwarded when mentions are required.
 - Messages are only forwarded as prompts when they contain a wake word (case-insensitive) or, if `respondToQuestions` is enabled, look like a question. That keeps responses focused on messages that actually address the agent.
 - Forwarded messages show up in pi prefixed with `[easymeet] <nick>: …` and may trigger a reply.
 - During EasyMeet-driven turns, system-level tools (`bash`, `write`, `edit`, `apply_patch`, `delete`, `copy`, `python`, `node`) are blocked automatically to keep shared conversations from executing host-side commands.

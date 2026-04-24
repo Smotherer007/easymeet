@@ -4,7 +4,11 @@
   "displayName": "Pi Assistant",
   "password": "",
   "clientId": "",
-  "requireMention": false,
+  "requireMention": true,
   "respondToQuestions": true,
-  "wakeWords": []
+  "wakeWords": [
+    "pi"
+  ],
+  "respondOnlyTo": [],
+  "ignoreParticipants": []
 }
