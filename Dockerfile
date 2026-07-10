@@ -1,6 +1,5 @@
-# Stage 1: Build frontend (Node 22: mediasoup >=3.19 requires engines.node >=22)
-# Debian slim: same glibc baseline as typical mediasoup prebuilds (not Alpine/musl).
-FROM node:22-bookworm-slim AS builder
+# Stage 1: Build frontend (Node 26 with native TypeScript support)
+FROM node:26-bookworm-slim AS builder
 
 WORKDIR /app
 
@@ -17,12 +16,7 @@ COPY client ./client
 RUN npm run build -w easymeet-client
 
 # Stage 2: Production
-FROM node:22-bookworm-slim
-
-# No apt-get here: mediasoup uses the prebuilt worker on linux/amd64 (npm postinstall).
-# apt under --platform linux/amd64 on Apple Silicon often fails with "invalid signature" (Buildx/QEMU);
-# skipping apt avoids that. For a source build instead: build on real amd64 or use e.g. node:22-bookworm
-# with python3/build-essential only in that environment.
+FROM node:26-bookworm-slim
 
 WORKDIR /app
 
@@ -38,11 +32,8 @@ ENV NODE_ENV=production
 ENV PORT=3001
 ENV MEDIASOUP_LISTEN_IP=0.0.0.0
 
-# No EXPOSE: ports are bound internally (reverse proxy / overlay network), not published on the host by default.
-# Orchestrator-sichtbarer Liveness-Check: pingt den internen HTTP-Port. /api/rooms/active ist
-# rate-limited (120/min) — 2x/min Healthcheck bleibt deutlich unter der Schwelle.
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
 	CMD node -e "fetch('http://127.0.0.1:'+(process.env.PORT||3001)+'/api/rooms/active').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
 
 USER node
-CMD ["node", "server/src/index.js"]
+CMD ["node", "server/src/index.ts"]
