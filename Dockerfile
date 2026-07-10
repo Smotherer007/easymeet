@@ -20,8 +20,10 @@ FROM node:26-bookworm-slim
 
 WORKDIR /app
 
-COPY server/package*.json ./server/
-RUN cd server && npm ci --omit=dev
+# Install only server workspace deps using the root lockfile (always in sync)
+COPY package.json package-lock.json ./
+COPY server/package.json ./server/
+RUN npm ci --omit=dev -w easymeet-server
 
 COPY --from=builder /app/client/dist ./client/dist
 COPY server ./server
