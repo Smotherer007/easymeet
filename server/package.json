@@ -9,11 +9,6 @@
 		"start": "node src/index.ts",
 		"dev": "node --watch src/index.ts"
 	},
-	"devDependencies": {
-		"@types/compression": "^1.7.0",
-		"@types/cors": "^2.8.0",
-		"@types/express": "^5.0.0"
-	},
 	"dependencies": {
 		"compression": "^1.8.1",
 		"cors": "^2.8.5",
