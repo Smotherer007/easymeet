@@ -14,3 +14,4 @@ persistent-rooms.json
 *.sqlite-wal
 .pi/
 server/package-lock.json
+graph-out/
