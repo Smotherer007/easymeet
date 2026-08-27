@@ -30,7 +30,8 @@ import {
 } from "../../ui/screens/index.js";
 import { attachRemoteAudio, updateVideoGalleryColumns, getStreamForVideoTile, getStreamForScreenShare, getStreamForPeerId, applyOutputDeviceToAllAudios } from "../media/tiles.js";
 import { applyEffectToCallStream, recoverCameraAfterEffectLoss } from "../media/devices.js";
-import { prepareRoomLocalStream, disposeMicNoiseGate, getMicGateRawInputTrack } from "../audio/micNoiseGate.js";
+import { prepareRoomLocalStream, disposeMicNoiseGate, getMicGateRawInputTrack, refreshMicGateSettings } from "../audio/micNoiseGate.js";
+import { startMicSilenceWatchdog } from "../audio/micSilenceWatchdog.js";
 import { refreshDeviceSelects } from "./devices.js";
 import { startSpeakingIndicator, stopSpeakingIndicator } from "../../speaking-indicator.js";
 import { mediaDebugLog, mediaDebugStreamInfo, mediaDebugTrackInfo } from "../../utils/mediaDebug.js";
@@ -61,21 +62,97 @@ function alertMediaAccessError(err, kind) {
 	alert(t(map[name] ?? def));
 }
 
+/**
+ * Web Audio destination tracks (mic gate output) have no device behind them and no APM to
+ * configure — `applyConstraints` rejects on them. Only real capture tracks carry a deviceId.
+ * @param {MediaStreamTrack | null | undefined} track
+ */
+function isDeviceAudioTrack(track) {
+	if (!track || track.kind !== "audio" || track.readyState !== "live") return false;
+	const settings = track.getSettings?.() ?? {};
+	return typeof settings.deviceId === "string" && settings.deviceId.length > 0;
+}
+
+/**
+ * @param {MediaStream | null | undefined} stream
+ * @returns {MediaStreamTrack | null}
+ */
+function firstLiveDeviceAudioTrack(stream) {
+	return (stream?.getAudioTracks?.() ?? []).find((t) => isDeviceAudioTrack(t)) ?? null;
+}
+
+/**
+ * Echo cancellation / noise suppression / AGC live on the *capture* track. With the gate active
+ * that track is neither in `localStream` (destination track) nor reliably in `baseLocalStream`
+ * (video-only after a camera re-acquire, gate track after a camera switch) — it only lives inside
+ * the gate. Without it the three settings checkboxes silently did nothing in an active room.
+ */
 function applyLiveAudioProcessingToLocalTracks() {
 	const proc = getAudioProcessingConstraints();
 	const s = getState();
+	const tracks = new Set();
+	const raw = getMicGateRawInputTrack();
+	if (raw) tracks.add(raw);
 	for (const stream of [selectors.selectLocalStream(s), selectors.selectBaseLocalStream(s)]) {
-		stream?.getAudioTracks?.().forEach((track) => {
-			if (track.readyState !== "live") return;
-			void track
-				.applyConstraints({
-					echoCancellation: proc.echoCancellation,
-					noiseSuppression: proc.noiseSuppression,
-					autoGainControl: proc.autoGainControl
-				})
-				.catch(() => {});
-		});
+		stream?.getAudioTracks?.().forEach((track) => tracks.add(track));
 	}
+	let applied = 0;
+	for (const track of tracks) {
+		if (!isDeviceAudioTrack(track)) continue;
+		applied++;
+		void track
+			.applyConstraints({
+				echoCancellation: proc.echoCancellation,
+				noiseSuppression: proc.noiseSuppression,
+				autoGainControl: proc.autoGainControl
+			})
+			.catch((e) => {
+				console.warn("[easymeet] applyConstraints (audio processing) failed:", e?.name || e);
+			});
+	}
+	if (!applied) {
+		console.warn("[easymeet] audio processing settings: no live capture track — applies on next microphone access");
+	}
+}
+
+/**
+ * Gate on/off changes which track is sent (gate destination ↔ raw mic), so the stream has to be
+ * rebuilt and the mic producer recreated.
+ * @param {HTMLElement} app
+ */
+async function applyMicGateToggleToCall(app) {
+	refreshMicGateSettings();
+	const s = getState();
+	if (selectors.selectScreen(s) !== "room-view") return;
+	const local = selectors.selectLocalStream(s);
+	const raw =
+		getMicGateRawInputTrack() ||
+		firstLiveDeviceAudioTrack(selectors.selectBaseLocalStream(s)) ||
+		firstLiveDeviceAudioTrack(local);
+	if (!raw) return;
+	const videos = (local?.getVideoTracks?.() ?? []).filter((t) => t && t.readyState !== "ended");
+	const muted = selectors.selectIsMuted(s);
+	const rebuilt = prepareRoomLocalStream(new MediaStream([raw, ...videos]));
+	rebuilt.getAudioTracks().forEach((t) => {
+		t.enabled = !muted;
+	});
+	patchState({ localStream: rebuilt });
+	const out = selectors.selectLocalStream(getState());
+	const participant = selectors.selectHostPeer(getState()) || selectors.selectViewerConn(getState());
+	try {
+		await participant?.updateLocalStream?.(out, { forceMicProducer: true });
+	} catch (e) {
+		console.warn("[easymeet] updateLocalStream after mic gate toggle:", e?.message || e);
+	}
+	const myPeerId = selectors.selectMyPeerId(getState());
+	if (myPeerId) {
+		attachRemoteAudio(myPeerId, out, app);
+		stopSpeakingIndicator(myPeerId);
+		startSpeakingIndicator(myPeerId, out, app);
+	}
+	/* The browser filters only reach a real capture track — in bypass mode that is now the
+	 * outgoing track, so re-apply the stored settings. */
+	applyLiveAudioProcessingToLocalTracks();
 }
 
 function handleAudioSettingsChange(app, partial) {
@@ -83,6 +160,12 @@ function handleAudioSettingsChange(app, partial) {
 	patchState({ audioSettings: merged });
 	if (partial.noiseSuppression !== undefined || partial.echoCancellation !== undefined || partial.autoGainControl !== undefined) {
 		applyLiveAudioProcessingToLocalTracks();
+	}
+	if (partial.speakingThreshold !== undefined) {
+		refreshMicGateSettings();
+	}
+	if (partial.micGate !== undefined) {
+		void applyMicGateToggleToCall(app);
 	}
 }
 
@@ -1035,6 +1118,21 @@ function buildRoomViewConfigPart2(app, deps) {
 	};
 }
 
+/** Dedupe fallback hints: one per (requested → actual) pair. */
+let lastDeviceFallbackKey = "";
+
+function installDeviceFallbackNotifier() {
+	lastDeviceFallbackKey = "";
+	peer.setDeviceFallbackNotifier((info) => {
+		const key = `${info.kind}|${info.requestedDeviceId}|${info.actualDeviceId}`;
+		if (key === lastDeviceFallbackKey) return;
+		lastDeviceFallbackKey = key;
+		const name = info.actualLabel || t("defaultDevice");
+		const msg = (info.kind === "video" ? t("cameraDeviceFallbackToast") : t("micDeviceFallbackToast")).replace("{device}", name);
+		showToast(msg, { type: "warning", duration: 7000 });
+	});
+}
+
 export function attachRoomViewAndHandlers(app, deps) {
 	let handlers;
 	const config = {
@@ -1049,6 +1147,8 @@ export function attachRoomViewAndHandlers(app, deps) {
 	handlers = attachRoomViewListeners(app, config);
 	setupDropzone(app.querySelector("#dropzone"), handlers.onFileSelect);
 	setupDropzone(app.querySelector("#chat-dropzone"), handlers.onFileSelect);
+	installDeviceFallbackNotifier();
+	startMicSilenceWatchdog();
 	runInitialRoomSetup(app, deps);
 }
 

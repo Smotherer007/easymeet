@@ -921,6 +921,17 @@ export function renderSettingsModalContent(state) {
               </div>
             </div>
             <p class="settings-modal__hint settings-modal__hint--sm">${t("speakingThresholdHint")}</p>
+            <div class="settings-modal__meter" id="audio-input-meter">
+              <div class="settings-modal__meter-track">
+                <span class="settings-modal__meter-fill" id="audio-input-meter-fill"></span>
+                <span class="settings-modal__meter-threshold" id="audio-input-meter-threshold" aria-hidden="true"></span>
+              </div>
+              <span class="settings-modal__meter-state" id="audio-input-meter-state" role="status" aria-live="polite">${escapeHtml(t("micMeterIdle"))}</span>
+            </div>
+            <div class="settings-modal__check-row settings-modal__check-row--with-help">
+              <label class="settings-modal__check-row-label" for="audio-mic-gate"><input type="checkbox" id="audio-mic-gate" ${audioSettings.micGate !== false ? "checked" : ""} /><span>${t("micGateLabel")}</span></label>
+              <span class="settings-modal__field-help" role="img" aria-label="${escapeAttr(t("micGateHelp"))}" title="${escapeAttr(t("micGateHelp"))}">?</span>
+            </div>
             <div class="settings-modal__check-row settings-modal__check-row--with-help">
               <label class="settings-modal__check-row-label" for="audio-noise-suppression"><input type="checkbox" id="audio-noise-suppression" ${audioSettings.noiseSuppression ? "checked" : ""} /><span>${t("noiseSuppressionLabel")}</span></label>
               <span class="settings-modal__field-help" role="img" aria-label="${escapeAttr(t("noiseSuppressionHelp"))}" title="${escapeAttr(t("noiseSuppressionHelp"))}">?</span>

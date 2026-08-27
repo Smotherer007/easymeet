@@ -1,6 +1,9 @@
 import { getSpeakingThreshold } from "./effects/storage/audioSettingsStorage.js";
+import { createDbfsReader, createMeterAnalyser, speakingThresholdToDbfs } from "./effects/audio/levelMeter.js";
+import { getSharedAudioContext, resumeSharedAudioContext } from "./effects/audio/audioContext.js";
 
-const SMOOTHING = 0.7;
+/** Keep the highlight on this long after the last active frame (same feel as the mic gate). */
+const HOLD_MS = 220;
 const stopCallbacks = new Map();
 
 function streamHasLiveAudio(stream) {
@@ -19,28 +22,33 @@ export function startSpeakingIndicator(peerId, stream, container) {
 	let ctx,
 		source,
 		analyser,
-		dataArray,
+		readDbfs,
 		rafId,
 		lastSpeaking = false,
+		/* -Infinity: right after page load `performance.now()` is small, 0 would read as "just spoke". */
+		lastActiveTs = -Infinity,
 		cancelled = false;
 	try {
-		ctx = new (window.AudioContext || window.webkitAudioContext)();
+		/* Shared context: one per peer meant one Chrome output stream per peer in the audio graph. */
+		ctx = getSharedAudioContext();
+		if (!ctx) return () => {};
+		resumeSharedAudioContext();
 		source = ctx.createMediaStreamSource(stream);
-		analyser = ctx.createAnalyser();
-		analyser.fftSize = 256;
-		analyser.smoothingTimeConstant = SMOOTHING;
+		analyser = createMeterAnalyser(ctx);
+		readDbfs = createDbfsReader(analyser);
 		source.connect(analyser);
 	} catch (err) {
 		return () => {};
 	}
-	const bufferLength = analyser.frequencyBinCount;
-	dataArray = new Uint8Array(bufferLength);
 
 	function update() {
 		if (cancelled || !analyser || !container) return;
-		analyser.getByteFrequencyData(dataArray);
-		const avg = dataArray.reduce((a, b) => a + b, 0) / dataArray.length;
-		const speaking = avg > getSpeakingThreshold();
+		/* RMS in dBFS — a spectrum average over all bins reads far too low on virtual/loopback
+		 * devices, which is why they never lit up here. See effects/audio/levelMeter.js. */
+		const db = readDbfs();
+		const now = performance.now();
+		if (db >= speakingThresholdToDbfs(getSpeakingThreshold())) lastActiveTs = now;
+		const speaking = now - lastActiveTs < HOLD_MS;
 		if (speaking !== lastSpeaking) {
 			lastSpeaking = speaking;
 			// Highlight sidebar participant
@@ -59,8 +67,12 @@ export function startSpeakingIndicator(peerId, stream, container) {
 		if (rafId) cancelAnimationFrame(rafId);
 		try {
 			source?.disconnect();
-			ctx?.close();
+			analyser?.disconnect();
 		} catch (_) {}
+		source = null;
+		analyser = null;
+		readDbfs = null;
+		ctx = null;
 		stopCallbacks.delete(peerId);
 		const el = container?.querySelector(`.voip-view__participant[data-peer-id="${peerId}"]`);
 		if (el) el.classList.remove("voip-view__participant--speaking");

@@ -16,6 +16,7 @@ import {
 import { startSpeakingIndicator, stopSpeakingIndicator } from "../../speaking-indicator.js";
 import { getTileState, createNewTile, updateExistingTile, applyStreamToMedia, syncHandRaisedOnStatusRow } from "./tilesHelpers.js";
 import { mediaDebugWireStreamVideoTracks, mediaDebugLog, mediaDebugStreamInfo } from "../../utils/mediaDebug.js";
+import { applySharedAudioContextSink } from "../audio/audioContext.js";
 
 const TILE_WIDTH = 280;
 const TILE_HEIGHT = 210;
@@ -176,6 +177,8 @@ export function applyOutputDeviceToAllAudios(deviceId) {
 	container?.querySelectorAll("video, audio").forEach((mediaEl) => {
 		if (deviceId && mediaEl.setSinkId) mediaEl.setSinkId(deviceId).catch(() => {});
 	});
+	/* Notification tones run through the shared AudioContext, which has its own sink. */
+	applySharedAudioContextSink(deviceId);
 }
 
 /**

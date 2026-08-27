@@ -89,6 +89,38 @@ async function notifyEasymeet(protoo, payload) {
 
 /* ---------- getUserMedia etc. ---------- */
 
+/**
+ * Called when a resilient acquire had to fall back to a different device than the one asked for.
+ * Without this the app silently records from another microphone while the picker still shows the
+ * old one — easy to hit with virtual devices that disappear for a moment.
+ * @type {((info: { kind: 'audio' | 'video'; requestedDeviceId: string; actualDeviceId: string; actualLabel: string }) => void) | null}
+ */
+let onDeviceFallback = null;
+
+/** @param {typeof onDeviceFallback} fn */
+export function setDeviceFallbackNotifier(fn) {
+	onDeviceFallback = typeof fn === "function" ? fn : null;
+}
+
+function reportDeviceFallback(stream, requestedAudioId, requestedVideoId) {
+	if (!onDeviceFallback || !stream) return;
+	const pairs = [
+		["audio", requestedAudioId, stream.getAudioTracks?.()?.[0]],
+		["video", requestedVideoId, stream.getVideoTracks?.()?.[0]]
+	];
+	for (const [kind, requested, track] of pairs) {
+		if (!requested || !track) continue;
+		const actual = track.getSettings?.()?.deviceId || "";
+		if (!actual || actual === requested) continue;
+		logMsWarn(`${kind} device fallback: requested ${requested}, got ${actual} (${track.label || "?"})`);
+		try {
+			onDeviceFallback({ kind, requestedDeviceId: requested, actualDeviceId: actual, actualLabel: track.label || "" });
+		} catch (_) {
+			/* notifier must never break media setup */
+		}
+	}
+}
+
 export async function getUserMedia(inputDeviceId = null, requestVideo = true, videoDeviceId = null) {
 	const videoOnly = requestVideo === "videoOnly";
 	/**
@@ -136,7 +168,9 @@ export async function getUserMediaResilient(inputDeviceId, requestVideo, videoDe
 		if (seen.has(key)) continue;
 		seen.add(key);
 		try {
-			return await getUserMedia(a || undefined, requestVideo, vId || undefined);
+			const stream = await getUserMedia(a || undefined, requestVideo, vId || undefined);
+			reportDeviceFallback(stream, inputDeviceId ?? null, videoDeviceId ?? null);
+			return stream;
 		} catch (e) {
 			lastErr = e;
 			if (e?.name === "NotAllowedError" || e?.name === "SecurityError") throw e;
@@ -1413,6 +1447,34 @@ export async function setupRoomParticipant(peerObj, nick, localStream, callbacks
 		return { rttMs, packetLossPercent, quality };
 	}
 
+	/**
+	 * Outgoing microphone counters. Flat counters while unmuted and with signal on the input mean
+	 * nothing is reaching the other participants.
+	 * @returns {Promise<{ packetsSent: number; totalAudioEnergy: number; paused: boolean } | null>}
+	 */
+	async function getMicOutboundAudioStats() {
+		const micProducer = producers.get("mic");
+		if (!micProducer || micProducer.closed) return null;
+		try {
+			const stats = await micProducer.getStats();
+			let packetsSent = 0;
+			let totalAudioEnergy = 0;
+			let found = false;
+			stats.forEach((r) => {
+				if (r.type === "outbound-rtp" && (r.kind === "audio" || r.mediaType === "audio")) {
+					packetsSent += Number(r.packetsSent) || 0;
+					found = true;
+				} else if (r.type === "media-source" && r.kind === "audio") {
+					totalAudioEnergy = Number(r.totalAudioEnergy) || 0;
+					found = true;
+				}
+			});
+			return found ? { packetsSent, totalAudioEnergy, paused: micProducer.paused === true } : null;
+		} catch (_) {
+			return null;
+		}
+	}
+
 	const wsShim = {
 		get readyState() {
 			return protoo.closed ? 3 : 1;
@@ -1452,6 +1514,8 @@ export async function setupRoomParticipant(peerObj, nick, localStream, callbacks
 		sendVideo,
 		sendBackgroundEffect,
 		sendFileShare,
+
+		getMicOutboundAudioStats,
 
 		ws: wsShim,
 		peerId,

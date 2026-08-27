@@ -7,6 +7,8 @@ import { AUDIO_SETTINGS_STORAGE } from "../../shared/constants.js";
 export const DEFAULT_AUDIO_SETTINGS = {
 	/** Speaking gate: same threshold as UI indicator; outgoing mic is attenuated below this level (~5–50). */
 	speakingThreshold: 15,
+	/** Speaking gate on the outgoing mic. Off = mic is always transmitted (virtual/loopback devices, music). */
+	micGate: true,
 	/** Global app sound level (0–100), scales notification and UI sounds. */
 	appSoundVolume: 100,
 	noiseSuppression: true,
@@ -26,7 +28,7 @@ function sanitizePartial(o) {
 	if (typeof o.appSoundVolume === "number" && !Number.isNaN(o.appSoundVolume)) {
 		out.appSoundVolume = Math.min(100, Math.max(0, Math.round(o.appSoundVolume)));
 	}
-	for (const k of ["noiseSuppression", "echoCancellation", "autoGainControl"]) {
+	for (const k of ["noiseSuppression", "echoCancellation", "autoGainControl", "micGate"]) {
 		if (typeof o[k] === "boolean") out[k] = o[k];
 	}
 	return out;
@@ -73,7 +75,7 @@ export function writeAudioSettings(partial) {
 		const v = Number(partial.appSoundVolume);
 		if (!Number.isNaN(v)) next.appSoundVolume = Math.min(100, Math.max(0, Math.round(v)));
 	}
-	for (const k of ["noiseSuppression", "echoCancellation", "autoGainControl"]) {
+	for (const k of ["noiseSuppression", "echoCancellation", "autoGainControl", "micGate"]) {
 		if (partial[k] !== undefined) next[k] = !!partial[k];
 	}
 	cached = next;
@@ -87,6 +89,11 @@ export function writeAudioSettings(partial) {
 
 export function getSpeakingThreshold() {
 	return readAudioSettings().speakingThreshold;
+}
+
+/** Speaking gate on the outgoing mic active? Off = pass-through. */
+export function isMicGateEnabled() {
+	return readAudioSettings().micGate !== false;
 }
 
 export function getAppSoundVolumeGain() {

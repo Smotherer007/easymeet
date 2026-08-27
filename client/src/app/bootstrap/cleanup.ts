@@ -3,7 +3,10 @@
  */
 
 import { cleanupAllSpeakingIndicators } from "../../speaking-indicator.js";
+import { stopMicInputMeter } from "../../ui/screens/room-view.js";
 import { disposeMicNoiseGate, getMicGateRawInputTrack } from "../../effects/audio/micNoiseGate.js";
+import { closeSharedAudioContext } from "../../effects/audio/audioContext.js";
+import { stopMicSilenceWatchdog } from "../../effects/audio/micSilenceWatchdog.js";
 import { patchMeetingScreenSharePresentation, stopRoomMediaLatencyDisplay } from "../../effects/ui/roomView.js";
 import { enqueueDeviceGraphRecovery } from "../../effects/media/devices.js";
 import { refreshDeviceSelects } from "../../effects/ui/devices.js";
@@ -276,6 +279,10 @@ export function finishCleanup(ctx, appEl, screen) {
 	if (audioContainer) audioContainer.innerHTML = "";
 	removeDeviceChangeHandlers(dispatch, s);
 	cleanupAllSpeakingIndicators();
+	stopMicInputMeter();
+	stopMicSilenceWatchdog();
+	/* Last user of the shared context is gone — frees its output stream in the system audio graph. */
+	closeSharedAudioContext();
 	navigate(appEl, screen);
 }
 

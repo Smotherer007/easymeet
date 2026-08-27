@@ -5054,6 +5054,65 @@ body {
 	line-height: 1.25;
 }
 
+/* Live-Eingangspegel unter dem Empfindlichkeits-Slider */
+.settings-modal__meter {
+	display: flex;
+	align-items: center;
+	gap: 0.6rem;
+	margin: 0 0 0.7rem;
+}
+
+.settings-modal__meter-track {
+	position: relative;
+	flex: 1 1 auto;
+	height: 8px;
+	border-radius: var(--radius-xs);
+	background: var(--bg-input);
+	border: 1px solid var(--border);
+	overflow: hidden;
+}
+
+.settings-modal__meter-fill {
+	display: block;
+	height: 100%;
+	width: 0%;
+	border-radius: inherit;
+	background: rgba(160, 160, 176, 0.55);
+	transition: width 60ms linear, background-color 120ms linear;
+}
+
+.settings-modal__meter-fill--open {
+	background: rgba(232, 232, 237, 0.9);
+}
+
+.settings-modal__meter-threshold {
+	position: absolute;
+	top: -2px;
+	bottom: -2px;
+	width: 2px;
+	left: 0;
+	background: var(--accent-2);
+	opacity: 0.9;
+}
+
+.settings-modal__meter-threshold--hidden {
+	display: none;
+}
+
+.settings-modal__meter-state {
+	flex: 0 0 auto;
+	min-width: 11rem;
+	font-size: 0.72rem;
+	color: var(--text-muted);
+	text-align: right;
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.settings-modal__meter-fill {
+		transition: none;
+	}
+}
+
 .settings-modal__check-row {
 	display: flex;
 	align-items: center;

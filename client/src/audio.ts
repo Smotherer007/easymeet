@@ -3,25 +3,19 @@
  * Avoids trademark issues (ICQ etc.).
  *
  * Under HTTPS (production) AudioContext often starts "suspended" until the user interacts.
- * One context per app + resume() before playback; early unlock on first gesture (pointerdown/keydown).
+ * The context is shared with the mic gate and the level meters (effects/audio/audioContext.js) —
+ * one output stream for the whole app — and follows the selected output device via setSinkId.
  */
-let sharedAudioContext = null;
 
-export function getSharedAudioContext() {
-	if (!sharedAudioContext && typeof window !== "undefined") {
-		const Ctx = window.AudioContext || window.webkitAudioContext;
-		if (Ctx) sharedAudioContext = new Ctx();
-	}
-	return sharedAudioContext;
-}
+import { getSharedAudioContext, resumeSharedAudioContext } from "./effects/audio/audioContext.js";
 
 /** Once: unlock context after first user interaction (autoplay policy). */
 export function installAudioUnlockOnUserGesture() {
 	if (typeof document === "undefined") return;
 	const unlock = () => {
 		try {
-			const ctx = getSharedAudioContext();
-			if (ctx && ctx.state === "suspended") void ctx.resume();
+			getSharedAudioContext();
+			resumeSharedAudioContext();
 		} catch (_) {}
 	};
 	const opts = { capture: true, passive: true };

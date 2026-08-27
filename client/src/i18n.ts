@@ -188,6 +188,18 @@ const translations = {
 		speakingThresholdValueTitle: "Empfindlichkeit in Prozent: höher = leisere Stimme und Hintergrund reichen noch mit",
 		speakingThresholdHint:
 			"Der Prozentwert beschreibt die Empfindlichkeit. Nach links: mehr wird übertragen und der grüne Rand leuchtet eher; nach rechts: leises Hintergrundgeräusch und Flüstern werden stärker unterdrückt.",
+		micNoAudioSentWarning:
+			"Dein Mikrofon liefert ein Signal, es wird aber nichts an die anderen gesendet. Prüfe das Sprech-Gate und die Echounterdrückung in den Audio-Einstellungen.",
+		micDeviceFallbackToast: "Ausgewähltes Mikrofon nicht verfügbar – es wird jetzt „{device}“ verwendet.",
+		cameraDeviceFallbackToast: "Ausgewählte Kamera nicht verfügbar – es wird jetzt „{device}“ verwendet.",
+		micMeterIdle: "Kein Signal",
+		micMeterNoInput: "Kein Mikrofon aktiv",
+		micMeterSending: "Wird gesendet",
+		micMeterGated: "Gate geschlossen – nichts wird gesendet",
+		micMeterBypass: "Gate aus – wird durchgehend gesendet",
+		micGateLabel: "Sprech-Gate (nur senden, wenn gesprochen wird)",
+		micGateHelp:
+			"Dämpft das eigene Mikrofon, solange nichts gesprochen wird. Ausschalten bei virtuellen Audiogeräten (PipeWire/JACK, VB-Cable, BlackHole, Loopback) oder wenn Musik bzw. Systemton übertragen werden soll.",
 		noiseSuppressionLabel: "Rauschunterdrückung (Browser)",
 		noiseSuppressionHelp:
 			"Reduziert stetiges Hintergrundrauschen (Lüfter, Straße). Wird vom Browser umgesetzt; Qualität hängt vom Gerät und Chromium/Safari ab.",
@@ -483,6 +495,18 @@ const translations = {
 		speakingThresholdValueTitle: "Sensitivity percent: higher means quieter voice and background still count",
 		speakingThresholdHint:
 			"The percentage is sensitivity. Left: more audio is sent and the green highlight triggers more easily; right: quiet background and whispers are dampened more strongly.",
+		micNoAudioSentWarning:
+			"Your microphone has signal but nothing is being sent to the others. Check the speech gate and echo cancellation in the audio settings.",
+		micDeviceFallbackToast: "Selected microphone unavailable — using “{device}” instead.",
+		cameraDeviceFallbackToast: "Selected camera unavailable — using “{device}” instead.",
+		micMeterIdle: "No signal",
+		micMeterNoInput: "No active microphone",
+		micMeterSending: "Sending",
+		micMeterGated: "Gate closed — nothing is sent",
+		micMeterBypass: "Gate off — sending continuously",
+		micGateLabel: "Speech gate (send only while speaking)",
+		micGateHelp:
+			"Mutes your microphone while nothing is spoken. Turn it off for virtual audio devices (PipeWire/JACK, VB-Cable, BlackHole, loopback) or when you want to send music or system audio.",
 		noiseSuppressionLabel: "Noise suppression (browser)",
 		noiseSuppressionHelp:
 			"Attenuates steady background noise (fans, traffic). Implemented by the browser; quality depends on device and Chromium/Safari.",

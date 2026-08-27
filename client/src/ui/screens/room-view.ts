@@ -1,5 +1,7 @@
 import { t } from "../../i18n.js";
 import { speakingThresholdToSensitivityPercent } from "../../effects/storage/audioSettingsStorage.js";
+import { getMicMeterState, setMicMeterActive } from "../../effects/audio/micNoiseGate.js";
+import { speakingThresholdToDbfs } from "../../effects/audio/levelMeter.js";
 import { renderShareContent } from "./create-room.js";
 import {
 	escapeHtml,
@@ -1159,6 +1161,78 @@ function clampAllDraggableWindows(container, callbacks) {
 	if (changed) onResize("_viewport", merged);
 }
 
+
+/* ---------- Live input meter (settings) ---------- */
+
+/** Bottom of the displayed scale; the gate range sits well above this. */
+const MIC_METER_MIN_DBFS = -70;
+/** ~25 fps is plenty for a level bar and costs far less than a full rAF loop. */
+const MIC_METER_INTERVAL_MS = 40;
+let micMeterRaf = 0;
+let micMeterLastPaint = 0;
+
+function micMeterPercent(dbfs) {
+	const clamped = Math.min(0, Math.max(MIC_METER_MIN_DBFS, Number(dbfs) || MIC_METER_MIN_DBFS));
+	return ((clamped - MIC_METER_MIN_DBFS) / -MIC_METER_MIN_DBFS) * 100;
+}
+
+/** Stop the meter loop and release the analyser in the mic gate. */
+export function stopMicInputMeter() {
+	if (micMeterRaf) cancelAnimationFrame(micMeterRaf);
+	micMeterRaf = 0;
+	micMeterLastPaint = 0;
+	setMicMeterActive(false);
+}
+
+/**
+ * Live level + gate state while the settings panel is open. Makes "signal arrives but nothing is
+ * sent" visible instead of silent.
+ * @param {HTMLElement} container
+ */
+export function startMicInputMeter(container) {
+	stopMicInputMeter();
+	const fill = container?.querySelector?.("#audio-input-meter-fill");
+	if (!fill) return;
+	const marker = container.querySelector("#audio-input-meter-threshold");
+	const label = container.querySelector("#audio-input-meter-state");
+	const slider = container.querySelector("#audio-speaking-threshold");
+	const modal = container.querySelector("#settings-modal");
+	setMicMeterActive(true);
+
+	const tick = (ts) => {
+		if (!fill.isConnected || (modal && modal.hasAttribute("hidden"))) {
+			stopMicInputMeter();
+			return;
+		}
+		if (!micMeterLastPaint || ts - micMeterLastPaint >= MIC_METER_INTERVAL_MS) {
+			micMeterLastPaint = ts;
+			const st = getMicMeterState();
+			fill.style.width = `${micMeterPercent(st.dbfs).toFixed(1)}%`;
+			fill.classList.toggle("settings-modal__meter-fill--open", Boolean(st.hasInput && st.gateOpen));
+			if (marker) {
+				const showMarker = st.gated;
+				marker.classList.toggle("settings-modal__meter-threshold--hidden", !showMarker);
+				if (showMarker) {
+					const thr = parseInt(slider?.value ?? "", 10);
+					marker.style.left = `${micMeterPercent(speakingThresholdToDbfs(thr)).toFixed(1)}%`;
+				}
+			}
+			if (label) {
+				const text = !st.hasInput
+					? t("micMeterNoInput")
+					: !st.gated
+						? t("micMeterBypass")
+						: st.gateOpen
+							? t("micMeterSending")
+							: t("micMeterGated");
+				if (label.textContent !== text) label.textContent = text;
+			}
+		}
+		micMeterRaf = requestAnimationFrame(tick);
+	};
+	micMeterRaf = requestAnimationFrame(tick);
+}
+
 export function attachRoomViewListeners(container, callbacks) {
 	container._easymeetGetFileBlob = callbacks.getFileBlob || null;
 	container._easymeetViewportClampAbort?.abort();
@@ -1631,12 +1705,14 @@ export function attachRoomViewListeners(container, callbacks) {
 			settingsFocusTrap?.deactivate?.();
 			settingsFocusTrap = createFocusTrap(content);
 			settingsFocusTrap.activate();
+			startMicInputMeter(container);
 		});
 	};
 	const closeSettingsModal = () => {
 		container.querySelectorAll('[data-action="toggle-settings"]').forEach((b) => b.setAttribute("aria-expanded", "false"));
 		settingsFocusTrap?.deactivate?.();
 		settingsFocusTrap = null;
+		stopMicInputMeter();
 		callbacks.onMinimizeSettingsModal?.();
 	};
 	container.querySelectorAll('[data-action="toggle-video-layout"]').forEach((el) => el.addEventListener("click", () => callbacks.onToggleVideoLayout?.()));
@@ -1733,6 +1809,9 @@ export function attachRoomViewListeners(container, callbacks) {
 		audioTh.setAttribute("aria-valuenow", String(v));
 		audioTh.setAttribute("aria-valuetext", `${pct}%`);
 		callbacks.onAudioSettingsChange?.({ speakingThreshold: v });
+	});
+	container.querySelector("#audio-mic-gate")?.addEventListener("change", (e) => {
+		callbacks.onAudioSettingsChange?.({ micGate: e.target.checked });
 	});
 	container.querySelector("#audio-noise-suppression")?.addEventListener("change", (e) => {
 		callbacks.onAudioSettingsChange?.({ noiseSuppression: e.target.checked });
