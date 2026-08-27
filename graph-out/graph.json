@@ -307,7 +307,7 @@
       "type": "function",
       "sourceFile": "client/src/app/bootstrap/roomJoinCreate.ts",
       "sourceLocation": "L71",
-      "centrality": 0.002,
+      "centrality": 0.001,
       "community": 34
     },
     {
@@ -487,7 +487,7 @@
       "label": "client/src/app/bootstrap/subscribe.ts",
       "type": "file",
       "sourceFile": "client/src/app/bootstrap/subscribe.ts",
-      "centrality": 0.004,
+      "centrality": 0.003,
       "community": 57
     },
     {
@@ -517,7 +517,7 @@
       "sourceFile": "client/src/app/bootstrap/subscribe.ts",
       "sourceLocation": "L56",
       "description": "* @param {HTMLElement} appEl @param {import('../../store/index.js').getState} getState @param {import('../../store/index.js').dispatch} dispatch",
-      "centrality": 0.002,
+      "centrality": 0.001,
       "community": 57
     },
     {
@@ -567,7 +567,7 @@
       "sourceFile": "client/src/app/bootstrap/subscribe.ts",
       "sourceLocation": "L154",
       "description": "* @param {HTMLElement} appEl",
-      "centrality": 0.002,
+      "centrality": 0.001,
       "community": 57
     },
     {
@@ -697,7 +697,7 @@
       "label": "client/src/domain/reducers/appReducer.ts",
       "type": "file",
       "sourceFile": "client/src/domain/reducers/appReducer.ts",
-      "centrality": 0.032,
+      "centrality": 0.031,
       "community": 78
     },
     {
@@ -1225,7 +1225,7 @@
       "label": "client/src/domain/selectors/index.ts",
       "type": "file",
       "sourceFile": "client/src/domain/selectors/index.ts",
-      "centrality": 0.031,
+      "centrality": 0.03,
       "community": 137
     },
     {
@@ -1692,7 +1692,7 @@
       "label": "client/src/effects/audio/levelMeter.ts",
       "type": "file",
       "sourceFile": "client/src/effects/audio/levelMeter.ts",
-      "centrality": 0.003,
+      "centrality": 0.002,
       "community": 189
     },
     {
@@ -1727,7 +1727,7 @@
       "label": "client/src/effects/audio/micNoiseGate.ts",
       "type": "file",
       "sourceFile": "client/src/effects/audio/micNoiseGate.ts",
-      "centrality": 0.004,
+      "centrality": 0.007,
       "community": 204
     },
     {
@@ -1745,7 +1745,7 @@
       "type": "function",
       "sourceFile": "client/src/effects/audio/micNoiseGate.ts",
       "sourceLocation": "L45",
-      "centrality": 0.001,
+      "centrality": 0.002,
       "community": 204
     },
     {
@@ -1836,7 +1836,7 @@
       "type": "function",
       "sourceFile": "client/src/effects/audio/micNoiseGate.ts",
       "sourceLocation": "L173",
-      "centrality": 0.002,
+      "centrality": 0.003,
       "community": 204
     },
     {
@@ -1845,7 +1845,7 @@
       "type": "function",
       "sourceFile": "client/src/effects/audio/micNoiseGate.ts",
       "sourceLocation": "L197",
-      "centrality": 0.001,
+      "centrality": 0.002,
       "community": 204
     },
     {
@@ -2013,7 +2013,7 @@
       "label": "client/src/effects/media/devices.ts",
       "type": "file",
       "sourceFile": "client/src/effects/media/devices.ts",
-      "centrality": 0.005,
+      "centrality": 0.004,
       "community": 236
     },
     {
@@ -2141,7 +2141,7 @@
       "label": "client/src/effects/media/tiles.ts",
       "type": "file",
       "sourceFile": "client/src/effects/media/tiles.ts",
-      "centrality": 0.005,
+      "centrality": 0.004,
       "community": 240
     },
     {
@@ -2420,7 +2420,7 @@
       "sourceFile": "client/src/effects/network/api.ts",
       "sourceLocation": "L15",
       "description": "* @param {unknown} data @param {string} fallback",
-      "centrality": 0.004,
+      "centrality": 0.003,
       "community": 269
     },
     {
@@ -2429,7 +2429,7 @@
       "type": "function",
       "sourceFile": "client/src/effects/network/api.ts",
       "sourceLocation": "L25",
-      "centrality": 0.001,
+      "centrality": 0,
       "community": 272
     },
     {
@@ -2438,7 +2438,7 @@
       "type": "function",
       "sourceFile": "client/src/effects/network/api.ts",
       "sourceLocation": "L35",
-      "centrality": 0.001,
+      "centrality": 0,
       "community": 272
     },
     {
@@ -2634,7 +2634,7 @@
       "type": "function",
       "sourceFile": "client/src/effects/storage/audioSettingsStorage.ts",
       "sourceLocation": "L114",
-      "centrality": 0.001,
+      "centrality": 0,
       "community": 286
     },
     {
@@ -2803,7 +2803,7 @@
       "label": "client/src/effects/storage/deviceStorage.ts",
       "type": "file",
       "sourceFile": "client/src/effects/storage/deviceStorage.ts",
-      "centrality": 0.006,
+      "centrality": 0.005,
       "community": 313
     },
     {
@@ -3354,7 +3354,7 @@
       "type": "function",
       "sourceFile": "client/src/protocol/validate.ts",
       "sourceLocation": "L186",
-      "centrality": 0.002,
+      "centrality": 0.001,
       "community": 365
     },
     {
@@ -3412,7 +3412,7 @@
       "label": "client/src/shared/result.ts",
       "type": "file",
       "sourceFile": "client/src/shared/result.ts",
-      "centrality": 0.003,
+      "centrality": 0.002,
       "community": 384
     },
     {
@@ -3456,7 +3456,7 @@
       "label": "client/src/shared/roomApiPayloads.ts",
       "type": "file",
       "sourceFile": "client/src/shared/roomApiPayloads.ts",
-      "centrality": 0.003,
+      "centrality": 0.002,
       "community": 386
     },
     {
@@ -3693,7 +3693,7 @@
       "label": "client/src/ui/screens/join-room.ts",
       "type": "file",
       "sourceFile": "client/src/ui/screens/join-room.ts",
-      "centrality": 0.003,
+      "centrality": 0.002,
       "community": 413
     },
     {
@@ -3746,7 +3746,7 @@
       "type": "function",
       "sourceFile": "client/src/ui/screens/landing.ts",
       "sourceLocation": "L48",
-      "centrality": 0.001,
+      "centrality": 0,
       "community": 425
     },
     {
@@ -3802,7 +3802,7 @@
       "type": "function",
       "sourceFile": "client/src/ui/screens/landing.ts",
       "sourceLocation": "L345",
-      "centrality": 0.002,
+      "centrality": 0.001,
       "community": 425
     },
     {
@@ -3811,7 +3811,7 @@
       "type": "function",
       "sourceFile": "client/src/ui/screens/landing.ts",
       "sourceLocation": "L387",
-      "centrality": 0.002,
+      "centrality": 0.001,
       "community": 425
     },
     {
@@ -3916,7 +3916,7 @@
       "label": "client/src/utils/crypto.ts",
       "type": "file",
       "sourceFile": "client/src/utils/crypto.ts",
-      "centrality": 0.003,
+      "centrality": 0.002,
       "community": 438
     },
     {
@@ -3951,7 +3951,7 @@
       "label": "client/src/utils/easymeetLog.ts",
       "type": "file",
       "sourceFile": "client/src/utils/easymeetLog.ts",
-      "centrality": 0.004,
+      "centrality": 0.003,
       "community": 443
     },
     {
@@ -3960,7 +3960,7 @@
       "type": "function",
       "sourceFile": "client/src/utils/easymeetLog.ts",
       "sourceLocation": "L18",
-      "centrality": 0.004,
+      "centrality": 0.003,
       "community": 442
     },
     {
@@ -4634,7 +4634,7 @@
       "label": "pi-easymeet-bridge/package.json",
       "type": "file",
       "sourceFile": "pi-easymeet-bridge/package.json",
-      "centrality": 0.006,
+      "centrality": 0.005,
       "community": 523
     },
     {
@@ -4706,7 +4706,7 @@
       "label": "pi-easymeet-bridge/src/index.ts",
       "type": "file",
       "sourceFile": "pi-easymeet-bridge/src/index.ts",
-      "centrality": 0.018,
+      "centrality": 0.017,
       "community": 532
     },
     {
@@ -4715,7 +4715,7 @@
       "type": "interface",
       "sourceFile": "pi-easymeet-bridge/src/index.ts",
       "sourceLocation": "L15",
-      "centrality": 0.001,
+      "centrality": 0,
       "community": 532
     },
     {
@@ -4724,7 +4724,7 @@
       "type": "interface",
       "sourceFile": "pi-easymeet-bridge/src/index.ts",
       "sourceLocation": "L29",
-      "centrality": 0.001,
+      "centrality": 0,
       "community": 532
     },
     {
@@ -4733,7 +4733,7 @@
       "type": "interface",
       "sourceFile": "pi-easymeet-bridge/src/index.ts",
       "sourceLocation": "L35",
-      "centrality": 0.001,
+      "centrality": 0,
       "community": 532
     },
     {
@@ -4760,7 +4760,7 @@
       "type": "function",
       "sourceFile": "pi-easymeet-bridge/src/index.ts",
       "sourceLocation": "L118",
-      "centrality": 0.001,
+      "centrality": 0,
       "community": 532
     },
     {
@@ -4769,7 +4769,7 @@
       "type": "function",
       "sourceFile": "pi-easymeet-bridge/src/index.ts",
       "sourceLocation": "L136",
-      "centrality": 0.001,
+      "centrality": 0,
       "community": 532
     },
     {
@@ -4832,7 +4832,7 @@
       "type": "function",
       "sourceFile": "pi-easymeet-bridge/src/index.ts",
       "sourceLocation": "L212",
-      "centrality": 0.001,
+      "centrality": 0,
       "community": 532
     },
     {
@@ -4841,7 +4841,7 @@
       "type": "class",
       "sourceFile": "pi-easymeet-bridge/src/index.ts",
       "sourceLocation": "L238",
-      "centrality": 0.012,
+      "centrality": 0.011,
       "community": 532
     },
     {
@@ -5156,7 +5156,7 @@
       "type": "function",
       "sourceFile": "pi-easymeet-bridge/src/index.ts",
       "sourceLocation": "L691",
-      "centrality": 0.001,
+      "centrality": 0,
       "community": 532
     },
     {
@@ -5208,7 +5208,7 @@
       "label": "pi-easymeet-bridge/tsconfig.json",
       "type": "file",
       "sourceFile": "pi-easymeet-bridge/tsconfig.json",
-      "centrality": 0.003,
+      "centrality": 0.002,
       "community": 588
     },
     {
@@ -5296,7 +5296,7 @@
       "label": "server/src/authz.ts",
       "type": "file",
       "sourceFile": "server/src/authz.ts",
-      "centrality": 0.002,
+      "centrality": 0.001,
       "community": 600
     },
     {
@@ -5498,7 +5498,7 @@
       "label": "server/src/logger.ts",
       "type": "file",
       "sourceFile": "server/src/logger.ts",
-      "centrality": 0.008,
+      "centrality": 0.007,
       "community": 600
     },
     {
@@ -5507,7 +5507,7 @@
       "type": "function",
       "sourceFile": "server/src/logger.ts",
       "sourceLocation": "L25",
-      "centrality": 0.001,
+      "centrality": 0,
       "community": 600
     },
     {
@@ -5516,7 +5516,7 @@
       "type": "function",
       "sourceFile": "server/src/logger.ts",
       "sourceLocation": "L30",
-      "centrality": 0.001,
+      "centrality": 0,
       "community": 600
     },
     {
@@ -5534,7 +5534,7 @@
       "type": "function",
       "sourceFile": "server/src/logger.ts",
       "sourceLocation": "L39",
-      "centrality": 0.002,
+      "centrality": 0.001,
       "community": 600
     },
     {
@@ -5676,7 +5676,7 @@
       "label": "server/src/mediasoup/protooSignaling.ts",
       "type": "file",
       "sourceFile": "server/src/mediasoup/protooSignaling.ts",
-      "centrality": 0.009,
+      "centrality": 0.008,
       "community": 600
     },
     {
@@ -6473,7 +6473,7 @@
       "label": "server/src/types/protoo-server.d.ts",
       "type": "file",
       "sourceFile": "server/src/types/protoo-server.d.ts",
-      "centrality": 0.003,
+      "centrality": 0.002,
       "community": 732
     },
     {
@@ -6665,6 +6665,280 @@
       "sourceFile": "server/tests/wsJoinTokens.test.ts",
       "centrality": 0,
       "community": 753
+    },
+    {
+      "id": "client_src_effects_audio_audioContext_file",
+      "label": "client/src/effects/audio/audioContext.ts",
+      "type": "file",
+      "sourceFile": "client/src/effects/audio/audioContext.ts",
+      "centrality": 0.004,
+      "community": 755
+    },
+    {
+      "id": "client_src_effects_audio_audioContext_getSharedAudioContext",
+      "label": "getSharedAudioContext",
+      "type": "function",
+      "sourceFile": "client/src/effects/audio/audioContext.ts",
+      "sourceLocation": "L22",
+      "centrality": 0.001,
+      "community": 755
+    },
+    {
+      "id": "client_src_effects_audio_audioContext_peekSharedAudioContext",
+      "label": "peekSharedAudioContext",
+      "type": "function",
+      "sourceFile": "client/src/effects/audio/audioContext.ts",
+      "sourceLocation": "L31",
+      "centrality": 0.001,
+      "community": 755
+    },
+    {
+      "id": "client_src_effects_audio_audioContext_resumeSharedAudioContext",
+      "label": "resumeSharedAudioContext",
+      "type": "function",
+      "sourceFile": "client/src/effects/audio/audioContext.ts",
+      "sourceLocation": "L36",
+      "centrality": 0.001,
+      "community": 755
+    },
+    {
+      "id": "client_src_effects_audio_audioContext_applySharedAudioContextSink",
+      "label": "applySharedAudioContextSink",
+      "type": "function",
+      "sourceFile": "client/src/effects/audio/audioContext.ts",
+      "sourceLocation": "L46",
+      "centrality": 0.001,
+      "community": 755
+    },
+    {
+      "id": "client_src_effects_audio_audioContext_closeSharedAudioContext",
+      "label": "closeSharedAudioContext",
+      "type": "function",
+      "sourceFile": "client/src/effects/audio/audioContext.ts",
+      "sourceLocation": "L61",
+      "centrality": 0.001,
+      "community": 755
+    },
+    {
+      "id": "client_src_effects_audio_micNoiseGate_ensureCtx",
+      "label": "ensureCtx",
+      "type": "function",
+      "sourceFile": "client/src/effects/audio/micNoiseGate.ts",
+      "sourceLocation": "L52",
+      "centrality": 0.001,
+      "community": 204
+    },
+    {
+      "id": "client_src_effects_audio_micNoiseGate_ensureLoop",
+      "label": "ensureLoop",
+      "type": "function",
+      "sourceFile": "client/src/effects/audio/micNoiseGate.ts",
+      "sourceLocation": "L70",
+      "centrality": 0.002,
+      "community": 204
+    },
+    {
+      "id": "client_src_effects_audio_micNoiseGate_setMicMeterActive",
+      "label": "setMicMeterActive",
+      "type": "function",
+      "sourceFile": "client/src/effects/audio/micNoiseGate.ts",
+      "sourceLocation": "L99",
+      "centrality": 0.001,
+      "community": 204
+    },
+    {
+      "id": "client_src_effects_audio_micNoiseGate_getMicMeterState",
+      "label": "getMicMeterState",
+      "type": "function",
+      "sourceFile": "client/src/effects/audio/micNoiseGate.ts",
+      "sourceLocation": "L110",
+      "centrality": 0,
+      "community": 204
+    },
+    {
+      "id": "client_src_effects_audio_micNoiseGate_readMicPeakDbfs",
+      "label": "readMicPeakDbfs",
+      "type": "function",
+      "sourceFile": "client/src/effects/audio/micNoiseGate.ts",
+      "sourceLocation": "L124",
+      "centrality": 0,
+      "community": 204
+    },
+    {
+      "id": "client_src_effects_audio_micNoiseGate_ensureMeter",
+      "label": "ensureMeter",
+      "type": "function",
+      "sourceFile": "client/src/effects/audio/micNoiseGate.ts",
+      "sourceLocation": "L185",
+      "description": "Analyser only — needed in both modes.",
+      "centrality": 0.001,
+      "community": 204
+    },
+    {
+      "id": "client_src_effects_audio_micNoiseGate_ensureGatePath",
+      "label": "ensureGatePath",
+      "type": "function",
+      "sourceFile": "client/src/effects/audio/micNoiseGate.ts",
+      "sourceLocation": "L199",
+      "description": "Gain stage + destination track (gated mode).",
+      "centrality": 0.001,
+      "community": 204
+    },
+    {
+      "id": "client_src_effects_audio_micNoiseGate_teardownGatePath",
+      "label": "teardownGatePath",
+      "type": "function",
+      "sourceFile": "client/src/effects/audio/micNoiseGate.ts",
+      "sourceLocation": "L217",
+      "description": "* Drop the gain stage (bypass). The destination track is not stopped — the mic producer may still hold it until `updateLocalStream` has swapped in the raw track.",
+      "centrality": 0.001,
+      "community": 204
+    },
+    {
+      "id": "client_src_effects_audio_micSilenceWatchdog_file",
+      "label": "client/src/effects/audio/micSilenceWatchdog.ts",
+      "type": "file",
+      "sourceFile": "client/src/effects/audio/micSilenceWatchdog.ts",
+      "centrality": 0.002,
+      "community": 770
+    },
+    {
+      "id": "client_src_effects_audio_micSilenceWatchdog_reset",
+      "label": "reset",
+      "type": "function",
+      "sourceFile": "client/src/effects/audio/micSilenceWatchdog.ts",
+      "sourceLocation": "L34",
+      "centrality": 0.001,
+      "community": 769
+    },
+    {
+      "id": "client_src_effects_audio_micSilenceWatchdog_resetForNewSession",
+      "label": "resetForNewSession",
+      "type": "function",
+      "sourceFile": "client/src/effects/audio/micSilenceWatchdog.ts",
+      "sourceLocation": "L41",
+      "description": "A new room is a new situation — the rate limit must not carry over from the previous one.",
+      "centrality": 0.001,
+      "community": 770
+    },
+    {
+      "id": "client_src_effects_audio_micSilenceWatchdog_tick",
+      "label": "tick",
+      "type": "function",
+      "sourceFile": "client/src/effects/audio/micSilenceWatchdog.ts",
+      "sourceLocation": "L46",
+      "centrality": 0.001,
+      "community": 770
+    },
+    {
+      "id": "client_src_effects_audio_micSilenceWatchdog_startMicSilenceWatchdog",
+      "label": "startMicSilenceWatchdog",
+      "type": "function",
+      "sourceFile": "client/src/effects/audio/micSilenceWatchdog.ts",
+      "sourceLocation": "L84",
+      "centrality": 0.001,
+      "community": 770
+    },
+    {
+      "id": "client_src_effects_audio_micSilenceWatchdog_stopMicSilenceWatchdog",
+      "label": "stopMicSilenceWatchdog",
+      "type": "function",
+      "sourceFile": "client/src/effects/audio/micSilenceWatchdog.ts",
+      "sourceLocation": "L91",
+      "centrality": 0.001,
+      "community": 770
+    },
+    {
+      "id": "client_src_effects_audio_micNoiseGate_ensureMonitorGain",
+      "label": "ensureMonitorGain",
+      "type": "function",
+      "sourceFile": "client/src/effects/audio/micNoiseGate.ts",
+      "sourceLocation": "L62",
+      "description": "Build the monitor tap: raw mic → monitorGain → speakers (ctx.destination).",
+      "centrality": 0.001,
+      "community": 204
+    },
+    {
+      "id": "client_src_effects_audio_micNoiseGate_updateMonitorConnection",
+      "label": "updateMonitorConnection",
+      "type": "function",
+      "sourceFile": "client/src/effects/audio/micNoiseGate.ts",
+      "sourceLocation": "L73",
+      "description": "(Re)wire or unwire the source-node → monitorGain connection.",
+      "centrality": 0.001,
+      "community": 204
+    },
+    {
+      "id": "client_src_effects_audio_micNoiseGate_setMicSelfMonitor",
+      "label": "setMicSelfMonitor",
+      "type": "function",
+      "sourceFile": "client/src/effects/audio/micNoiseGate.ts",
+      "sourceLocation": "L93",
+      "centrality": 0.001,
+      "community": 204
+    },
+    {
+      "id": "client_src_effects_audio_micNoiseGate_refreshMicSelfMonitor",
+      "label": "refreshMicSelfMonitor",
+      "type": "function",
+      "sourceFile": "client/src/effects/audio/micNoiseGate.ts",
+      "sourceLocation": "L232",
+      "centrality": 0.001,
+      "community": 204
+    },
+    {
+      "id": "client_src_effects_audio_micNoiseGate_hydrateMicSelfMonitor",
+      "label": "hydrateMicSelfMonitor",
+      "type": "function",
+      "sourceFile": "client/src/effects/audio/micNoiseGate.ts",
+      "sourceLocation": "L341",
+      "centrality": 0.001,
+      "community": 204
+    },
+    {
+      "id": "client_src_effects_storage_audioSettingsStorage_isMicSelfMonitorEnabled",
+      "label": "isMicSelfMonitorEnabled",
+      "type": "function",
+      "sourceFile": "client/src/effects/storage/audioSettingsStorage.ts",
+      "sourceLocation": "L102",
+      "centrality": 0.001,
+      "community": 286
+    },
+    {
+      "id": "client_src_utils_browserFlags_file",
+      "label": "client/src/utils/browserFlags.ts",
+      "type": "file",
+      "sourceFile": "client/src/utils/browserFlags.ts",
+      "centrality": 0.002,
+      "community": 781
+    },
+    {
+      "id": "client_src_utils_browserFlags_isChromiumBrowser",
+      "label": "isChromiumBrowser",
+      "type": "function",
+      "sourceFile": "client/src/utils/browserFlags.ts",
+      "sourceLocation": "L16",
+      "centrality": 0.001,
+      "community": 781
+    },
+    {
+      "id": "client_src_utils_browserFlags_isBrave",
+      "label": "isBrave",
+      "type": "function",
+      "sourceFile": "client/src/utils/browserFlags.ts",
+      "sourceLocation": "L26",
+      "description": "True for Brave specifically (it has a `navigator.brave` API).",
+      "centrality": 0.001,
+      "community": 781
+    },
+    {
+      "id": "client_src_utils_browserFlags_chromiumInputVolumeFlagUrl",
+      "label": "chromiumInputVolumeFlagUrl",
+      "type": "function",
+      "sourceFile": "client/src/utils/browserFlags.ts",
+      "sourceLocation": "L39",
+      "centrality": 0.001,
+      "community": 781
     }
   ],
   "edges": [
@@ -6730,13 +7004,6 @@
       "confidenceScore": 0.85
     },
     {
-      "source": "client_src_app_bootstrap_cleanup_runDeviceChangeOrBenignResume",
-      "target": "client_src_app_bootstrap_cleanup_needsFullDeviceGraphRecoveryOnResume",
-      "relation": "calls",
-      "confidence": "INFERRED",
-      "confidenceScore": 0.85
-    },
-    {
       "source": "client_src_app_bootstrap_cleanup_file",
       "target": "client_src_app_bootstrap_cleanup_setupAudioTrackEndedHandler",
       "relation": "contains",
@@ -6758,13 +7025,6 @@
     {
       "source": "client_src_app_bootstrap_cleanup_setupRoomViewDeviceHandlers",
       "target": "client_src_app_bootstrap_cleanup_clearRoomViewDeviceRecoveryUi",
-      "relation": "calls",
-      "confidence": "INFERRED",
-      "confidenceScore": 0.85
-    },
-    {
-      "source": "client_src_app_bootstrap_cleanup_setupRoomViewDeviceHandlers",
-      "target": "client_src_app_bootstrap_cleanup_setupAudioTrackEndedHandler",
       "relation": "calls",
       "confidence": "INFERRED",
       "confidenceScore": 0.85
@@ -7020,20 +7280,6 @@
     {
       "source": "client_src_app_bootstrap_screens_renderLandingScreen",
       "target": "client_src_app_bootstrap_screens_renderShell",
-      "relation": "calls",
-      "confidence": "INFERRED",
-      "confidenceScore": 0.85
-    },
-    {
-      "source": "client_src_app_bootstrap_screens_renderLandingScreen",
-      "target": "client_src_app_bootstrap_screens_renderLangSwitcher",
-      "relation": "calls",
-      "confidence": "INFERRED",
-      "confidenceScore": 0.85
-    },
-    {
-      "source": "client_src_app_bootstrap_screens_renderLandingScreen",
-      "target": "client_src_app_bootstrap_screens_renderLangSwitcher",
       "relation": "calls",
       "confidence": "INFERRED",
       "confidenceScore": 0.85
@@ -7400,13 +7646,6 @@
       "confidenceScore": 0.85
     },
     {
-      "source": "client_src_audio_playTone",
-      "target": "client_src_audio_getSharedAudioContext",
-      "relation": "calls",
-      "confidence": "INFERRED",
-      "confidenceScore": 0.85
-    },
-    {
       "source": "client_src_audio_file",
       "target": "client_src_audio_playMessageTone",
       "relation": "contains",
@@ -7424,13 +7663,6 @@
       "target": "client_src_audio_playJoinInfoTone",
       "relation": "contains",
       "confidence": "EXTRACTED"
-    },
-    {
-      "source": "client_src_audio_playJoinInfoTone",
-      "target": "client_src_audio_playTone",
-      "relation": "calls",
-      "confidence": "INFERRED",
-      "confidenceScore": 0.85
     },
     {
       "source": "client_src_audio_playJoinInfoTone",
@@ -8351,13 +8583,6 @@
       "confidenceScore": 0.85
     },
     {
-      "source": "client_src_effects_audio_micNoiseGate_prepareRoomLocalStream",
-      "target": "client_src_effects_audio_micNoiseGate_wireInput",
-      "relation": "calls",
-      "confidence": "INFERRED",
-      "confidenceScore": 0.85
-    },
-    {
       "source": "client_src_effects_audio_micNoiseGate_file",
       "target": "client_src_effects_audio_micNoiseGate_disposeMicNoiseGate",
       "relation": "contains",
@@ -8388,13 +8613,6 @@
       "target": "client_src_effects_backgroundEffects_getImageSegmenter",
       "relation": "contains",
       "confidence": "EXTRACTED"
-    },
-    {
-      "source": "client_src_effects_backgroundEffects_getImageSegmenter",
-      "target": "client_src_effects_backgroundEffects_createSegmenterOptions",
-      "relation": "calls",
-      "confidence": "INFERRED",
-      "confidenceScore": 0.85
     },
     {
       "source": "client_src_effects_backgroundEffects_getImageSegmenter",
@@ -8606,73 +8824,10 @@
       "confidenceScore": 0.85
     },
     {
-      "source": "client_src_effects_media_devices_buildMergedStreamAfterEffectOff",
-      "target": "client_src_effects_media_devices_firstLiveCameraLikeVideoTrack",
-      "relation": "calls",
-      "confidence": "INFERRED",
-      "confidenceScore": 0.85
-    },
-    {
       "source": "client_src_effects_media_devices_file",
       "target": "client_src_effects_media_devices_applyEffectToCallStreamInternal",
       "relation": "contains",
       "confidence": "EXTRACTED"
-    },
-    {
-      "source": "client_src_effects_media_devices_applyEffectToCallStreamInternal",
-      "target": "client_src_effects_media_devices_ensureCameraTrackWhenVideoEnabled",
-      "relation": "calls",
-      "confidence": "INFERRED",
-      "confidenceScore": 0.85
-    },
-    {
-      "source": "client_src_effects_media_devices_applyEffectToCallStreamInternal",
-      "target": "client_src_effects_media_devices_ensureCameraTrackWhenVideoEnabled",
-      "relation": "calls",
-      "confidence": "INFERRED",
-      "confidenceScore": 0.85
-    },
-    {
-      "source": "client_src_effects_media_devices_applyEffectToCallStreamInternal",
-      "target": "client_src_effects_media_devices_ensureCameraTrackWhenVideoEnabled",
-      "relation": "calls",
-      "confidence": "INFERRED",
-      "confidenceScore": 0.85
-    },
-    {
-      "source": "client_src_effects_media_devices_applyEffectToCallStreamInternal",
-      "target": "client_src_effects_media_devices_buildMergedStreamAfterEffectOff",
-      "relation": "calls",
-      "confidence": "INFERRED",
-      "confidenceScore": 0.85
-    },
-    {
-      "source": "client_src_effects_media_devices_applyEffectToCallStreamInternal",
-      "target": "client_src_effects_media_devices_buildMergedStreamAfterEffectOff",
-      "relation": "calls",
-      "confidence": "INFERRED",
-      "confidenceScore": 0.85
-    },
-    {
-      "source": "client_src_effects_media_devices_applyEffectToCallStreamInternal",
-      "target": "client_src_effects_media_devices_ensureCameraTrackWhenVideoEnabled",
-      "relation": "calls",
-      "confidence": "INFERRED",
-      "confidenceScore": 0.85
-    },
-    {
-      "source": "client_src_effects_media_devices_applyEffectToCallStreamInternal",
-      "target": "client_src_effects_media_devices_buildMergedStreamAfterEffectOff",
-      "relation": "calls",
-      "confidence": "INFERRED",
-      "confidenceScore": 0.85
-    },
-    {
-      "source": "client_src_effects_media_devices_applyEffectToCallStreamInternal",
-      "target": "client_src_effects_media_devices_buildMergedStreamAfterEffectOff",
-      "relation": "calls",
-      "confidence": "INFERRED",
-      "confidenceScore": 0.85
     },
     {
       "source": "client_src_effects_media_devices_applyEffectToCallStreamInternal",
@@ -8704,20 +8859,6 @@
     {
       "source": "client_src_effects_media_devices_reacquireAudioStreamIfNeeded",
       "target": "client_src_effects_media_devices_localStreamHasLiveVideoTrack",
-      "relation": "calls",
-      "confidence": "INFERRED",
-      "confidenceScore": 0.85
-    },
-    {
-      "source": "client_src_effects_media_devices_reacquireAudioStreamIfNeeded",
-      "target": "client_src_effects_media_devices_reapplyBackgroundEffectIfActive",
-      "relation": "calls",
-      "confidence": "INFERRED",
-      "confidenceScore": 0.85
-    },
-    {
-      "source": "client_src_effects_media_devices_reacquireAudioStreamIfNeeded",
-      "target": "client_src_effects_media_devices_reapplyBackgroundEffectIfActive",
       "relation": "calls",
       "confidence": "INFERRED",
       "confidenceScore": 0.85
@@ -8803,13 +8944,6 @@
     {
       "source": "client_src_effects_media_tiles_attachRemoteAudio",
       "target": "client_src_effects_media_tiles_updateVideoGalleryColumns",
-      "relation": "calls",
-      "confidence": "INFERRED",
-      "confidenceScore": 0.85
-    },
-    {
-      "source": "client_src_effects_media_tiles_attachRemoteAudio",
-      "target": "client_src_effects_media_tiles_setupFreeLayoutTile",
       "relation": "calls",
       "confidence": "INFERRED",
       "confidenceScore": 0.85
@@ -9403,69 +9537,6 @@
     },
     {
       "source": "client_src_effects_storage_backgroundEffectsSettingsStorage_sanitizePartial",
-      "target": "client_src_effects_storage_backgroundEffectsSettingsStorage_clampFloat",
-      "relation": "calls",
-      "confidence": "INFERRED",
-      "confidenceScore": 0.85
-    },
-    {
-      "source": "client_src_effects_storage_backgroundEffectsSettingsStorage_sanitizePartial",
-      "target": "client_src_effects_storage_backgroundEffectsSettingsStorage_clampFloat",
-      "relation": "calls",
-      "confidence": "INFERRED",
-      "confidenceScore": 0.85
-    },
-    {
-      "source": "client_src_effects_storage_backgroundEffectsSettingsStorage_sanitizePartial",
-      "target": "client_src_effects_storage_backgroundEffectsSettingsStorage_clampFloat",
-      "relation": "calls",
-      "confidence": "INFERRED",
-      "confidenceScore": 0.85
-    },
-    {
-      "source": "client_src_effects_storage_backgroundEffectsSettingsStorage_sanitizePartial",
-      "target": "client_src_effects_storage_backgroundEffectsSettingsStorage_clampFloat",
-      "relation": "calls",
-      "confidence": "INFERRED",
-      "confidenceScore": 0.85
-    },
-    {
-      "source": "client_src_effects_storage_backgroundEffectsSettingsStorage_sanitizePartial",
-      "target": "client_src_effects_storage_backgroundEffectsSettingsStorage_clampInt",
-      "relation": "calls",
-      "confidence": "INFERRED",
-      "confidenceScore": 0.85
-    },
-    {
-      "source": "client_src_effects_storage_backgroundEffectsSettingsStorage_sanitizePartial",
-      "target": "client_src_effects_storage_backgroundEffectsSettingsStorage_clampFloat",
-      "relation": "calls",
-      "confidence": "INFERRED",
-      "confidenceScore": 0.85
-    },
-    {
-      "source": "client_src_effects_storage_backgroundEffectsSettingsStorage_sanitizePartial",
-      "target": "client_src_effects_storage_backgroundEffectsSettingsStorage_clampFloat",
-      "relation": "calls",
-      "confidence": "INFERRED",
-      "confidenceScore": 0.85
-    },
-    {
-      "source": "client_src_effects_storage_backgroundEffectsSettingsStorage_sanitizePartial",
-      "target": "client_src_effects_storage_backgroundEffectsSettingsStorage_clampInt",
-      "relation": "calls",
-      "confidence": "INFERRED",
-      "confidenceScore": 0.85
-    },
-    {
-      "source": "client_src_effects_storage_backgroundEffectsSettingsStorage_sanitizePartial",
-      "target": "client_src_effects_storage_backgroundEffectsSettingsStorage_clampFloat",
-      "relation": "calls",
-      "confidence": "INFERRED",
-      "confidenceScore": 0.85
-    },
-    {
-      "source": "client_src_effects_storage_backgroundEffectsSettingsStorage_sanitizePartial",
       "target": "client_src_effects_storage_backgroundEffectsSettingsStorage_clampInt",
       "relation": "calls",
       "confidence": "INFERRED",
@@ -9548,13 +9619,6 @@
       "target": "client_src_effects_storage_clientIdentity_getClientId",
       "relation": "contains",
       "confidence": "EXTRACTED"
-    },
-    {
-      "source": "client_src_effects_storage_clientIdentity_getClientId",
-      "target": "client_src_effects_storage_clientIdentity_makeId",
-      "relation": "calls",
-      "confidence": "INFERRED",
-      "confidenceScore": 0.85
     },
     {
       "source": "client_src_effects_storage_clientIdentity_getClientId",
@@ -9699,13 +9763,6 @@
       "target": "client_src_effects_ui_reactionEffects_runAnimation",
       "relation": "contains",
       "confidence": "EXTRACTED"
-    },
-    {
-      "source": "client_src_effects_ui_reactionEffects_runAnimation",
-      "target": "client_src_effects_ui_reactionEffects_fitCanvas",
-      "relation": "calls",
-      "confidence": "INFERRED",
-      "confidenceScore": 0.85
     },
     {
       "source": "client_src_effects_ui_reactionEffects_runAnimation",
@@ -10142,245 +10199,7 @@
     },
     {
       "source": "client_src_protocol_validate_sanitizeEasymeetPayload",
-      "target": "client_src_protocol_validate_shortStr",
-      "relation": "calls",
-      "confidence": "INFERRED",
-      "confidenceScore": 0.85
-    },
-    {
-      "source": "client_src_protocol_validate_sanitizeEasymeetPayload",
-      "target": "client_src_protocol_validate_shortStr",
-      "relation": "calls",
-      "confidence": "INFERRED",
-      "confidenceScore": 0.85
-    },
-    {
-      "source": "client_src_protocol_validate_sanitizeEasymeetPayload",
-      "target": "client_src_protocol_validate_shortStr",
-      "relation": "calls",
-      "confidence": "INFERRED",
-      "confidenceScore": 0.85
-    },
-    {
-      "source": "client_src_protocol_validate_sanitizeEasymeetPayload",
-      "target": "client_src_protocol_validate_num",
-      "relation": "calls",
-      "confidence": "INFERRED",
-      "confidenceScore": 0.85
-    },
-    {
-      "source": "client_src_protocol_validate_sanitizeEasymeetPayload",
-      "target": "client_src_protocol_validate_shortStr",
-      "relation": "calls",
-      "confidence": "INFERRED",
-      "confidenceScore": 0.85
-    },
-    {
-      "source": "client_src_protocol_validate_sanitizeEasymeetPayload",
-      "target": "client_src_protocol_validate_shortStr",
-      "relation": "calls",
-      "confidence": "INFERRED",
-      "confidenceScore": 0.85
-    },
-    {
-      "source": "client_src_protocol_validate_sanitizeEasymeetPayload",
-      "target": "client_src_protocol_validate_shortStr",
-      "relation": "calls",
-      "confidence": "INFERRED",
-      "confidenceScore": 0.85
-    },
-    {
-      "source": "client_src_protocol_validate_sanitizeEasymeetPayload",
-      "target": "client_src_protocol_validate_shortStr",
-      "relation": "calls",
-      "confidence": "INFERRED",
-      "confidenceScore": 0.85
-    },
-    {
-      "source": "client_src_protocol_validate_sanitizeEasymeetPayload",
-      "target": "client_src_protocol_validate_num",
-      "relation": "calls",
-      "confidence": "INFERRED",
-      "confidenceScore": 0.85
-    },
-    {
-      "source": "client_src_protocol_validate_sanitizeEasymeetPayload",
       "target": "client_src_protocol_validate_boolish",
-      "relation": "calls",
-      "confidence": "INFERRED",
-      "confidenceScore": 0.85
-    },
-    {
-      "source": "client_src_protocol_validate_sanitizeEasymeetPayload",
-      "target": "client_src_protocol_validate_shortStr",
-      "relation": "calls",
-      "confidence": "INFERRED",
-      "confidenceScore": 0.85
-    },
-    {
-      "source": "client_src_protocol_validate_sanitizeEasymeetPayload",
-      "target": "client_src_protocol_validate_shortStr",
-      "relation": "calls",
-      "confidence": "INFERRED",
-      "confidenceScore": 0.85
-    },
-    {
-      "source": "client_src_protocol_validate_sanitizeEasymeetPayload",
-      "target": "client_src_protocol_validate_shortStr",
-      "relation": "calls",
-      "confidence": "INFERRED",
-      "confidenceScore": 0.85
-    },
-    {
-      "source": "client_src_protocol_validate_sanitizeEasymeetPayload",
-      "target": "client_src_protocol_validate_shortStr",
-      "relation": "calls",
-      "confidence": "INFERRED",
-      "confidenceScore": 0.85
-    },
-    {
-      "source": "client_src_protocol_validate_sanitizeEasymeetPayload",
-      "target": "client_src_protocol_validate_boolish",
-      "relation": "calls",
-      "confidence": "INFERRED",
-      "confidenceScore": 0.85
-    },
-    {
-      "source": "client_src_protocol_validate_sanitizeEasymeetPayload",
-      "target": "client_src_protocol_validate_shortStr",
-      "relation": "calls",
-      "confidence": "INFERRED",
-      "confidenceScore": 0.85
-    },
-    {
-      "source": "client_src_protocol_validate_sanitizeEasymeetPayload",
-      "target": "client_src_protocol_validate_boolish",
-      "relation": "calls",
-      "confidence": "INFERRED",
-      "confidenceScore": 0.85
-    },
-    {
-      "source": "client_src_protocol_validate_sanitizeEasymeetPayload",
-      "target": "client_src_protocol_validate_boolish",
-      "relation": "calls",
-      "confidence": "INFERRED",
-      "confidenceScore": 0.85
-    },
-    {
-      "source": "client_src_protocol_validate_sanitizeEasymeetPayload",
-      "target": "client_src_protocol_validate_shortStr",
-      "relation": "calls",
-      "confidence": "INFERRED",
-      "confidenceScore": 0.85
-    },
-    {
-      "source": "client_src_protocol_validate_sanitizeEasymeetPayload",
-      "target": "client_src_protocol_validate_shortStr",
-      "relation": "calls",
-      "confidence": "INFERRED",
-      "confidenceScore": 0.85
-    },
-    {
-      "source": "client_src_protocol_validate_sanitizeEasymeetPayload",
-      "target": "client_src_protocol_validate_boolish",
-      "relation": "calls",
-      "confidence": "INFERRED",
-      "confidenceScore": 0.85
-    },
-    {
-      "source": "client_src_protocol_validate_sanitizeEasymeetPayload",
-      "target": "client_src_protocol_validate_shortStr",
-      "relation": "calls",
-      "confidence": "INFERRED",
-      "confidenceScore": 0.85
-    },
-    {
-      "source": "client_src_protocol_validate_sanitizeEasymeetPayload",
-      "target": "client_src_protocol_validate_boolish",
-      "relation": "calls",
-      "confidence": "INFERRED",
-      "confidenceScore": 0.85
-    },
-    {
-      "source": "client_src_protocol_validate_sanitizeEasymeetPayload",
-      "target": "client_src_protocol_validate_shortStr",
-      "relation": "calls",
-      "confidence": "INFERRED",
-      "confidenceScore": 0.85
-    },
-    {
-      "source": "client_src_protocol_validate_sanitizeEasymeetPayload",
-      "target": "client_src_protocol_validate_boolish",
-      "relation": "calls",
-      "confidence": "INFERRED",
-      "confidenceScore": 0.85
-    },
-    {
-      "source": "client_src_protocol_validate_sanitizeEasymeetPayload",
-      "target": "client_src_protocol_validate_shortStr",
-      "relation": "calls",
-      "confidence": "INFERRED",
-      "confidenceScore": 0.85
-    },
-    {
-      "source": "client_src_protocol_validate_sanitizeEasymeetPayload",
-      "target": "client_src_protocol_validate_shortStr",
-      "relation": "calls",
-      "confidence": "INFERRED",
-      "confidenceScore": 0.85
-    },
-    {
-      "source": "client_src_protocol_validate_sanitizeEasymeetPayload",
-      "target": "client_src_protocol_validate_shortStr",
-      "relation": "calls",
-      "confidence": "INFERRED",
-      "confidenceScore": 0.85
-    },
-    {
-      "source": "client_src_protocol_validate_sanitizeEasymeetPayload",
-      "target": "client_src_protocol_validate_shortStr",
-      "relation": "calls",
-      "confidence": "INFERRED",
-      "confidenceScore": 0.85
-    },
-    {
-      "source": "client_src_protocol_validate_sanitizeEasymeetPayload",
-      "target": "client_src_protocol_validate_shortStr",
-      "relation": "calls",
-      "confidence": "INFERRED",
-      "confidenceScore": 0.85
-    },
-    {
-      "source": "client_src_protocol_validate_sanitizeEasymeetPayload",
-      "target": "client_src_protocol_validate_shortStr",
-      "relation": "calls",
-      "confidence": "INFERRED",
-      "confidenceScore": 0.85
-    },
-    {
-      "source": "client_src_protocol_validate_sanitizeEasymeetPayload",
-      "target": "client_src_protocol_validate_shortStr",
-      "relation": "calls",
-      "confidence": "INFERRED",
-      "confidenceScore": 0.85
-    },
-    {
-      "source": "client_src_protocol_validate_sanitizeEasymeetPayload",
-      "target": "client_src_protocol_validate_shortStr",
-      "relation": "calls",
-      "confidence": "INFERRED",
-      "confidenceScore": 0.85
-    },
-    {
-      "source": "client_src_protocol_validate_sanitizeEasymeetPayload",
-      "target": "client_src_protocol_validate_boolish",
-      "relation": "calls",
-      "confidence": "INFERRED",
-      "confidenceScore": 0.85
-    },
-    {
-      "source": "client_src_protocol_validate_sanitizeEasymeetPayload",
-      "target": "client_src_protocol_validate_isTypedObject",
       "relation": "calls",
       "confidence": "INFERRED",
       "confidenceScore": 0.85
@@ -10760,13 +10579,6 @@
       "confidenceScore": 0.85
     },
     {
-      "source": "client_src_ui_screens_landing_attachLandingListeners",
-      "target": "client_src_ui_screens_landing_refreshActiveRoomsPanel",
-      "relation": "calls",
-      "confidence": "INFERRED",
-      "confidenceScore": 0.85
-    },
-    {
       "source": "client_src_ui_utils_draggableRect_file",
       "target": "client_src_ui_utils_draggableRect_draggableRectInlineStyle",
       "relation": "contains",
@@ -10799,27 +10611,6 @@
     {
       "source": "client_src_ui_utils_viewportWindowClamp_clampWindowRect",
       "target": "client_src_ui_utils_viewportWindowClamp_getViewportRect",
-      "relation": "calls",
-      "confidence": "INFERRED",
-      "confidenceScore": 0.85
-    },
-    {
-      "source": "client_src_ui_utils_viewportWindowClamp_clampWindowRect",
-      "target": "client_src_ui_utils_viewportWindowClamp_clampNum",
-      "relation": "calls",
-      "confidence": "INFERRED",
-      "confidenceScore": 0.85
-    },
-    {
-      "source": "client_src_ui_utils_viewportWindowClamp_clampWindowRect",
-      "target": "client_src_ui_utils_viewportWindowClamp_clampNum",
-      "relation": "calls",
-      "confidence": "INFERRED",
-      "confidenceScore": 0.85
-    },
-    {
-      "source": "client_src_ui_utils_viewportWindowClamp_clampWindowRect",
-      "target": "client_src_ui_utils_viewportWindowClamp_clampNum",
       "relation": "calls",
       "confidence": "INFERRED",
       "confidenceScore": 0.85
@@ -11050,13 +10841,6 @@
       "confidenceScore": 0.85
     },
     {
-      "source": "client_src_utils_focusTrap_createFocusTrap",
-      "target": "client_src_utils_focusTrap_listFocusable",
-      "relation": "calls",
-      "confidence": "INFERRED",
-      "confidenceScore": 0.85
-    },
-    {
       "source": "client_src_utils_folder-zip_file",
       "target": "client_src_utils_folder-zip_readDir",
       "relation": "contains",
@@ -11174,13 +10958,6 @@
     {
       "source": "client_src_utils_mediaDebug_mediaDebugWireStreamVideoTracks",
       "target": "client_src_utils_mediaDebug_mediaDebugEnabled",
-      "relation": "calls",
-      "confidence": "INFERRED",
-      "confidenceScore": 0.85
-    },
-    {
-      "source": "client_src_utils_mediaDebug_mediaDebugWireStreamVideoTracks",
-      "target": "client_src_utils_mediaDebug_mediaDebugTrackInfo",
       "relation": "calls",
       "confidence": "INFERRED",
       "confidenceScore": 0.85
@@ -12154,13 +11931,6 @@
       "confidenceScore": 0.85
     },
     {
-      "source": "server_src_authz_getRequestClientId",
-      "target": "server_src_authz_sanitizeClientId",
-      "relation": "calls",
-      "confidence": "INFERRED",
-      "confidenceScore": 0.85
-    },
-    {
       "source": "server_src_createApp_file",
       "target": "server_src_logger_file",
       "relation": "imports",
@@ -12282,13 +12052,6 @@
       "confidenceScore": 0.85
     },
     {
-      "source": "server_src_db_adminDb_toRoomMetaRow",
-      "target": "server_src_db_adminDb_toIsoNow",
-      "relation": "calls",
-      "confidence": "INFERRED",
-      "confidenceScore": 0.85
-    },
-    {
       "source": "server_src_db_adminDb_file",
       "target": "server_src_db_adminDb_createAdminDb",
       "relation": "contains",
@@ -12317,20 +12080,6 @@
     },
     {
       "source": "server_src_db_adminDb_createAdminDb",
-      "target": "server_src_db_adminDb_sanitizeClientId",
-      "relation": "calls",
-      "confidence": "INFERRED",
-      "confidenceScore": 0.85
-    },
-    {
-      "source": "server_src_db_adminDb_createAdminDb",
-      "target": "server_src_db_adminDb_toIsoNow",
-      "relation": "calls",
-      "confidence": "INFERRED",
-      "confidenceScore": 0.85
-    },
-    {
-      "source": "server_src_db_adminDb_createAdminDb",
       "target": "server_src_db_adminDb_toIsoNow",
       "relation": "calls",
       "confidence": "INFERRED",
@@ -12339,13 +12088,6 @@
     {
       "source": "server_src_db_adminDb_createAdminDb",
       "target": "server_src_db_adminDb_toRoomMetaRow",
-      "relation": "calls",
-      "confidence": "INFERRED",
-      "confidenceScore": 0.85
-    },
-    {
-      "source": "server_src_db_adminDb_createAdminDb",
-      "target": "server_src_db_adminDb_toIsoNow",
       "relation": "calls",
       "confidence": "INFERRED",
       "confidenceScore": 0.85
@@ -12871,13 +12613,6 @@
     },
     {
       "source": "server_src_mediasoup_protooSignaling_attachPeerToRoom",
-      "target": "server_src_mediasoup_protooSignaling_broadcastEasymeet",
-      "relation": "calls",
-      "confidence": "INFERRED",
-      "confidenceScore": 0.85
-    },
-    {
-      "source": "server_src_mediasoup_protooSignaling_attachPeerToRoom",
       "target": "server_src_mediasoup_protooSignaling_buildMembersList",
       "relation": "calls",
       "confidence": "INFERRED",
@@ -12926,13 +12661,6 @@
     },
     {
       "source": "server_src_mediasoup_protooSignaling_handleProtooRequest",
-      "target": "server_src_mediasoup_protooSignaling_serializeProtoPeer",
-      "relation": "calls",
-      "confidence": "INFERRED",
-      "confidenceScore": 0.85
-    },
-    {
-      "source": "server_src_mediasoup_protooSignaling_handleProtooRequest",
       "target": "server_src_mediasoup_protooSignaling_getPollsSnapshot",
       "relation": "calls",
       "confidence": "INFERRED",
@@ -12948,13 +12676,6 @@
     {
       "source": "server_src_mediasoup_protooSignaling_handleProtooRequest",
       "target": "server_src_mediasoup_protooSignaling_buildMembersList",
-      "relation": "calls",
-      "confidence": "INFERRED",
-      "confidenceScore": 0.85
-    },
-    {
-      "source": "server_src_mediasoup_protooSignaling_handleProtooRequest",
-      "target": "server_src_mediasoup_protooSignaling_broadcastEasymeet",
       "relation": "calls",
       "confidence": "INFERRED",
       "confidenceScore": 0.85
@@ -13002,70 +12723,7 @@
     },
     {
       "source": "server_src_mediasoup_protooSignaling_handleProtooNotification",
-      "target": "server_src_mediasoup_protooSignaling_broadcastEasymeet",
-      "relation": "calls",
-      "confidence": "INFERRED",
-      "confidenceScore": 0.85
-    },
-    {
-      "source": "server_src_mediasoup_protooSignaling_handleProtooNotification",
-      "target": "server_src_mediasoup_protooSignaling_broadcastEasymeet",
-      "relation": "calls",
-      "confidence": "INFERRED",
-      "confidenceScore": 0.85
-    },
-    {
-      "source": "server_src_mediasoup_protooSignaling_handleProtooNotification",
-      "target": "server_src_mediasoup_protooSignaling_broadcastEasymeet",
-      "relation": "calls",
-      "confidence": "INFERRED",
-      "confidenceScore": 0.85
-    },
-    {
-      "source": "server_src_mediasoup_protooSignaling_handleProtooNotification",
       "target": "server_src_mediasoup_protooSignaling_buildMembersList",
-      "relation": "calls",
-      "confidence": "INFERRED",
-      "confidenceScore": 0.85
-    },
-    {
-      "source": "server_src_mediasoup_protooSignaling_handleProtooNotification",
-      "target": "server_src_mediasoup_protooSignaling_broadcastEasymeet",
-      "relation": "calls",
-      "confidence": "INFERRED",
-      "confidenceScore": 0.85
-    },
-    {
-      "source": "server_src_mediasoup_protooSignaling_handleProtooNotification",
-      "target": "server_src_mediasoup_protooSignaling_broadcastEasymeet",
-      "relation": "calls",
-      "confidence": "INFERRED",
-      "confidenceScore": 0.85
-    },
-    {
-      "source": "server_src_mediasoup_protooSignaling_handleProtooNotification",
-      "target": "server_src_mediasoup_protooSignaling_buildMembersList",
-      "relation": "calls",
-      "confidence": "INFERRED",
-      "confidenceScore": 0.85
-    },
-    {
-      "source": "server_src_mediasoup_protooSignaling_handleProtooNotification",
-      "target": "server_src_mediasoup_protooSignaling_broadcastEasymeet",
-      "relation": "calls",
-      "confidence": "INFERRED",
-      "confidenceScore": 0.85
-    },
-    {
-      "source": "server_src_mediasoup_protooSignaling_handleProtooNotification",
-      "target": "server_src_mediasoup_protooSignaling_broadcastEasymeet",
-      "relation": "calls",
-      "confidence": "INFERRED",
-      "confidenceScore": 0.85
-    },
-    {
-      "source": "server_src_mediasoup_protooSignaling_handleProtooNotification",
-      "target": "server_src_mediasoup_protooSignaling_broadcastEasymeet",
       "relation": "calls",
       "confidence": "INFERRED",
       "confidenceScore": 0.85
@@ -13079,28 +12737,7 @@
     },
     {
       "source": "server_src_mediasoup_protooSignaling_handleProtooNotification",
-      "target": "server_src_mediasoup_protooSignaling_broadcastEasymeet",
-      "relation": "calls",
-      "confidence": "INFERRED",
-      "confidenceScore": 0.85
-    },
-    {
-      "source": "server_src_mediasoup_protooSignaling_handleProtooNotification",
       "target": "server_src_mediasoup_protooSignaling_sanitizeFileEndNotification",
-      "relation": "calls",
-      "confidence": "INFERRED",
-      "confidenceScore": 0.85
-    },
-    {
-      "source": "server_src_mediasoup_protooSignaling_handleProtooNotification",
-      "target": "server_src_mediasoup_protooSignaling_broadcastEasymeet",
-      "relation": "calls",
-      "confidence": "INFERRED",
-      "confidenceScore": 0.85
-    },
-    {
-      "source": "server_src_mediasoup_protooSignaling_handleProtooNotification",
-      "target": "server_src_mediasoup_protooSignaling_bumpPeerSpamCounter",
       "relation": "calls",
       "confidence": "INFERRED",
       "confidenceScore": 0.85
@@ -13114,13 +12751,6 @@
     },
     {
       "source": "server_src_mediasoup_protooSignaling_handleProtooNotification",
-      "target": "server_src_mediasoup_protooSignaling_broadcastEasymeet",
-      "relation": "calls",
-      "confidence": "INFERRED",
-      "confidenceScore": 0.85
-    },
-    {
-      "source": "server_src_mediasoup_protooSignaling_handleProtooNotification",
       "target": "server_src_mediasoup_protooSignaling_sanitizeReactionEmoji",
       "relation": "calls",
       "confidence": "INFERRED",
@@ -13128,77 +12758,7 @@
     },
     {
       "source": "server_src_mediasoup_protooSignaling_handleProtooNotification",
-      "target": "server_src_mediasoup_protooSignaling_broadcastEasymeet",
-      "relation": "calls",
-      "confidence": "INFERRED",
-      "confidenceScore": 0.85
-    },
-    {
-      "source": "server_src_mediasoup_protooSignaling_handleProtooNotification",
       "target": "server_src_mediasoup_protooSignaling_sanitizeReactionEffect",
-      "relation": "calls",
-      "confidence": "INFERRED",
-      "confidenceScore": 0.85
-    },
-    {
-      "source": "server_src_mediasoup_protooSignaling_handleProtooNotification",
-      "target": "server_src_mediasoup_protooSignaling_broadcastEasymeet",
-      "relation": "calls",
-      "confidence": "INFERRED",
-      "confidenceScore": 0.85
-    },
-    {
-      "source": "server_src_mediasoup_protooSignaling_handleProtooNotification",
-      "target": "server_src_mediasoup_protooSignaling_broadcastEasymeet",
-      "relation": "calls",
-      "confidence": "INFERRED",
-      "confidenceScore": 0.85
-    },
-    {
-      "source": "server_src_mediasoup_protooSignaling_handleProtooNotification",
-      "target": "server_src_mediasoup_protooSignaling_broadcastEasymeet",
-      "relation": "calls",
-      "confidence": "INFERRED",
-      "confidenceScore": 0.85
-    },
-    {
-      "source": "server_src_mediasoup_protooSignaling_handleProtooNotification",
-      "target": "server_src_mediasoup_protooSignaling_buildMembersList",
-      "relation": "calls",
-      "confidence": "INFERRED",
-      "confidenceScore": 0.85
-    },
-    {
-      "source": "server_src_mediasoup_protooSignaling_handleProtooNotification",
-      "target": "server_src_mediasoup_protooSignaling_broadcastEasymeet",
-      "relation": "calls",
-      "confidence": "INFERRED",
-      "confidenceScore": 0.85
-    },
-    {
-      "source": "server_src_mediasoup_protooSignaling_handleProtooNotification",
-      "target": "server_src_mediasoup_protooSignaling_serializePollPublic",
-      "relation": "calls",
-      "confidence": "INFERRED",
-      "confidenceScore": 0.85
-    },
-    {
-      "source": "server_src_mediasoup_protooSignaling_handleProtooNotification",
-      "target": "server_src_mediasoup_protooSignaling_broadcastEasymeet",
-      "relation": "calls",
-      "confidence": "INFERRED",
-      "confidenceScore": 0.85
-    },
-    {
-      "source": "server_src_mediasoup_protooSignaling_handleProtooNotification",
-      "target": "server_src_mediasoup_protooSignaling_serializePollPublic",
-      "relation": "calls",
-      "confidence": "INFERRED",
-      "confidenceScore": 0.85
-    },
-    {
-      "source": "server_src_mediasoup_protooSignaling_handleProtooNotification",
-      "target": "server_src_mediasoup_protooSignaling_broadcastEasymeet",
       "relation": "calls",
       "confidence": "INFERRED",
       "confidenceScore": 0.85
@@ -13537,13 +13097,6 @@
       "confidenceScore": 0.85
     },
     {
-      "source": "server_src_roomStore_createRoomStore",
-      "target": "server_src_roomStore_generateRoomId",
-      "relation": "calls",
-      "confidence": "INFERRED",
-      "confidenceScore": 0.85
-    },
-    {
       "source": "server_src_routes_join_file",
       "target": "server_src_routes_join_createJoinRouter",
       "relation": "contains",
@@ -13756,6 +13309,357 @@
       "target": "server_src_wsJoinTokens_newAssignedPeerId",
       "relation": "contains",
       "confidence": "EXTRACTED"
+    },
+    {
+      "source": "client_src_effects_audio_audioContext_file",
+      "target": "client_src_effects_audio_audioContext_getSharedAudioContext",
+      "relation": "contains",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "client_src_effects_audio_audioContext_file",
+      "target": "client_src_effects_audio_audioContext_peekSharedAudioContext",
+      "relation": "contains",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "client_src_effects_audio_audioContext_file",
+      "target": "client_src_effects_audio_audioContext_resumeSharedAudioContext",
+      "relation": "contains",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "client_src_effects_audio_audioContext_file",
+      "target": "client_src_effects_audio_audioContext_applySharedAudioContextSink",
+      "relation": "contains",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "client_src_effects_audio_audioContext_file",
+      "target": "client_src_effects_audio_audioContext_closeSharedAudioContext",
+      "relation": "contains",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "client_src_effects_audio_micNoiseGate_file",
+      "target": "client_src_effects_audio_micNoiseGate_ensureCtx",
+      "relation": "contains",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "client_src_effects_audio_micNoiseGate_file",
+      "target": "client_src_effects_audio_micNoiseGate_ensureLoop",
+      "relation": "contains",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "client_src_effects_audio_micNoiseGate_onVisibilityChange",
+      "target": "client_src_effects_audio_micNoiseGate_ensureLoop",
+      "relation": "calls",
+      "confidence": "INFERRED",
+      "confidenceScore": 0.85
+    },
+    {
+      "source": "client_src_effects_audio_micNoiseGate_file",
+      "target": "client_src_effects_audio_micNoiseGate_setMicMeterActive",
+      "relation": "contains",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "client_src_effects_audio_micNoiseGate_setMicMeterActive",
+      "target": "client_src_effects_audio_micNoiseGate_ensureLoop",
+      "relation": "calls",
+      "confidence": "INFERRED",
+      "confidenceScore": 0.85
+    },
+    {
+      "source": "client_src_effects_audio_micNoiseGate_file",
+      "target": "client_src_effects_audio_micNoiseGate_getMicMeterState",
+      "relation": "contains",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "client_src_effects_audio_micNoiseGate_file",
+      "target": "client_src_effects_audio_micNoiseGate_readMicPeakDbfs",
+      "relation": "contains",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "client_src_effects_audio_micNoiseGate_refreshMicGateSettings",
+      "target": "client_src_effects_audio_micNoiseGate_ensureLoop",
+      "relation": "calls",
+      "confidence": "INFERRED",
+      "confidenceScore": 0.85
+    },
+    {
+      "source": "client_src_effects_audio_micNoiseGate_runMeterLoop",
+      "target": "client_src_effects_audio_micNoiseGate_stopLoop",
+      "relation": "calls",
+      "confidence": "INFERRED",
+      "confidenceScore": 0.85
+    },
+    {
+      "source": "client_src_effects_audio_micNoiseGate_file",
+      "target": "client_src_effects_audio_micNoiseGate_ensureMeter",
+      "relation": "contains",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "client_src_effects_audio_micNoiseGate_ensureMeter",
+      "target": "client_src_effects_audio_micNoiseGate_ensureCtx",
+      "relation": "calls",
+      "confidence": "INFERRED",
+      "confidenceScore": 0.85
+    },
+    {
+      "source": "client_src_effects_audio_micNoiseGate_file",
+      "target": "client_src_effects_audio_micNoiseGate_ensureGatePath",
+      "relation": "contains",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "client_src_effects_audio_micNoiseGate_ensureGatePath",
+      "target": "client_src_effects_audio_micNoiseGate_ensureMeter",
+      "relation": "calls",
+      "confidence": "INFERRED",
+      "confidenceScore": 0.85
+    },
+    {
+      "source": "client_src_effects_audio_micNoiseGate_file",
+      "target": "client_src_effects_audio_micNoiseGate_teardownGatePath",
+      "relation": "contains",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "client_src_effects_audio_micNoiseGate_wireInput",
+      "target": "client_src_effects_audio_micNoiseGate_ensureMeter",
+      "relation": "calls",
+      "confidence": "INFERRED",
+      "confidenceScore": 0.85
+    },
+    {
+      "source": "client_src_effects_audio_micNoiseGate_wireInput",
+      "target": "client_src_effects_audio_micNoiseGate_ensureGatePath",
+      "relation": "calls",
+      "confidence": "INFERRED",
+      "confidenceScore": 0.85
+    },
+    {
+      "source": "client_src_effects_audio_micNoiseGate_wireInput",
+      "target": "client_src_effects_audio_micNoiseGate_teardownGatePath",
+      "relation": "calls",
+      "confidence": "INFERRED",
+      "confidenceScore": 0.85
+    },
+    {
+      "source": "client_src_effects_audio_micNoiseGate_wireInput",
+      "target": "client_src_effects_audio_micNoiseGate_passThrough",
+      "relation": "calls",
+      "confidence": "INFERRED",
+      "confidenceScore": 0.85
+    },
+    {
+      "source": "client_src_effects_audio_micNoiseGate_wireInput",
+      "target": "client_src_effects_audio_micNoiseGate_ensureLoop",
+      "relation": "calls",
+      "confidence": "INFERRED",
+      "confidenceScore": 0.85
+    },
+    {
+      "source": "client_src_effects_audio_micNoiseGate_prepareRoomLocalStream",
+      "target": "client_src_effects_audio_micNoiseGate_ensureLoop",
+      "relation": "calls",
+      "confidence": "INFERRED",
+      "confidenceScore": 0.85
+    },
+    {
+      "source": "client_src_effects_audio_micNoiseGate_disposeMicNoiseGate",
+      "target": "client_src_effects_audio_micNoiseGate_teardownGatePath",
+      "relation": "calls",
+      "confidence": "INFERRED",
+      "confidenceScore": 0.85
+    },
+    {
+      "source": "client_src_effects_audio_micSilenceWatchdog_file",
+      "target": "client_src_effects_audio_micSilenceWatchdog_reset",
+      "relation": "contains",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "client_src_effects_audio_micSilenceWatchdog_file",
+      "target": "client_src_effects_audio_micSilenceWatchdog_resetForNewSession",
+      "relation": "contains",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "client_src_effects_audio_micSilenceWatchdog_resetForNewSession",
+      "target": "client_src_effects_audio_micSilenceWatchdog_reset",
+      "relation": "calls",
+      "confidence": "INFERRED",
+      "confidenceScore": 0.85
+    },
+    {
+      "source": "client_src_effects_audio_micSilenceWatchdog_file",
+      "target": "client_src_effects_audio_micSilenceWatchdog_tick",
+      "relation": "contains",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "client_src_effects_audio_micSilenceWatchdog_tick",
+      "target": "client_src_effects_audio_micSilenceWatchdog_reset",
+      "relation": "calls",
+      "confidence": "INFERRED",
+      "confidenceScore": 0.85
+    },
+    {
+      "source": "client_src_effects_audio_micSilenceWatchdog_file",
+      "target": "client_src_effects_audio_micSilenceWatchdog_startMicSilenceWatchdog",
+      "relation": "contains",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "client_src_effects_audio_micSilenceWatchdog_startMicSilenceWatchdog",
+      "target": "client_src_effects_audio_micSilenceWatchdog_stopMicSilenceWatchdog",
+      "relation": "calls",
+      "confidence": "INFERRED",
+      "confidenceScore": 0.85
+    },
+    {
+      "source": "client_src_effects_audio_micSilenceWatchdog_startMicSilenceWatchdog",
+      "target": "client_src_effects_audio_micSilenceWatchdog_resetForNewSession",
+      "relation": "calls",
+      "confidence": "INFERRED",
+      "confidenceScore": 0.85
+    },
+    {
+      "source": "client_src_effects_audio_micSilenceWatchdog_startMicSilenceWatchdog",
+      "target": "client_src_effects_audio_micSilenceWatchdog_tick",
+      "relation": "calls",
+      "confidence": "INFERRED",
+      "confidenceScore": 0.85
+    },
+    {
+      "source": "client_src_effects_audio_micSilenceWatchdog_file",
+      "target": "client_src_effects_audio_micSilenceWatchdog_stopMicSilenceWatchdog",
+      "relation": "contains",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "client_src_effects_audio_micSilenceWatchdog_stopMicSilenceWatchdog",
+      "target": "client_src_effects_audio_micSilenceWatchdog_reset",
+      "relation": "calls",
+      "confidence": "INFERRED",
+      "confidenceScore": 0.85
+    },
+    {
+      "source": "client_src_effects_audio_micNoiseGate_file",
+      "target": "client_src_effects_audio_micNoiseGate_ensureMonitorGain",
+      "relation": "contains",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "client_src_effects_audio_micNoiseGate_ensureMonitorGain",
+      "target": "client_src_effects_audio_micNoiseGate_ensureCtx",
+      "relation": "calls",
+      "confidence": "INFERRED",
+      "confidenceScore": 0.85
+    },
+    {
+      "source": "client_src_effects_audio_micNoiseGate_file",
+      "target": "client_src_effects_audio_micNoiseGate_updateMonitorConnection",
+      "relation": "contains",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "client_src_effects_audio_micNoiseGate_file",
+      "target": "client_src_effects_audio_micNoiseGate_setMicSelfMonitor",
+      "relation": "contains",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "client_src_effects_audio_micNoiseGate_setMicSelfMonitor",
+      "target": "client_src_effects_audio_micNoiseGate_updateMonitorConnection",
+      "relation": "calls",
+      "confidence": "INFERRED",
+      "confidenceScore": 0.85
+    },
+    {
+      "source": "client_src_effects_audio_micNoiseGate_setMicSelfMonitor",
+      "target": "client_src_effects_audio_micNoiseGate_ensureMonitorGain",
+      "relation": "calls",
+      "confidence": "INFERRED",
+      "confidenceScore": 0.85
+    },
+    {
+      "source": "client_src_effects_audio_micNoiseGate_file",
+      "target": "client_src_effects_audio_micNoiseGate_refreshMicSelfMonitor",
+      "relation": "contains",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "client_src_effects_audio_micNoiseGate_refreshMicSelfMonitor",
+      "target": "client_src_effects_audio_micNoiseGate_updateMonitorConnection",
+      "relation": "calls",
+      "confidence": "INFERRED",
+      "confidenceScore": 0.85
+    },
+    {
+      "source": "client_src_effects_audio_micNoiseGate_wireInput",
+      "target": "client_src_effects_audio_micNoiseGate_updateMonitorConnection",
+      "relation": "calls",
+      "confidence": "INFERRED",
+      "confidenceScore": 0.85
+    },
+    {
+      "source": "client_src_effects_audio_micNoiseGate_file",
+      "target": "client_src_effects_audio_micNoiseGate_hydrateMicSelfMonitor",
+      "relation": "contains",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "client_src_effects_audio_micNoiseGate_hydrateMicSelfMonitor",
+      "target": "client_src_effects_audio_micNoiseGate_setMicSelfMonitor",
+      "relation": "calls",
+      "confidence": "INFERRED",
+      "confidenceScore": 0.85
+    },
+    {
+      "source": "client_src_effects_storage_audioSettingsStorage_file",
+      "target": "client_src_effects_storage_audioSettingsStorage_isMicSelfMonitorEnabled",
+      "relation": "contains",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "client_src_effects_storage_audioSettingsStorage_isMicSelfMonitorEnabled",
+      "target": "client_src_effects_storage_audioSettingsStorage_readAudioSettings",
+      "relation": "calls",
+      "confidence": "INFERRED",
+      "confidenceScore": 0.85
+    },
+    {
+      "source": "client_src_utils_browserFlags_file",
+      "target": "client_src_utils_browserFlags_isChromiumBrowser",
+      "relation": "contains",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "client_src_utils_browserFlags_file",
+      "target": "client_src_utils_browserFlags_isBrave",
+      "relation": "contains",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "client_src_utils_browserFlags_file",
+      "target": "client_src_utils_browserFlags_chromiumInputVolumeFlagUrl",
+      "relation": "contains",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "client_src_utils_browserFlags_chromiumInputVolumeFlagUrl",
+      "target": "client_src_utils_browserFlags_isBrave",
+      "relation": "calls",
+      "confidence": "INFERRED",
+      "confidenceScore": 0.85
     }
   ]
 }
