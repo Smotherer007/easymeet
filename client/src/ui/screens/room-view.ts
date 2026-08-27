@@ -1822,6 +1822,9 @@ export function attachRoomViewListeners(container, callbacks) {
 	container.querySelector("#audio-auto-gain")?.addEventListener("change", (e) => {
 		callbacks.onAudioSettingsChange?.({ autoGainControl: e.target.checked });
 	});
+	container.querySelector("#audio-self-monitor")?.addEventListener("change", (e) => {
+		callbacks.onAudioSettingsChange?.({ micMonitor: e.target.checked });
+	});
 	container.querySelector("#output-device")?.addEventListener("change", (e) => {
 		const deviceId = e.target?.value || "";
 		callbacks.onOutputDeviceChange?.(deviceId);

@@ -13,7 +13,7 @@
  *   for echo cancellation / noise suppression reaches it).
  */
 
-import { getSpeakingThreshold, isMicGateEnabled } from "../storage/audioSettingsStorage.js";
+import { getSpeakingThreshold, isMicGateEnabled, isMicSelfMonitorEnabled } from "../storage/audioSettingsStorage.js";
 import { getSharedAudioContext, resumeSharedAudioContext } from "./audioContext.js";
 import { createDbfsReader, createMeterAnalyser, speakingThresholdToDbfs, SILENCE_DBFS } from "./levelMeter.js";
 
@@ -48,10 +48,57 @@ let gated = false;
 /** Settings UI wants a live level — keeps the loop running in bypass mode. */
 let meterActive = false;
 let visibilityListenerAttached = false;
+/** Self-monitor path (hear the mic through speakers/headphones) — taps the raw input. */
+let monitorGain = null;
+let monitorOn = false;
+let monitorSourceConnected = false;
 
 function ensureCtx() {
 	if (!ctx) ctx = getSharedAudioContext();
 	return ctx;
+}
+
+/** Build the monitor tap: raw mic → monitorGain → speakers (ctx.destination). */
+function ensureMonitorGain() {
+	if (!ensureCtx()) return false;
+	if (!monitorGain) {
+		monitorGain = ctx.createGain();
+		monitorGain.gain.value = 0.6;
+		monitorGain.connect(ctx.destination);
+	}
+	return true;
+}
+
+/** (Re)wire or unwire the source-node → monitorGain connection. */
+function updateMonitorConnection() {
+	const want = monitorOn && sourceNode && monitorGain;
+	if (want && !monitorSourceConnected) {
+		try {
+			sourceNode.connect(monitorGain);
+			monitorSourceConnected = true;
+		} catch (_) {}
+	} else if (!want && monitorSourceConnected) {
+		try {
+			sourceNode?.disconnect(monitorGain);
+		} catch (_) {}
+		monitorSourceConnected = false;
+	}
+}
+
+/**
+ * Self-monitoring: hear your own microphone through the chosen speakers/headphones.
+ * Works for every mic (virtual loopback and hardware alike); gate-independent.
+ * @param {boolean} on
+ */
+export function setMicSelfMonitor(on) {
+	monitorOn = !!on;
+	if (!monitorOn) {
+		updateMonitorConnection();
+		return;
+	}
+	if (!ensureMonitorGain() || !sourceNode) return;
+	resumeSharedAudioContext();
+	updateMonitorConnection();
 }
 
 function disconnectSource() {
@@ -258,6 +305,10 @@ function wireInput(track, wantGate) {
 	sourceNode = ctx.createMediaStreamSource(new MediaStream([track]));
 	sourceNode.connect(analyser);
 	if (gated && gainNode) sourceNode.connect(gainNode);
+	/* Self-monitor state survives reloads — derive it from the stored setting. */
+	monitorOn = isMicSelfMonitorEnabled();
+	monitorSourceConnected = false;
+	updateMonitorConnection();
 
 	stopLoop();
 	if (gated) {
@@ -342,6 +393,12 @@ export function disposeMicNoiseGate(options = {}) {
 	} catch (_) {}
 	analyser = null;
 	readDbfs = null;
+	monitorOn = false;
+	monitorSourceConnected = false;
+	try {
+		monitorGain?.disconnect();
+	} catch (_) {}
+	monitorGain = null;
 	ctx = null;
 	gated = false;
 	meterActive = false;

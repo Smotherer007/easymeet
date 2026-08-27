@@ -944,7 +944,12 @@ export function renderSettingsModalContent(state) {
               <label class="settings-modal__check-row-label" for="audio-auto-gain"><input type="checkbox" id="audio-auto-gain" ${audioSettings.autoGainControl ? "checked" : ""} /><span>${t("autoGainControlLabel")}</span></label>
               <span class="settings-modal__field-help" role="img" aria-label="${escapeAttr(t("autoGainControlHelp"))}" title="${escapeAttr(t("autoGainControlHelp"))}">?</span>
             </div>
+            <div class="settings-modal__check-row settings-modal__check-row--with-help">
+              <label class="settings-modal__check-row-label" for="audio-self-monitor"><input type="checkbox" id="audio-self-monitor" ${audioSettings.micMonitor ? "checked" : ""} /><span>${t("micMonitorLabel")}</span></label>
+              <span class="settings-modal__field-help" role="img" aria-label="${escapeAttr(t("micMonitorHelp"))}" title="${escapeAttr(t("micMonitorHelp"))}">?</span>
+            </div>
             <p class="settings-modal__hint settings-modal__hint--sm">${t("browserAudioConstraintsHint")}</p>
+            <div class="settings-modal__hint settings-modal__hint--sm settings-modal__hint--warn">${t("chromiumInputVolumeFlagHint")}</div>
           </div>`;
 	return `
     <div class="settings-modal" id="settings-modal" role="dialog" aria-modal="true" aria-labelledby="settings-modal-title" ${state.settingsPanelOpen ? "" : "hidden"}>

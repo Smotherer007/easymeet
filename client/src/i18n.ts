@@ -209,8 +209,13 @@ const translations = {
 		autoGainControlLabel: "Automatische Verstärkung (AGC)",
 		autoGainControlHelp:
 			"Hebt leise Stimmen an und dämpft sehr laute Passagen automatisch. Kann mit manueller Mikro-Lautstärke kollidieren; ausprobieren, was natürlicher klingt.",
+		micMonitorLabel: "Eigenes Mikrofon mithören (Selbsttest)",
+		micMonitorHelp:
+			"Hört dein eigenes Mikrofon über Lautsprecher/Kopfhörer, um zu prüfen, was ankommt. Funktioniert für jedes Mikrofon (auch virtuell/Loopback), unabhängig vom Sprech-Gate. Bei Lautsprechern kann Feedback entstehen — Kopfhörer empfohlen.",
 		browserAudioConstraintsHint:
 			"Die drei Optionen gelten für neue Mikrofon-Zugriffe und werden bei laufendem Mikro versucht per applyConstraints zu setzen (Browser-abhängig).",
+		chromiumInputVolumeFlagHint:
+			"Sendet ein virtuelles/Loopback-Mikrofon weiterhin nichts, kann dieses Flag („Eingabelautstärke anpassen“) die Ursache sein. Auf „Disabled“ stellen und den Browser neu starten: Brave → brave://flags/#enable-webrtc-allow-input-volume-adjustment, Chrome/Chromium → chrome://flags/#enable-webrtc-allow-input-volume-adjustment.",
 		defaultDevice: "Standard",
 		devicePermissionDenied: "Zugriff auf Gerät verweigert",
 		deviceErrorHint: "Mikrofon- und Lautsprecherauswahl",
@@ -516,7 +521,12 @@ const translations = {
 		autoGainControlLabel: "Automatic gain control (AGC)",
 		autoGainControlHelp:
 			"Boosts quiet speech and lowers loud peaks automatically. May interact with your mic level; try on/off for the most natural sound.",
+		micMonitorLabel: "Hear your own microphone (self-test)",
+		micMonitorHelp:
+			"Plays your own microphone back through speakers/headphones so you can check what arrives. Works for any mic (incl. virtual/loopback), independent of the speech gate. With speakers this may cause feedback — headphones recommended.",
 		browserAudioConstraintsHint: "These three apply to new microphone access; on an active mic the app tries applyConstraints (browser-dependent).",
+		chromiumInputVolumeFlagHint:
+			"If a virtual/loopback mic still sends nothing, this flag (\“Allow WebRTC to adjust input volume\”) may be the cause. Set it to Disabled and restart the browser: Brave → brave://flags/#enable-webrtc-allow-input-volume-adjustment, Chrome/Chromium → chrome://flags/#enable-webrtc-allow-input-volume-adjustment.",
 		defaultDevice: "Default",
 		devicePermissionDenied: "Device access denied",
 		deviceErrorHint: "Microphone and speaker selection",

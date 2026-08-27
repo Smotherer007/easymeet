@@ -30,7 +30,7 @@ import {
 } from "../../ui/screens/index.js";
 import { attachRemoteAudio, updateVideoGalleryColumns, getStreamForVideoTile, getStreamForScreenShare, getStreamForPeerId, applyOutputDeviceToAllAudios } from "../media/tiles.js";
 import { applyEffectToCallStream, recoverCameraAfterEffectLoss } from "../media/devices.js";
-import { prepareRoomLocalStream, disposeMicNoiseGate, getMicGateRawInputTrack, refreshMicGateSettings } from "../audio/micNoiseGate.js";
+import { prepareRoomLocalStream, disposeMicNoiseGate, getMicGateRawInputTrack, refreshMicGateSettings, setMicSelfMonitor } from "../audio/micNoiseGate.js";
 import { startMicSilenceWatchdog } from "../audio/micSilenceWatchdog.js";
 import { refreshDeviceSelects } from "./devices.js";
 import { startSpeakingIndicator, stopSpeakingIndicator } from "../../speaking-indicator.js";
@@ -166,6 +166,9 @@ function handleAudioSettingsChange(app, partial) {
 	}
 	if (partial.micGate !== undefined) {
 		void applyMicGateToggleToCall(app);
+	}
+	if (partial.micMonitor !== undefined) {
+		setMicSelfMonitor(!!partial.micMonitor);
 	}
 }
 
