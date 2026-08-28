@@ -8,7 +8,7 @@
 import * as mediasoupClient from "mediasoup-client";
 import { TaskQueue } from "../../utils/taskQueue.ts";
 import * as cryptoUtil from "../../utils/crypto.js";
-import { mediaDebugLog, mediaDebugStreamInfo, mediaDebugTrackInfo } from "../../utils/mediaDebug.js";
+import { mediaDebugLog, mediaDebugEnabled, mediaDebugStreamInfo, mediaDebugTrackInfo } from "../../utils/mediaDebug.js";
 import { logMsInfo, logMsWarn, logMsError } from "../../utils/easymeetLog.js";
 import { replaceEmojiShortcodes } from "../../utils/emojiShortcodes.js";
 import { getAudioProcessingConstraints } from "../storage/audioSettingsStorage.js";
@@ -36,6 +36,17 @@ function isWebcamVideoSource(src) {
 
 function isScreenShareSource(src) {
 	return src === "screen" || src === "screensharing";
+}
+
+/** Safari: no spatial simulcast support (scaleResolutionDownBy) — produce a single
+ * native layer there (mediasoup-demo behavior). UA check: safari but not chrome/crios/fxios/edg. */
+function isSafariBrowser() {
+	try {
+		if (typeof navigator === "undefined") return false;
+		return /^((?!chrome|android|crios|fxios|edg).)*safari/i.test(navigator.userAgent || "");
+	} catch {
+		return false;
+	}
 }
 
 function sleep(ms) {
@@ -376,10 +387,32 @@ async function produceDemoScreenTrack(sendTransport, track) {
 		appData: { source: "screensharing" }
 	};
 	if (track.kind === "video") {
-		return sendTransport.produce({
-			...base,
-			codecOptions: { videoGoogleStartBitrate: 1000 }
-		});
+		/* Simulcast with 3 spatial layers (mediasoup-demo values): the receiver can
+		 * pick the highest layer the link affords and adapt via score events
+		 * (see handleConsumerScore). For a 1080p source: ~480x270 / ~960x540 / 1920x1080.
+		 * Safari cannot scale spatial layers (no scaleResolutionDownBy) → single native
+		 * layer there; the try/catch below is a safety net for other browsers that
+		 * reject the encodings. */
+		const encodings = isSafariBrowser()
+			? undefined
+			: [
+					{ scaleResolutionDownBy: 4, maxBitrate: 2500000 },
+					{ scaleResolutionDownBy: 2, maxBitrate: 5000000 },
+					{ scaleResolutionDownBy: 1, maxBitrate: 10000000 }
+				];
+		try {
+			return await sendTransport.produce({
+				...base,
+				...(encodings ? { encodings } : {}),
+				codecOptions: { videoGoogleStartBitrate: 1000 }
+			});
+		} catch (e) {
+			logMsWarn("Simulcast screen produce failed, retrying without encodings:", e?.message || e);
+			return sendTransport.produce({
+				...base,
+				codecOptions: { videoGoogleStartBitrate: 1000 }
+			});
+		}
 	}
 	return sendTransport.produce({
 		...base,
@@ -615,6 +648,115 @@ export async function setupRoomParticipant(peerObj, nick, localStream, callbacks
 	const fileHandler = dispatch ? createFileDataHandler(dispatch, roomId, password) : null;
 	let membersRef = [];
 
+	/* ---- Screen-share quality: simulcast layer adaptation + frame-drop telemetry ---- */
+	const consumerLayerTargets = new Map(); // consumerId -> { spatialLayer, temporalLayer }
+	const consumerStatsPrev = new Map(); // consumerId -> last inbound-rtp frame counters
+	let lastLayerChangeTs = 0;
+	let shareTelemetryTimer = null;
+	const LAYER_CHANGE_COOLDOWN_MS = 5000;
+	const SHARE_TELEMETRY_INTERVAL_MS = 5000;
+	const MAX_SPATIAL_LAYER = 2;
+	const MAX_TEMPORAL_LAYER = 2;
+
+	/**
+	 * Score-based simulcast layer adaptation for screen-share consumers.
+	 * The server forwards SFU consumer scores via the "consumerScore" notification;
+	 * consumer.setScore() feeds the client-side "score" event this handler listens to.
+	 * Scores are 0–10: < 3 means heavy loss/freezing on that layer → step down;
+	 * >= 8 on both dimensions for a while → step back up. Cooldown prevents flapping.
+	 */
+	function handleConsumerScore(consumer, score) {
+		if (!score || typeof score.spatialScore !== "number") return;
+		if (consumer.type !== "simulcast") return;
+		const now = Date.now();
+		if (now - lastLayerChangeTs < LAYER_CHANGE_COOLDOWN_MS) return;
+
+		const current =
+			consumerLayerTargets.get(consumer.id) ?? {
+				spatialLayer: MAX_SPATIAL_LAYER,
+				temporalLayer: MAX_TEMPORAL_LAYER
+			};
+		let { spatialLayer, temporalLayer } = current;
+
+		if (score.spatialScore < 3) {
+			if (spatialLayer > 0) spatialLayer -= 1;
+			else if (temporalLayer > 0) temporalLayer -= 1;
+			else return;
+		} else if (score.temporalScore < 3) {
+			if (temporalLayer > 0) temporalLayer -= 1;
+			else if (spatialLayer > 0) spatialLayer -= 1;
+			else return;
+		} else if (score.spatialScore >= 8 && score.temporalScore >= 8) {
+			if (spatialLayer < MAX_SPATIAL_LAYER) spatialLayer += 1;
+			else if (temporalLayer < MAX_TEMPORAL_LAYER) temporalLayer += 1;
+			else return;
+		} else {
+			return;
+		}
+
+		if (spatialLayer === current.spatialLayer && temporalLayer === current.temporalLayer) return;
+
+		lastLayerChangeTs = now;
+		consumerLayerTargets.set(consumer.id, { spatialLayer, temporalLayer });
+		mediaDebugLog("share:adapt:layers", {
+			consumerId: consumer.id.slice(-6),
+			spatialLayer,
+			temporalLayer,
+			spatialScore: score.spatialScore,
+			temporalScore: score.temporalScore
+		});
+		try {
+			consumer.setPreferredLayers({ spatialLayer, temporalLayer });
+		} catch (e) {
+			logMsWarn("setPreferredLayers failed:", e?.message || e);
+		}
+	}
+
+	/** Frame-drop / freeze telemetry for screen-share consumers (debug only). */
+	async function pollShareConsumerStats() {
+		for (const [consumerId, info] of consumers.entries()) {
+			const { consumer } = info;
+			if (consumer.closed || consumer.kind !== "video") continue;
+			if (!isScreenShareSource(info.source)) continue;
+			try {
+				const stats = await consumer.getStats();
+				let framesDecoded = 0;
+				let framesDropped = 0;
+				let framesPerSecond = 0;
+				stats.forEach((r) => {
+					if (r.type !== "inbound-rtp" || (r.kind !== "video" && r.mediaType !== "video")) return;
+					framesDecoded += Number(r.framesDecoded) || 0;
+					framesDropped += Number(r.framesDropped) || 0;
+					framesPerSecond = Math.max(framesPerSecond, Number(r.framesPerSecond) || 0);
+				});
+				const prev = consumerStatsPrev.get(consumerId);
+				consumerStatsPrev.set(consumerId, { framesDecoded, framesDropped });
+				if (!prev) continue;
+				const dDecoded = framesDecoded - prev.framesDecoded;
+				const dDropped = framesDropped - prev.framesDropped;
+				const dropRatio = dDecoded + dDropped > 0 ? dDropped / (dDecoded + dDropped) : 0;
+				mediaDebugLog("share:telemetry", {
+					consumerId: consumerId.slice(-6),
+					peerId: String(info.peerId ?? "").slice(0, 6),
+					framesPerSecond,
+					dropRatio: Math.round(dropRatio * 1000) / 1000,
+					droppedPerSec: +(dDropped / (SHARE_TELEMETRY_INTERVAL_MS / 1000)).toFixed(1),
+					decodedPerSec: Math.round(dDecoded / (SHARE_TELEMETRY_INTERVAL_MS / 1000))
+				});
+			} catch (e) {
+				logMsWarn("share telemetry getStats failed:", e?.message || e);
+			}
+		}
+	}
+
+	function startShareTelemetry() {
+		if (shareTelemetryTimer != null) return;
+		shareTelemetryTimer = setInterval(() => {
+			if (!mediaDebugEnabled()) return;
+			void pollShareConsumerStats();
+		}, SHARE_TELEMETRY_INTERVAL_MS);
+	}
+
 	function getMemberNick(pid) {
 		const m = membersRef.find((x) => x.peerId === pid);
 		return m?.nick ?? "?";
@@ -789,6 +931,12 @@ export async function setupRoomParticipant(peerObj, nick, localStream, callbacks
 
 				consumers.set(consumer.id, { consumer, peerId: remotePeerId, source: src });
 
+				/* Screen-share simulcast: react to SFU scores (forwarded by the server as
+				 * "consumerScore") and adapt spatial/temporal layers to the link quality. */
+				if (isScreenShareSource(src) && consumer.type === "simulcast") {
+					consumer.on("score", (score) => handleConsumerScore(consumer, score));
+				}
+
 				consumer.on("transportclose", () => consumers.delete(consumer.id));
 
 				if (isScreenShareSource(src)) {
@@ -856,6 +1004,30 @@ export async function setupRoomParticipant(peerObj, nick, localStream, callbacks
 
 	protoo.on("notification", (notification) => {
 		const { method, data } = notification;
+		if (method === "consumerScore" && data?.consumerId) {
+			/* Server forwarded the SFU consumer score → feed it into the mediasoup
+			 * Consumer so its "score" event fires (drives share layer adaptation). */
+			const consumer = consumers.get(String(data.consumerId))?.consumer;
+			if (consumer && typeof consumer.setScore === "function") {
+				try {
+					consumer.setScore(data.score);
+				} catch (e) {
+					logMsWarn("consumer.setScore failed:", e?.message || e);
+				}
+			}
+			return;
+		}
+		if (method === "consumerLayersChanged" && data?.consumerId) {
+			const info = consumers.get(String(data.consumerId));
+			if (info) {
+				mediaDebugLog("share:consumer-layers", {
+					consumerId: String(data.consumerId).slice(-6),
+					source: info.source,
+					layers: data.layers ?? null
+				});
+			}
+			return;
+		}
 		if (method === "easymeet") {
 			handleEasymeetPayload(data);
 			return;
@@ -1102,6 +1274,7 @@ export async function setupRoomParticipant(peerObj, nick, localStream, callbacks
 
 		await produceLocalTracks();
 		scheduleProduceRetry();
+		startShareTelemetry();
 	} catch (setupErr) {
 		try {
 			sendTransport?.close();
@@ -1374,6 +1547,12 @@ export async function setupRoomParticipant(peerObj, nick, localStream, callbacks
 
 	function close() {
 		clearProduceRetryTimer();
+		if (shareTelemetryTimer != null) {
+			clearInterval(shareTelemetryTimer);
+			shareTelemetryTimer = null;
+		}
+		consumerLayerTargets.clear();
+		consumerStatsPrev.clear();
 		consumers.forEach((info) => info.consumer.close());
 		consumers.clear();
 		producers.forEach((p) => p.close());

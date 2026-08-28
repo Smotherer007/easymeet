@@ -281,6 +281,18 @@ async function consumeProducerForPeer(
 		safeProtooNotify(consumerPeer.protooPeer, "consumerClosed", { consumerId: consumer.id });
 	});
 
+	/* Forward SFU consumer scores to the client so it can adapt simulcast layers
+	 * (see client handleConsumerScore in mediasoupClient.js). The worker reports
+	 * scores roughly every second. */
+	consumer.on("score", (score) => {
+		safeProtooNotify(consumerPeer.protooPeer, "consumerScore", { consumerId: consumer.id, score });
+	});
+
+	/* Current spatial/temporal layer of a simulcast consumer (telemetry/debug). */
+	consumer.on("layerschange", (layers) => {
+		safeProtooNotify(consumerPeer.protooPeer, "consumerLayersChanged", { consumerId: consumer.id, layers });
+	});
+
 	const protooPeer = consumerPeer.protooPeer;
 	if (!protooPeer) {
 		consumer.close();

@@ -28,13 +28,16 @@ export const mediaCodecs = [
 		clockRate: 90000,
 		parameters: { "profile-id": 2, "x-google-start-bitrate": 1000 },
 	},
+	/* H264: Main profile, level 5.1 (4d0033). Level 5.0 (4d0032) would be borderline
+	 * for 4K@30 shares; 5.1 covers 4K@30 — matters for Safari, which picks H264
+	 * (VideoToolbox) for screen share. Chrome/Firefox prefer VP8/VP9 and are unaffected. */
 	{
 		kind: "video",
 		mimeType: "video/H264",
 		clockRate: 90000,
 		parameters: {
 			"packetization-mode": 1,
-			"profile-level-id": "4d0032",
+			"profile-level-id": "4d0033",
 			"level-asymmetry-allowed": 1,
 			"x-google-start-bitrate": 1000,
 		},
