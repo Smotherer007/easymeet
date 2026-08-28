@@ -31,10 +31,10 @@
 | **Video Conferencing**  | Audio/video via **mediasoup** SFU running on the server                             |
 | **Audio & Video**       | Microphone, camera, mute, video on/off                                              |
 | **Device Switching**    | Switch microphone and camera during calls (exact constraint for reliable selection) |
-| **Screen Sharing**      | `getDisplayMedia` with optional system audio                                        |
+| **Screen Sharing**      | `getDisplayMedia` with optional system audio; simulcast with automatic quality adaptation (up to native monitor resolution)                  |
 | **Chat**                | Text messages, emojis, GIFs (Giphy)                                                 |
 | **File Sharing**        | Files sent as chunks via Protoo to all room participants; folders are zipped        |
-| **Virtual Backgrounds** | Blur, preset images (e.g. The Office, Matrix), custom uploads                       |
+| **Virtual Backgrounds** | Blur, preset images (e.g. The Office, Matrix), custom uploads; last choice is persisted and reapplied on join |
 | **Speaking Indicator**  | Visual display of speaking activity                                                 |
 | **Voice Rooms**         | Audio-only mode for voice-only conferences                                          |
 | **Room Management**     | Password protection, optional room code, join via code or URL                      |
@@ -200,6 +200,25 @@ easymeet/
 - **Result&lt;T&gt;** – Expected errors via `ok`/`err`
 - **Single Source of Truth** – Store as the only source of truth
 - **Isolated Effects** – I/O only in `effects/`
+
+---
+
+## Media Quality & Adaptation
+
+Video (screen share **and** camera) is sent as **simulcast**: multiple spatial layers are encoded in parallel, and every participant receives the layer that fits their connection. The SFU forwards per-consumer scores to the client, which automatically steps spatial/temporal layers down (score < 3) or back up (score ≥ 8) with a 5 s cooldown against flapping.
+
+**Simulcast ladders** (`client/src/effects/network/mediasoupClient.ts`):
+
+| Source           | Layers (spatial 0 → 4)                                                                     |
+| ---------------- | ------------------------------------------------------------------------------------------ |
+| **Camera**       | ~320×180 → 427×240 → 640×360 → 853×480 → 1280×720 (0.25–2.2 Mbps per layer)               |
+| **Screen share** | ~480×270 → 640×360 → 960×540 → 1280×720 → **native** (0.5–15 Mbps; shown for a 1080p source) |
+
+The screen ladder is relative to the captured display, so the top layer always equals the native monitor resolution (Full HD, WQHD, 4K, …). Browsers that cannot scale spatial layers (Safari) or still cap simulcast at 3 streams degrade gracefully: full 5-layer ladder → standard 3-layer ladder → single layer.
+
+**Diagnostics** – with media debug enabled (`?easymeetMediaDebug=1` or `localStorage.setItem('easymeetMediaDebug','1')`), frame-drop/freeze telemetry and layer switches are logged per consumer: `share:telemetry` / `cam:telemetry` (framesPerSecond, drop ratio, dropped/s), `share:adapt:layers` / `cam:adapt:layers` (layer changes).
+
+**Codecs:** VP8, VP9 (profile-id 2) and H264 (Main profile, level 5.1 – `4d0033`, covers Full HD and 4K@30 shares). Codec parameters are fixed at router startup, so codec changes require a **server restart**.
 
 ---
 
