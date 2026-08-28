@@ -273,6 +273,19 @@ function teardownGatePath() {
 }
 
 /**
+ * Stop the mic track we are about to drop — otherwise every device switch leaks the previous
+ * getUserMedia capture instance (the browser keeps the old device claimed until the tab closes).
+ * @param {MediaStreamTrack | null} nextTrack Track that will replace the current raw input (if any).
+ */
+function stopReplacedRawTrack(nextTrack) {
+	if (rawInputTrack && rawInputTrack !== nextTrack && rawInputTrack.readyState === "live") {
+		try {
+			rawInputTrack.stop();
+		} catch (_) {}
+	}
+}
+
+/**
  * @param {MediaStreamTrack | null} track raw microphone track
  * @param {boolean} wantGate
  */
@@ -280,6 +293,7 @@ function wireInput(track, wantGate) {
 	const ok = track && track.readyState === "live";
 	if (!ok) {
 		disconnectSource();
+		stopReplacedRawTrack(null);
 		rawInputTrack = null;
 		lastDbfs = SILENCE_DBFS;
 		if (wantGate && gainNode) {
@@ -301,6 +315,7 @@ function wireInput(track, wantGate) {
 	gated = wantGate;
 
 	disconnectSource();
+	stopReplacedRawTrack(track);
 	rawInputTrack = track;
 	sourceNode = ctx.createMediaStreamSource(new MediaStream([track]));
 	sourceNode.connect(analyser);

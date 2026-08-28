@@ -1202,6 +1202,16 @@ async function acquireNewAudioStream(s, setupAudioTrackEndedHandler) {
 	const baseVideo = bv && lv && bv !== lv ? bv : lv;
 	const localStream = new MediaStream(lv ? [newAudioTrack, lv] : [newAudioTrack]);
 	const baseStream = new MediaStream(baseVideo ? [newAudioTrack, baseVideo] : [newAudioTrack]);
+	/* The old mic tracks are replaced: release them so the previous device is no longer claimed
+	 * (bypass mode: raw track lives in local/base; gated mode: gate output — the raw is stopped in wireInput). */
+	[local, base].forEach((stream) => {
+		stream?.getAudioTracks?.().forEach((t) => {
+			if (!t || t.readyState === "ended") return;
+			try {
+				t.stop();
+			} catch (_) {}
+		});
+	});
 	const inputDeviceId = newAudioTrack.getSettings?.()?.deviceId || selectors.selectInputDeviceId(s);
 	patchState({ localStream: prepareRoomLocalStream(localStream), baseLocalStream: baseStream, inputDeviceId });
 	if (inputDeviceId) writeDeviceId(DEVICE_STORAGE.input, inputDeviceId);

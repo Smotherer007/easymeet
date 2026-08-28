@@ -245,6 +245,14 @@ function stopAllStreamsAndConnections(getState) {
 	try {
 		s.backgroundEffectStop?.();
 	} catch (_) {}
+	/* Settings preview (own getUserMedia) must not survive the session — otherwise the camera/mic
+	 * stays claimed after logout until the tab closes. Stop effect chain first, then the raw tracks. */
+	try {
+		s._previewEffectStop?.();
+	} catch (_) {}
+	try {
+		s._previewStream?.getTracks?.()?.forEach((t) => t.stop());
+	} catch (_) {}
 	selectors.selectPeer(s)?.destroy();
 }
 
@@ -334,6 +342,12 @@ export function setupBeforeUnload(ctx) {
 			s.backgroundEffectStop?.();
 		} catch (_) {}
 		disposeMicNoiseGate();
+		try {
+			s._previewEffectStop?.();
+		} catch (_) {}
+		try {
+			s._previewStream?.getTracks?.()?.forEach((t) => t.stop());
+		} catch (_) {}
 		selectors
 			.selectLocalStream(s)
 			?.getTracks?.()
