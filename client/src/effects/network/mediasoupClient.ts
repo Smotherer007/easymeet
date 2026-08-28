@@ -366,17 +366,56 @@ async function produceDemoMic(sendTransport, track) {
 	});
 }
 
+/* Fine simulcast ladders — 5 spatial layers with ~1.4–1.5x linear steps instead of
+ * the coarse 4x demo jumps (180→360→720). scaleResolutionDownBy is a float, so 1.5
+ * and 3 give the intermediate 480p/240p steps. Caveat: every layer is a separate
+ * encode (encoder CPU), see produceVideoWithSimulcast for graceful degradation. */
+const WEBCAM_ENCODINGS = [
+	{ scaleResolutionDownBy: 4, maxBitrate: 250000 }, // ~320x180
+	{ scaleResolutionDownBy: 3, maxBitrate: 400000 }, // ~427x240
+	{ scaleResolutionDownBy: 2, maxBitrate: 700000 }, // ~640x360
+	{ scaleResolutionDownBy: 1.5, maxBitrate: 1200000 }, // ~853x480
+	{ scaleResolutionDownBy: 1, maxBitrate: 2200000 } // 1280x720
+];
+const SCREEN_ENCODINGS = [
+	{ scaleResolutionDownBy: 4, maxBitrate: 500000 }, // 1080p -> ~480x270
+	{ scaleResolutionDownBy: 3, maxBitrate: 1000000 }, // ~640x360
+	{ scaleResolutionDownBy: 2, maxBitrate: 3000000 }, // ~960x540 (4K -> 1080p)
+	{ scaleResolutionDownBy: 1.5, maxBitrate: 6000000 }, // ~1280x720 (WQHD -> ~1707x960)
+	{ scaleResolutionDownBy: 1, maxBitrate: 15000000 } // native (1080p / WQHD / 4K / 5K)
+];
+
+/**
+ * Produce a video track with a simulcast ladder, degrading gracefully:
+ * 1. full (fine) ladder → 2. every-other layer (standard 3-layer fallback for
+ *    browsers that still cap simulcast at 3 streams) → 3. single layer.
+ * Safari cannot scale spatial layers at all → straight to single layer.
+ */
+async function produceVideoWithSimulcast(sendTransport, track, fullLadder, codecOptions, appData) {
+	if (isSafariBrowser()) {
+		return sendTransport.produce({ track, codecOptions, appData });
+	}
+	const fallbackLadder = fullLadder.filter((_, i) => i % 2 === 0); // [4,2,1] = standard 3-layer ladder
+	for (const ladder of [fullLadder, fallbackLadder]) {
+		try {
+			return await sendTransport.produce({ track, encodings: ladder, codecOptions, appData });
+		} catch (e) {
+			logMsWarn("Simulcast produce failed, trying fewer layers:", e?.message || e);
+		}
+	}
+	return sendTransport.produce({ track, codecOptions, appData });
+}
+
 async function produceDemoWebcam(sendTransport, track) {
 	if (!track || !sendTransport) return null;
 	if (track.readyState !== "live") {
 		logMsWarn("produceDemoWebcam skipped: track not live:", track.readyState);
 		return null;
 	}
-	return sendTransport.produce({
-		track,
-		codecOptions: { videoGoogleStartBitrate: 1000 },
-		appData: { source: "video" }
-	});
+	/* Fine simulcast ladder (5 layers, ~1.4–1.5x steps): 320x180 / 427x240 / 640x360 /
+	 * 853x480 / 1280x720 for a 720p source. Works with the effect pipeline too
+	 * (MediaStreamTrackGenerator): spatial scaling happens in the encoder. */
+	return produceVideoWithSimulcast(sendTransport, track, WEBCAM_ENCODINGS, { videoGoogleStartBitrate: 1000 }, { source: "video" });
 }
 
 /** Screen share: demo uses source "screensharing" for streamId mapping */
@@ -387,32 +426,10 @@ async function produceDemoScreenTrack(sendTransport, track) {
 		appData: { source: "screensharing" }
 	};
 	if (track.kind === "video") {
-		/* Simulcast with 3 spatial layers (mediasoup-demo values): the receiver can
-		 * pick the highest layer the link affords and adapt via score events
-		 * (see handleConsumerScore). For a 1080p source: ~480x270 / ~960x540 / 1920x1080.
-		 * Safari cannot scale spatial layers (no scaleResolutionDownBy) → single native
-		 * layer there; the try/catch below is a safety net for other browsers that
-		 * reject the encodings. */
-		const encodings = isSafariBrowser()
-			? undefined
-			: [
-					{ scaleResolutionDownBy: 4, maxBitrate: 2500000 },
-					{ scaleResolutionDownBy: 2, maxBitrate: 5000000 },
-					{ scaleResolutionDownBy: 1, maxBitrate: 10000000 }
-				];
-		try {
-			return await sendTransport.produce({
-				...base,
-				...(encodings ? { encodings } : {}),
-				codecOptions: { videoGoogleStartBitrate: 1000 }
-			});
-		} catch (e) {
-			logMsWarn("Simulcast screen produce failed, retrying without encodings:", e?.message || e);
-			return sendTransport.produce({
-				...base,
-				codecOptions: { videoGoogleStartBitrate: 1000 }
-			});
-		}
+		/* Fine simulcast ladder (5 layers): ~480x270 / 640x360 / 960x540 / 1280x720 /
+		 * native for a 1080p source. The receiver adapts via score events
+		 * (see handleConsumerScore). */
+		return produceVideoWithSimulcast(sendTransport, track, SCREEN_ENCODINGS, { videoGoogleStartBitrate: 1000 }, base.appData);
 	}
 	return sendTransport.produce({
 		...base,
@@ -648,18 +665,18 @@ export async function setupRoomParticipant(peerObj, nick, localStream, callbacks
 	const fileHandler = dispatch ? createFileDataHandler(dispatch, roomId, password) : null;
 	let membersRef = [];
 
-	/* ---- Screen-share quality: simulcast layer adaptation + frame-drop telemetry ---- */
+	/* ---- Video quality (screen share + camera): simulcast layer adaptation + frame-drop telemetry ---- */
 	const consumerLayerTargets = new Map(); // consumerId -> { spatialLayer, temporalLayer }
 	const consumerStatsPrev = new Map(); // consumerId -> last inbound-rtp frame counters
 	let lastLayerChangeTs = 0;
-	let shareTelemetryTimer = null;
+	let consumerTelemetryTimer = null;
 	const LAYER_CHANGE_COOLDOWN_MS = 5000;
-	const SHARE_TELEMETRY_INTERVAL_MS = 5000;
-	const MAX_SPATIAL_LAYER = 2;
+	const CONSUMER_TELEMETRY_INTERVAL_MS = 5000;
+	const MAX_SPATIAL_LAYER = 4; // 5 simulcast layers (fine ladder), spatial 0..4
 	const MAX_TEMPORAL_LAYER = 2;
 
 	/**
-	 * Score-based simulcast layer adaptation for screen-share consumers.
+	 * Score-based simulcast layer adaptation for video consumers (screen share + camera).
 	 * The server forwards SFU consumer scores via the "consumerScore" notification;
 	 * consumer.setScore() feeds the client-side "score" event this handler listens to.
 	 * Scores are 0–10: < 3 means heavy loss/freezing on that layer → step down;
@@ -698,7 +715,8 @@ export async function setupRoomParticipant(peerObj, nick, localStream, callbacks
 
 		lastLayerChangeTs = now;
 		consumerLayerTargets.set(consumer.id, { spatialLayer, temporalLayer });
-		mediaDebugLog("share:adapt:layers", {
+		const srcInfo = consumers.get(consumer.id);
+		mediaDebugLog(srcInfo && isScreenShareSource(srcInfo.source) ? "share:adapt:layers" : "cam:adapt:layers", {
 			consumerId: consumer.id.slice(-6),
 			spatialLayer,
 			temporalLayer,
@@ -707,17 +725,27 @@ export async function setupRoomParticipant(peerObj, nick, localStream, callbacks
 		});
 		try {
 			consumer.setPreferredLayers({ spatialLayer, temporalLayer });
+			/* Keep the target map truthful: mediasoup clamps to the producer's actual
+			 * layer count (e.g. 3-layer fallback ladder or single-layer Safari source). */
+			const actual = consumer.preferredLayers;
+			if (actual) {
+				consumerLayerTargets.set(consumer.id, {
+					spatialLayer: actual.spatialLayer,
+					temporalLayer: actual.temporalLayer
+				});
+			}
 		} catch (e) {
 			logMsWarn("setPreferredLayers failed:", e?.message || e);
 		}
 	}
 
-	/** Frame-drop / freeze telemetry for screen-share consumers (debug only). */
-	async function pollShareConsumerStats() {
+	/** Frame-drop / freeze telemetry for video consumers (screen share + camera, debug only). */
+	async function pollConsumerFrameStats() {
 		for (const [consumerId, info] of consumers.entries()) {
 			const { consumer } = info;
 			if (consumer.closed || consumer.kind !== "video") continue;
-			if (!isScreenShareSource(info.source)) continue;
+			const isShare = isScreenShareSource(info.source);
+			if (!isShare && !isWebcamVideoSource(info.source)) continue;
 			try {
 				const stats = await consumer.getStats();
 				let framesDecoded = 0;
@@ -735,26 +763,27 @@ export async function setupRoomParticipant(peerObj, nick, localStream, callbacks
 				const dDecoded = framesDecoded - prev.framesDecoded;
 				const dDropped = framesDropped - prev.framesDropped;
 				const dropRatio = dDecoded + dDropped > 0 ? dDropped / (dDecoded + dDropped) : 0;
-				mediaDebugLog("share:telemetry", {
+				mediaDebugLog(isShare ? "share:telemetry" : "cam:telemetry", {
 					consumerId: consumerId.slice(-6),
 					peerId: String(info.peerId ?? "").slice(0, 6),
+					source: info.source,
 					framesPerSecond,
 					dropRatio: Math.round(dropRatio * 1000) / 1000,
-					droppedPerSec: +(dDropped / (SHARE_TELEMETRY_INTERVAL_MS / 1000)).toFixed(1),
-					decodedPerSec: Math.round(dDecoded / (SHARE_TELEMETRY_INTERVAL_MS / 1000))
+					droppedPerSec: +(dDropped / (CONSUMER_TELEMETRY_INTERVAL_MS / 1000)).toFixed(1),
+					decodedPerSec: Math.round(dDecoded / (CONSUMER_TELEMETRY_INTERVAL_MS / 1000))
 				});
 			} catch (e) {
-				logMsWarn("share telemetry getStats failed:", e?.message || e);
+				logMsWarn("consumer telemetry getStats failed:", e?.message || e);
 			}
 		}
 	}
 
-	function startShareTelemetry() {
-		if (shareTelemetryTimer != null) return;
-		shareTelemetryTimer = setInterval(() => {
+	function startConsumerTelemetry() {
+		if (consumerTelemetryTimer != null) return;
+		consumerTelemetryTimer = setInterval(() => {
 			if (!mediaDebugEnabled()) return;
-			void pollShareConsumerStats();
-		}, SHARE_TELEMETRY_INTERVAL_MS);
+			void pollConsumerFrameStats();
+		}, CONSUMER_TELEMETRY_INTERVAL_MS);
 	}
 
 	function getMemberNick(pid) {
@@ -931,9 +960,9 @@ export async function setupRoomParticipant(peerObj, nick, localStream, callbacks
 
 				consumers.set(consumer.id, { consumer, peerId: remotePeerId, source: src });
 
-				/* Screen-share simulcast: react to SFU scores (forwarded by the server as
-				 * "consumerScore") and adapt spatial/temporal layers to the link quality. */
-				if (isScreenShareSource(src) && consumer.type === "simulcast") {
+				/* Simulcast consumers (screen share + camera): react to SFU scores (forwarded
+				 * by the server as "consumerScore") and adapt spatial/temporal layers. */
+				if ((isScreenShareSource(src) || isWebcamVideoSource(src)) && consumer.type === "simulcast") {
 					consumer.on("score", (score) => handleConsumerScore(consumer, score));
 				}
 
@@ -1020,7 +1049,7 @@ export async function setupRoomParticipant(peerObj, nick, localStream, callbacks
 		if (method === "consumerLayersChanged" && data?.consumerId) {
 			const info = consumers.get(String(data.consumerId));
 			if (info) {
-				mediaDebugLog("share:consumer-layers", {
+				mediaDebugLog(isScreenShareSource(info.source) ? "share:consumer-layers" : "cam:consumer-layers", {
 					consumerId: String(data.consumerId).slice(-6),
 					source: info.source,
 					layers: data.layers ?? null
@@ -1274,7 +1303,7 @@ export async function setupRoomParticipant(peerObj, nick, localStream, callbacks
 
 		await produceLocalTracks();
 		scheduleProduceRetry();
-		startShareTelemetry();
+		startConsumerTelemetry();
 	} catch (setupErr) {
 		try {
 			sendTransport?.close();
@@ -1547,9 +1576,9 @@ export async function setupRoomParticipant(peerObj, nick, localStream, callbacks
 
 	function close() {
 		clearProduceRetryTimer();
-		if (shareTelemetryTimer != null) {
-			clearInterval(shareTelemetryTimer);
-			shareTelemetryTimer = null;
+		if (consumerTelemetryTimer != null) {
+			clearInterval(consumerTelemetryTimer);
+			consumerTelemetryTimer = null;
 		}
 		consumerLayerTargets.clear();
 		consumerStatsPrev.clear();
