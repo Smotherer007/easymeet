@@ -56,5 +56,11 @@
 		"concurrently": "^9.2.1",
 		"prettier": "^3.8.1",
 		"prettier-plugin-sh": "^0.18.0"
+	},
+	"allowScripts": {
+		"mediasoup@3.19.18": true,
+		"bufferutil@4.1.0": true,
+		"utf-8-validate@5.0.10": true,
+		"es5-ext": false
 	}
 }
