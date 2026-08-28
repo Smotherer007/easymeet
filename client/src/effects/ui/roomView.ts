@@ -1865,6 +1865,8 @@ async function handleBackgroundEffectChange(app, effect, applyEffectToCallStream
 	 * wrongly disabled while camera is "on"; then only settings preview would update. */
 	const hasLiveCallVideo = selectors.selectIsVideoEnabled(s) && videoTrack && videoTrack.readyState !== "ended";
 	patchState({ backgroundEffect: next });
+	/* Effekt merken, damit er beim nächsten Join von Anfang an wieder angewendet wird. */
+	writeBackgroundEffectsSettings({ backgroundEffectId: next });
 	if (!hasLiveCallVideo && s._previewStream) {
 		mediaDebugLog("ui:bg-effect:path", { branch: "preview-only", hasLiveCallVideo, firstVideo: mediaDebugTrackInfo(videoTrack) });
 		await applyEffectToPreviewOnly(app, s, next, applyEffectToPreview);

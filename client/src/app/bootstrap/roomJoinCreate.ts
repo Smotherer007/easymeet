@@ -8,7 +8,25 @@ import { fetchCreateRoom, fetchJoinRoom } from "../../effects/network/api.js";
 import * as peer from "../../effects/network/mediasoupClient.js";
 import { setJoinError } from "../../ui/screens/index.js";
 import { writeNickname } from "../../effects/storage/deviceStorage.js";
+import { readBackgroundEffectsSettings } from "../../effects/storage/backgroundEffectsSettingsStorage.js";
 import * as selectors from "../../domain/selectors/index.js";
+
+/**
+ * Gemerkten Kamera-Effekt wiederherstellen (z. B. nach Leave + Rejoin in derselben Sitzung).
+ * Beim frischen Seitenaufbau hat das bereits initFromStorage erledigt — hier greift der Fall,
+ * dass der Session-Reset backgroundEffect auf "none" gesetzt hat, der Nutzer aber zuvor
+ * einen Effekt ausgewählt hatte.
+ * @param {import('../../store/index.js').dispatch} dispatch
+ * @param {import('../../store/index.js').getState} getState
+ */
+function restorePersistedBackgroundEffect(dispatch, getState) {
+	const current = selectors.selectBackgroundEffect(getState()) || "none";
+	if (current !== "none") return;
+	const persisted = readBackgroundEffectsSettings().backgroundEffectId;
+	if (persisted && persisted !== "none") {
+		dispatch({ type: "media/backgroundEffectSet", payload: { effect: persisted } });
+	}
+}
 
 /**
  * @param {HTMLElement} appEl
@@ -48,6 +66,7 @@ async function doCreateRoomApiAndSetup(appEl, ctx, nick, pwd, code) {
 	dispatch({ type: "peer/connectionEstablished", payload: { peer: p } });
 	dispatch({ type: "room/created", payload: { roomId: joinedRoomId, password: pwd, nickname: nick, peerId: id, role } });
 	if (nick) writeNickname(nick);
+	restorePersistedBackgroundEffect(dispatch, getState);
 	let participant;
 	try {
 		participant = await peer.setupRoomParticipant(p, nick, () => selectors.selectLocalStream(getState()), {
@@ -96,6 +115,7 @@ async function doJoinRoomApiAndSetup(appEl, ctx, roomId, password, nickname) {
 		payload: { roomId: actualRoomId, password: pwd, nickname: (nickname ?? "").trim(), peerId: id, role }
 	});
 	dispatch({ type: "peer/connectionEstablished", payload: { peer: p } });
+	restorePersistedBackgroundEffect(dispatch, getState);
 	const nick = selectors.selectNickname(getState());
 	if (nick) writeNickname(nick);
 	dispatch({ type: "peer/connectionEstablished", payload: { roomId: actualRoomId } });

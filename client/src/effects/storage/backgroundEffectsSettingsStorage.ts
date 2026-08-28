@@ -8,7 +8,9 @@ export const DEFAULT_BACKGROUND_EFFECTS_SETTINGS = {
 	smoothstepMax: 0.9,
 	smoothBorders: 0,
 	backgroundBlur: 0,
-	backgroundBlurRadius: 30
+	backgroundBlurRadius: 30,
+	/** Zuletzt gewählter Kamera-Effekt ("none" | "blur" | Hintergrundbild-Id) — wird beim Join wieder angewendet. */
+	backgroundEffectId: "none"
 };
 
 let cached = null;
@@ -36,6 +38,10 @@ function sanitizePartial(o) {
 	if (o.smoothBorders !== undefined) out.smoothBorders = clampFloat(o.smoothBorders, 0, 12, 1);
 	if (o.backgroundBlur !== undefined) out.backgroundBlur = clampFloat(o.backgroundBlur, 0, 1, 2);
 	if (o.backgroundBlurRadius !== undefined) out.backgroundBlurRadius = clampInt(o.backgroundBlurRadius, 0, 60);
+	if (o.backgroundEffectId !== undefined) {
+		const id = typeof o.backgroundEffectId === "string" ? o.backgroundEffectId.trim().slice(0, 200) : "";
+		out.backgroundEffectId = id || "none";
+	}
 	/* Backward compatibility for already stored previous keys */
 	if (o.maskTemporalMix !== undefined && out.smoothingFactor === undefined) {
 		out.smoothingFactor = clampFloat(o.maskTemporalMix, 0.05, 0.95, 2);

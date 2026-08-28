@@ -18,10 +18,15 @@ export function initFromStorage(dispatch, readDeviceIds, readPeerVolumes) {
 		type: "storage/audioSettingsRestored",
 		payload: { audioSettings: hydrateAudioSettingsFromStorage() }
 	});
+	/* Gemerkten Kamera-Effekt beim Start wiederherstellen (wie Audio-/Geräteeinstellungen). */
+	const bgSettings = hydrateBackgroundEffectsSettingsFromStorage();
 	dispatch({
 		type: "storage/backgroundEffectsSettingsRestored",
-		payload: { backgroundEffectsSettings: hydrateBackgroundEffectsSettingsFromStorage() }
+		payload: { backgroundEffectsSettings: bgSettings }
 	});
+	if (bgSettings.backgroundEffectId && bgSettings.backgroundEffectId !== "none") {
+		dispatch({ type: "media/backgroundEffectSet", payload: { effect: bgSettings.backgroundEffectId } });
+	}
 	const volumes = readPeerVolumes();
 	if (Object.keys(volumes).length > 0) {
 		dispatch({ type: "peer/volumesMerged", payload: { volumes } });
