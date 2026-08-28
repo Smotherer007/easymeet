@@ -6858,6 +6858,16 @@
       "sourceFile": "server/tests/wsJoinTokens.test.ts",
       "centrality": 0,
       "community": 774
+    },
+    {
+      "id": "client_src_app_bootstrap_roomJoinCreate_restorePersistedBackgroundEffect",
+      "label": "restorePersistedBackgroundEffect",
+      "type": "function",
+      "sourceFile": "client/src/app/bootstrap/roomJoinCreate.ts",
+      "sourceLocation": "L21",
+      "description": "* Gemerkten Kamera-Effekt wiederherstellen (z. B. nach Leave + Rejoin in derselben Sitzung). Beim frischen Seitenaufbau hat das bereits initFromStorage erledigt — hier greift der Fall, dass der Sessio",
+      "centrality": 0.001,
+      "community": 34
     }
   ],
   "edges": [
@@ -6923,13 +6933,6 @@
       "confidenceScore": 0.85
     },
     {
-      "source": "client_src_app_bootstrap_cleanup_runDeviceChangeOrBenignResume",
-      "target": "client_src_app_bootstrap_cleanup_needsFullDeviceGraphRecoveryOnResume",
-      "relation": "calls",
-      "confidence": "INFERRED",
-      "confidenceScore": 0.85
-    },
-    {
       "source": "client_src_app_bootstrap_cleanup_file",
       "target": "client_src_app_bootstrap_cleanup_setupAudioTrackEndedHandler",
       "relation": "contains",
@@ -6951,13 +6954,6 @@
     {
       "source": "client_src_app_bootstrap_cleanup_setupRoomViewDeviceHandlers",
       "target": "client_src_app_bootstrap_cleanup_clearRoomViewDeviceRecoveryUi",
-      "relation": "calls",
-      "confidence": "INFERRED",
-      "confidenceScore": 0.85
-    },
-    {
-      "source": "client_src_app_bootstrap_cleanup_setupRoomViewDeviceHandlers",
-      "target": "client_src_app_bootstrap_cleanup_setupAudioTrackEndedHandler",
       "relation": "calls",
       "confidence": "INFERRED",
       "confidenceScore": 0.85
@@ -7213,20 +7209,6 @@
     {
       "source": "client_src_app_bootstrap_screens_renderLandingScreen",
       "target": "client_src_app_bootstrap_screens_renderShell",
-      "relation": "calls",
-      "confidence": "INFERRED",
-      "confidenceScore": 0.85
-    },
-    {
-      "source": "client_src_app_bootstrap_screens_renderLandingScreen",
-      "target": "client_src_app_bootstrap_screens_renderLangSwitcher",
-      "relation": "calls",
-      "confidence": "INFERRED",
-      "confidenceScore": 0.85
-    },
-    {
-      "source": "client_src_app_bootstrap_screens_renderLandingScreen",
-      "target": "client_src_app_bootstrap_screens_renderLangSwitcher",
       "relation": "calls",
       "confidence": "INFERRED",
       "confidenceScore": 0.85
@@ -7590,13 +7572,6 @@
       "target": "client_src_audio_playJoinInfoTone",
       "relation": "contains",
       "confidence": "EXTRACTED"
-    },
-    {
-      "source": "client_src_audio_playJoinInfoTone",
-      "target": "client_src_audio_playTone",
-      "relation": "calls",
-      "confidence": "INFERRED",
-      "confidenceScore": 0.85
     },
     {
       "source": "client_src_audio_playJoinInfoTone",
@@ -8388,13 +8363,6 @@
       "confidenceScore": 0.85
     },
     {
-      "source": "client_src_effects_audio_micNoiseGate_setMicSelfMonitor",
-      "target": "client_src_effects_audio_micNoiseGate_updateMonitorConnection",
-      "relation": "calls",
-      "confidence": "INFERRED",
-      "confidenceScore": 0.85
-    },
-    {
       "source": "client_src_effects_audio_micNoiseGate_file",
       "target": "client_src_effects_audio_micNoiseGate_disconnectSource",
       "relation": "contains",
@@ -8504,13 +8472,6 @@
       "confidenceScore": 0.85
     },
     {
-      "source": "client_src_effects_audio_micNoiseGate_runMeterLoop",
-      "target": "client_src_effects_audio_micNoiseGate_stopLoop",
-      "relation": "calls",
-      "confidence": "INFERRED",
-      "confidenceScore": 0.85
-    },
-    {
       "source": "client_src_effects_audio_micNoiseGate_file",
       "target": "client_src_effects_audio_micNoiseGate_ensureMeter",
       "relation": "contains",
@@ -8598,28 +8559,7 @@
     },
     {
       "source": "client_src_effects_audio_micNoiseGate_wireInput",
-      "target": "client_src_effects_audio_micNoiseGate_disconnectSource",
-      "relation": "calls",
-      "confidence": "INFERRED",
-      "confidenceScore": 0.85
-    },
-    {
-      "source": "client_src_effects_audio_micNoiseGate_wireInput",
-      "target": "client_src_effects_audio_micNoiseGate_stopReplacedRawTrack",
-      "relation": "calls",
-      "confidence": "INFERRED",
-      "confidenceScore": 0.85
-    },
-    {
-      "source": "client_src_effects_audio_micNoiseGate_wireInput",
       "target": "client_src_effects_audio_micNoiseGate_updateMonitorConnection",
-      "relation": "calls",
-      "confidence": "INFERRED",
-      "confidenceScore": 0.85
-    },
-    {
-      "source": "client_src_effects_audio_micNoiseGate_wireInput",
-      "target": "client_src_effects_audio_micNoiseGate_stopLoop",
       "relation": "calls",
       "confidence": "INFERRED",
       "confidenceScore": 0.85
@@ -8649,20 +8589,6 @@
       "target": "client_src_effects_audio_micNoiseGate_prepareRoomLocalStream",
       "relation": "contains",
       "confidence": "EXTRACTED"
-    },
-    {
-      "source": "client_src_effects_audio_micNoiseGate_prepareRoomLocalStream",
-      "target": "client_src_effects_audio_micNoiseGate_wireInput",
-      "relation": "calls",
-      "confidence": "INFERRED",
-      "confidenceScore": 0.85
-    },
-    {
-      "source": "client_src_effects_audio_micNoiseGate_prepareRoomLocalStream",
-      "target": "client_src_effects_audio_micNoiseGate_wireInput",
-      "relation": "calls",
-      "confidence": "INFERRED",
-      "confidenceScore": 0.85
     },
     {
       "source": "client_src_effects_audio_micNoiseGate_prepareRoomLocalStream",
@@ -8788,13 +8714,6 @@
       "target": "client_src_effects_backgroundEffects_getImageSegmenter",
       "relation": "contains",
       "confidence": "EXTRACTED"
-    },
-    {
-      "source": "client_src_effects_backgroundEffects_getImageSegmenter",
-      "target": "client_src_effects_backgroundEffects_createSegmenterOptions",
-      "relation": "calls",
-      "confidence": "INFERRED",
-      "confidenceScore": 0.85
     },
     {
       "source": "client_src_effects_backgroundEffects_getImageSegmenter",
@@ -9006,73 +8925,10 @@
       "confidenceScore": 0.85
     },
     {
-      "source": "client_src_effects_media_devices_buildMergedStreamAfterEffectOff",
-      "target": "client_src_effects_media_devices_firstLiveCameraLikeVideoTrack",
-      "relation": "calls",
-      "confidence": "INFERRED",
-      "confidenceScore": 0.85
-    },
-    {
       "source": "client_src_effects_media_devices_file",
       "target": "client_src_effects_media_devices_applyEffectToCallStreamInternal",
       "relation": "contains",
       "confidence": "EXTRACTED"
-    },
-    {
-      "source": "client_src_effects_media_devices_applyEffectToCallStreamInternal",
-      "target": "client_src_effects_media_devices_ensureCameraTrackWhenVideoEnabled",
-      "relation": "calls",
-      "confidence": "INFERRED",
-      "confidenceScore": 0.85
-    },
-    {
-      "source": "client_src_effects_media_devices_applyEffectToCallStreamInternal",
-      "target": "client_src_effects_media_devices_ensureCameraTrackWhenVideoEnabled",
-      "relation": "calls",
-      "confidence": "INFERRED",
-      "confidenceScore": 0.85
-    },
-    {
-      "source": "client_src_effects_media_devices_applyEffectToCallStreamInternal",
-      "target": "client_src_effects_media_devices_ensureCameraTrackWhenVideoEnabled",
-      "relation": "calls",
-      "confidence": "INFERRED",
-      "confidenceScore": 0.85
-    },
-    {
-      "source": "client_src_effects_media_devices_applyEffectToCallStreamInternal",
-      "target": "client_src_effects_media_devices_buildMergedStreamAfterEffectOff",
-      "relation": "calls",
-      "confidence": "INFERRED",
-      "confidenceScore": 0.85
-    },
-    {
-      "source": "client_src_effects_media_devices_applyEffectToCallStreamInternal",
-      "target": "client_src_effects_media_devices_buildMergedStreamAfterEffectOff",
-      "relation": "calls",
-      "confidence": "INFERRED",
-      "confidenceScore": 0.85
-    },
-    {
-      "source": "client_src_effects_media_devices_applyEffectToCallStreamInternal",
-      "target": "client_src_effects_media_devices_ensureCameraTrackWhenVideoEnabled",
-      "relation": "calls",
-      "confidence": "INFERRED",
-      "confidenceScore": 0.85
-    },
-    {
-      "source": "client_src_effects_media_devices_applyEffectToCallStreamInternal",
-      "target": "client_src_effects_media_devices_buildMergedStreamAfterEffectOff",
-      "relation": "calls",
-      "confidence": "INFERRED",
-      "confidenceScore": 0.85
-    },
-    {
-      "source": "client_src_effects_media_devices_applyEffectToCallStreamInternal",
-      "target": "client_src_effects_media_devices_buildMergedStreamAfterEffectOff",
-      "relation": "calls",
-      "confidence": "INFERRED",
-      "confidenceScore": 0.85
     },
     {
       "source": "client_src_effects_media_devices_applyEffectToCallStreamInternal",
@@ -9104,20 +8960,6 @@
     {
       "source": "client_src_effects_media_devices_reacquireAudioStreamIfNeeded",
       "target": "client_src_effects_media_devices_localStreamHasLiveVideoTrack",
-      "relation": "calls",
-      "confidence": "INFERRED",
-      "confidenceScore": 0.85
-    },
-    {
-      "source": "client_src_effects_media_devices_reacquireAudioStreamIfNeeded",
-      "target": "client_src_effects_media_devices_reapplyBackgroundEffectIfActive",
-      "relation": "calls",
-      "confidence": "INFERRED",
-      "confidenceScore": 0.85
-    },
-    {
-      "source": "client_src_effects_media_devices_reacquireAudioStreamIfNeeded",
-      "target": "client_src_effects_media_devices_reapplyBackgroundEffectIfActive",
       "relation": "calls",
       "confidence": "INFERRED",
       "confidenceScore": 0.85
@@ -9203,13 +9045,6 @@
     {
       "source": "client_src_effects_media_tiles_attachRemoteAudio",
       "target": "client_src_effects_media_tiles_updateVideoGalleryColumns",
-      "relation": "calls",
-      "confidence": "INFERRED",
-      "confidenceScore": 0.85
-    },
-    {
-      "source": "client_src_effects_media_tiles_attachRemoteAudio",
-      "target": "client_src_effects_media_tiles_setupFreeLayoutTile",
       "relation": "calls",
       "confidence": "INFERRED",
       "confidenceScore": 0.85
@@ -9816,69 +9651,6 @@
     },
     {
       "source": "client_src_effects_storage_backgroundEffectsSettingsStorage_sanitizePartial",
-      "target": "client_src_effects_storage_backgroundEffectsSettingsStorage_clampFloat",
-      "relation": "calls",
-      "confidence": "INFERRED",
-      "confidenceScore": 0.85
-    },
-    {
-      "source": "client_src_effects_storage_backgroundEffectsSettingsStorage_sanitizePartial",
-      "target": "client_src_effects_storage_backgroundEffectsSettingsStorage_clampFloat",
-      "relation": "calls",
-      "confidence": "INFERRED",
-      "confidenceScore": 0.85
-    },
-    {
-      "source": "client_src_effects_storage_backgroundEffectsSettingsStorage_sanitizePartial",
-      "target": "client_src_effects_storage_backgroundEffectsSettingsStorage_clampFloat",
-      "relation": "calls",
-      "confidence": "INFERRED",
-      "confidenceScore": 0.85
-    },
-    {
-      "source": "client_src_effects_storage_backgroundEffectsSettingsStorage_sanitizePartial",
-      "target": "client_src_effects_storage_backgroundEffectsSettingsStorage_clampFloat",
-      "relation": "calls",
-      "confidence": "INFERRED",
-      "confidenceScore": 0.85
-    },
-    {
-      "source": "client_src_effects_storage_backgroundEffectsSettingsStorage_sanitizePartial",
-      "target": "client_src_effects_storage_backgroundEffectsSettingsStorage_clampInt",
-      "relation": "calls",
-      "confidence": "INFERRED",
-      "confidenceScore": 0.85
-    },
-    {
-      "source": "client_src_effects_storage_backgroundEffectsSettingsStorage_sanitizePartial",
-      "target": "client_src_effects_storage_backgroundEffectsSettingsStorage_clampFloat",
-      "relation": "calls",
-      "confidence": "INFERRED",
-      "confidenceScore": 0.85
-    },
-    {
-      "source": "client_src_effects_storage_backgroundEffectsSettingsStorage_sanitizePartial",
-      "target": "client_src_effects_storage_backgroundEffectsSettingsStorage_clampFloat",
-      "relation": "calls",
-      "confidence": "INFERRED",
-      "confidenceScore": 0.85
-    },
-    {
-      "source": "client_src_effects_storage_backgroundEffectsSettingsStorage_sanitizePartial",
-      "target": "client_src_effects_storage_backgroundEffectsSettingsStorage_clampInt",
-      "relation": "calls",
-      "confidence": "INFERRED",
-      "confidenceScore": 0.85
-    },
-    {
-      "source": "client_src_effects_storage_backgroundEffectsSettingsStorage_sanitizePartial",
-      "target": "client_src_effects_storage_backgroundEffectsSettingsStorage_clampFloat",
-      "relation": "calls",
-      "confidence": "INFERRED",
-      "confidenceScore": 0.85
-    },
-    {
-      "source": "client_src_effects_storage_backgroundEffectsSettingsStorage_sanitizePartial",
       "target": "client_src_effects_storage_backgroundEffectsSettingsStorage_clampInt",
       "relation": "calls",
       "confidence": "INFERRED",
@@ -9961,13 +9733,6 @@
       "target": "client_src_effects_storage_clientIdentity_getClientId",
       "relation": "contains",
       "confidence": "EXTRACTED"
-    },
-    {
-      "source": "client_src_effects_storage_clientIdentity_getClientId",
-      "target": "client_src_effects_storage_clientIdentity_makeId",
-      "relation": "calls",
-      "confidence": "INFERRED",
-      "confidenceScore": 0.85
     },
     {
       "source": "client_src_effects_storage_clientIdentity_getClientId",
@@ -10112,13 +9877,6 @@
       "target": "client_src_effects_ui_reactionEffects_runAnimation",
       "relation": "contains",
       "confidence": "EXTRACTED"
-    },
-    {
-      "source": "client_src_effects_ui_reactionEffects_runAnimation",
-      "target": "client_src_effects_ui_reactionEffects_fitCanvas",
-      "relation": "calls",
-      "confidence": "INFERRED",
-      "confidenceScore": 0.85
     },
     {
       "source": "client_src_effects_ui_reactionEffects_runAnimation",
@@ -10555,245 +10313,7 @@
     },
     {
       "source": "client_src_protocol_validate_sanitizeEasymeetPayload",
-      "target": "client_src_protocol_validate_shortStr",
-      "relation": "calls",
-      "confidence": "INFERRED",
-      "confidenceScore": 0.85
-    },
-    {
-      "source": "client_src_protocol_validate_sanitizeEasymeetPayload",
-      "target": "client_src_protocol_validate_shortStr",
-      "relation": "calls",
-      "confidence": "INFERRED",
-      "confidenceScore": 0.85
-    },
-    {
-      "source": "client_src_protocol_validate_sanitizeEasymeetPayload",
-      "target": "client_src_protocol_validate_shortStr",
-      "relation": "calls",
-      "confidence": "INFERRED",
-      "confidenceScore": 0.85
-    },
-    {
-      "source": "client_src_protocol_validate_sanitizeEasymeetPayload",
-      "target": "client_src_protocol_validate_num",
-      "relation": "calls",
-      "confidence": "INFERRED",
-      "confidenceScore": 0.85
-    },
-    {
-      "source": "client_src_protocol_validate_sanitizeEasymeetPayload",
-      "target": "client_src_protocol_validate_shortStr",
-      "relation": "calls",
-      "confidence": "INFERRED",
-      "confidenceScore": 0.85
-    },
-    {
-      "source": "client_src_protocol_validate_sanitizeEasymeetPayload",
-      "target": "client_src_protocol_validate_shortStr",
-      "relation": "calls",
-      "confidence": "INFERRED",
-      "confidenceScore": 0.85
-    },
-    {
-      "source": "client_src_protocol_validate_sanitizeEasymeetPayload",
-      "target": "client_src_protocol_validate_shortStr",
-      "relation": "calls",
-      "confidence": "INFERRED",
-      "confidenceScore": 0.85
-    },
-    {
-      "source": "client_src_protocol_validate_sanitizeEasymeetPayload",
-      "target": "client_src_protocol_validate_shortStr",
-      "relation": "calls",
-      "confidence": "INFERRED",
-      "confidenceScore": 0.85
-    },
-    {
-      "source": "client_src_protocol_validate_sanitizeEasymeetPayload",
-      "target": "client_src_protocol_validate_num",
-      "relation": "calls",
-      "confidence": "INFERRED",
-      "confidenceScore": 0.85
-    },
-    {
-      "source": "client_src_protocol_validate_sanitizeEasymeetPayload",
       "target": "client_src_protocol_validate_boolish",
-      "relation": "calls",
-      "confidence": "INFERRED",
-      "confidenceScore": 0.85
-    },
-    {
-      "source": "client_src_protocol_validate_sanitizeEasymeetPayload",
-      "target": "client_src_protocol_validate_shortStr",
-      "relation": "calls",
-      "confidence": "INFERRED",
-      "confidenceScore": 0.85
-    },
-    {
-      "source": "client_src_protocol_validate_sanitizeEasymeetPayload",
-      "target": "client_src_protocol_validate_shortStr",
-      "relation": "calls",
-      "confidence": "INFERRED",
-      "confidenceScore": 0.85
-    },
-    {
-      "source": "client_src_protocol_validate_sanitizeEasymeetPayload",
-      "target": "client_src_protocol_validate_shortStr",
-      "relation": "calls",
-      "confidence": "INFERRED",
-      "confidenceScore": 0.85
-    },
-    {
-      "source": "client_src_protocol_validate_sanitizeEasymeetPayload",
-      "target": "client_src_protocol_validate_shortStr",
-      "relation": "calls",
-      "confidence": "INFERRED",
-      "confidenceScore": 0.85
-    },
-    {
-      "source": "client_src_protocol_validate_sanitizeEasymeetPayload",
-      "target": "client_src_protocol_validate_boolish",
-      "relation": "calls",
-      "confidence": "INFERRED",
-      "confidenceScore": 0.85
-    },
-    {
-      "source": "client_src_protocol_validate_sanitizeEasymeetPayload",
-      "target": "client_src_protocol_validate_shortStr",
-      "relation": "calls",
-      "confidence": "INFERRED",
-      "confidenceScore": 0.85
-    },
-    {
-      "source": "client_src_protocol_validate_sanitizeEasymeetPayload",
-      "target": "client_src_protocol_validate_boolish",
-      "relation": "calls",
-      "confidence": "INFERRED",
-      "confidenceScore": 0.85
-    },
-    {
-      "source": "client_src_protocol_validate_sanitizeEasymeetPayload",
-      "target": "client_src_protocol_validate_boolish",
-      "relation": "calls",
-      "confidence": "INFERRED",
-      "confidenceScore": 0.85
-    },
-    {
-      "source": "client_src_protocol_validate_sanitizeEasymeetPayload",
-      "target": "client_src_protocol_validate_shortStr",
-      "relation": "calls",
-      "confidence": "INFERRED",
-      "confidenceScore": 0.85
-    },
-    {
-      "source": "client_src_protocol_validate_sanitizeEasymeetPayload",
-      "target": "client_src_protocol_validate_shortStr",
-      "relation": "calls",
-      "confidence": "INFERRED",
-      "confidenceScore": 0.85
-    },
-    {
-      "source": "client_src_protocol_validate_sanitizeEasymeetPayload",
-      "target": "client_src_protocol_validate_boolish",
-      "relation": "calls",
-      "confidence": "INFERRED",
-      "confidenceScore": 0.85
-    },
-    {
-      "source": "client_src_protocol_validate_sanitizeEasymeetPayload",
-      "target": "client_src_protocol_validate_shortStr",
-      "relation": "calls",
-      "confidence": "INFERRED",
-      "confidenceScore": 0.85
-    },
-    {
-      "source": "client_src_protocol_validate_sanitizeEasymeetPayload",
-      "target": "client_src_protocol_validate_boolish",
-      "relation": "calls",
-      "confidence": "INFERRED",
-      "confidenceScore": 0.85
-    },
-    {
-      "source": "client_src_protocol_validate_sanitizeEasymeetPayload",
-      "target": "client_src_protocol_validate_shortStr",
-      "relation": "calls",
-      "confidence": "INFERRED",
-      "confidenceScore": 0.85
-    },
-    {
-      "source": "client_src_protocol_validate_sanitizeEasymeetPayload",
-      "target": "client_src_protocol_validate_boolish",
-      "relation": "calls",
-      "confidence": "INFERRED",
-      "confidenceScore": 0.85
-    },
-    {
-      "source": "client_src_protocol_validate_sanitizeEasymeetPayload",
-      "target": "client_src_protocol_validate_shortStr",
-      "relation": "calls",
-      "confidence": "INFERRED",
-      "confidenceScore": 0.85
-    },
-    {
-      "source": "client_src_protocol_validate_sanitizeEasymeetPayload",
-      "target": "client_src_protocol_validate_shortStr",
-      "relation": "calls",
-      "confidence": "INFERRED",
-      "confidenceScore": 0.85
-    },
-    {
-      "source": "client_src_protocol_validate_sanitizeEasymeetPayload",
-      "target": "client_src_protocol_validate_shortStr",
-      "relation": "calls",
-      "confidence": "INFERRED",
-      "confidenceScore": 0.85
-    },
-    {
-      "source": "client_src_protocol_validate_sanitizeEasymeetPayload",
-      "target": "client_src_protocol_validate_shortStr",
-      "relation": "calls",
-      "confidence": "INFERRED",
-      "confidenceScore": 0.85
-    },
-    {
-      "source": "client_src_protocol_validate_sanitizeEasymeetPayload",
-      "target": "client_src_protocol_validate_shortStr",
-      "relation": "calls",
-      "confidence": "INFERRED",
-      "confidenceScore": 0.85
-    },
-    {
-      "source": "client_src_protocol_validate_sanitizeEasymeetPayload",
-      "target": "client_src_protocol_validate_shortStr",
-      "relation": "calls",
-      "confidence": "INFERRED",
-      "confidenceScore": 0.85
-    },
-    {
-      "source": "client_src_protocol_validate_sanitizeEasymeetPayload",
-      "target": "client_src_protocol_validate_shortStr",
-      "relation": "calls",
-      "confidence": "INFERRED",
-      "confidenceScore": 0.85
-    },
-    {
-      "source": "client_src_protocol_validate_sanitizeEasymeetPayload",
-      "target": "client_src_protocol_validate_shortStr",
-      "relation": "calls",
-      "confidence": "INFERRED",
-      "confidenceScore": 0.85
-    },
-    {
-      "source": "client_src_protocol_validate_sanitizeEasymeetPayload",
-      "target": "client_src_protocol_validate_boolish",
-      "relation": "calls",
-      "confidence": "INFERRED",
-      "confidenceScore": 0.85
-    },
-    {
-      "source": "client_src_protocol_validate_sanitizeEasymeetPayload",
-      "target": "client_src_protocol_validate_isTypedObject",
       "relation": "calls",
       "confidence": "INFERRED",
       "confidenceScore": 0.85
@@ -11173,13 +10693,6 @@
       "confidenceScore": 0.85
     },
     {
-      "source": "client_src_ui_screens_landing_attachLandingListeners",
-      "target": "client_src_ui_screens_landing_refreshActiveRoomsPanel",
-      "relation": "calls",
-      "confidence": "INFERRED",
-      "confidenceScore": 0.85
-    },
-    {
       "source": "client_src_ui_utils_draggableRect_file",
       "target": "client_src_ui_utils_draggableRect_draggableRectInlineStyle",
       "relation": "contains",
@@ -11212,27 +10725,6 @@
     {
       "source": "client_src_ui_utils_viewportWindowClamp_clampWindowRect",
       "target": "client_src_ui_utils_viewportWindowClamp_getViewportRect",
-      "relation": "calls",
-      "confidence": "INFERRED",
-      "confidenceScore": 0.85
-    },
-    {
-      "source": "client_src_ui_utils_viewportWindowClamp_clampWindowRect",
-      "target": "client_src_ui_utils_viewportWindowClamp_clampNum",
-      "relation": "calls",
-      "confidence": "INFERRED",
-      "confidenceScore": 0.85
-    },
-    {
-      "source": "client_src_ui_utils_viewportWindowClamp_clampWindowRect",
-      "target": "client_src_ui_utils_viewportWindowClamp_clampNum",
-      "relation": "calls",
-      "confidence": "INFERRED",
-      "confidenceScore": 0.85
-    },
-    {
-      "source": "client_src_ui_utils_viewportWindowClamp_clampWindowRect",
-      "target": "client_src_ui_utils_viewportWindowClamp_clampNum",
       "relation": "calls",
       "confidence": "INFERRED",
       "confidenceScore": 0.85
@@ -11463,13 +10955,6 @@
       "confidenceScore": 0.85
     },
     {
-      "source": "client_src_utils_focusTrap_createFocusTrap",
-      "target": "client_src_utils_focusTrap_listFocusable",
-      "relation": "calls",
-      "confidence": "INFERRED",
-      "confidenceScore": 0.85
-    },
-    {
       "source": "client_src_utils_folder-zip_file",
       "target": "client_src_utils_folder-zip_readDir",
       "relation": "contains",
@@ -11587,13 +11072,6 @@
     {
       "source": "client_src_utils_mediaDebug_mediaDebugWireStreamVideoTracks",
       "target": "client_src_utils_mediaDebug_mediaDebugEnabled",
-      "relation": "calls",
-      "confidence": "INFERRED",
-      "confidenceScore": 0.85
-    },
-    {
-      "source": "client_src_utils_mediaDebug_mediaDebugWireStreamVideoTracks",
-      "target": "client_src_utils_mediaDebug_mediaDebugTrackInfo",
       "relation": "calls",
       "confidence": "INFERRED",
       "confidenceScore": 0.85
@@ -12573,13 +12051,6 @@
       "confidenceScore": 0.85
     },
     {
-      "source": "server_src_authz_getRequestClientId",
-      "target": "server_src_authz_sanitizeClientId",
-      "relation": "calls",
-      "confidence": "INFERRED",
-      "confidenceScore": 0.85
-    },
-    {
       "source": "server_src_createApp_file",
       "target": "server_src_logger_file",
       "relation": "imports",
@@ -12701,13 +12172,6 @@
       "confidenceScore": 0.85
     },
     {
-      "source": "server_src_db_adminDb_toRoomMetaRow",
-      "target": "server_src_db_adminDb_toIsoNow",
-      "relation": "calls",
-      "confidence": "INFERRED",
-      "confidenceScore": 0.85
-    },
-    {
       "source": "server_src_db_adminDb_file",
       "target": "server_src_db_adminDb_createAdminDb",
       "relation": "contains",
@@ -12736,20 +12200,6 @@
     },
     {
       "source": "server_src_db_adminDb_createAdminDb",
-      "target": "server_src_db_adminDb_sanitizeClientId",
-      "relation": "calls",
-      "confidence": "INFERRED",
-      "confidenceScore": 0.85
-    },
-    {
-      "source": "server_src_db_adminDb_createAdminDb",
-      "target": "server_src_db_adminDb_toIsoNow",
-      "relation": "calls",
-      "confidence": "INFERRED",
-      "confidenceScore": 0.85
-    },
-    {
-      "source": "server_src_db_adminDb_createAdminDb",
       "target": "server_src_db_adminDb_toIsoNow",
       "relation": "calls",
       "confidence": "INFERRED",
@@ -12758,13 +12208,6 @@
     {
       "source": "server_src_db_adminDb_createAdminDb",
       "target": "server_src_db_adminDb_toRoomMetaRow",
-      "relation": "calls",
-      "confidence": "INFERRED",
-      "confidenceScore": 0.85
-    },
-    {
-      "source": "server_src_db_adminDb_createAdminDb",
-      "target": "server_src_db_adminDb_toIsoNow",
       "relation": "calls",
       "confidence": "INFERRED",
       "confidenceScore": 0.85
@@ -13290,13 +12733,6 @@
     },
     {
       "source": "server_src_mediasoup_protooSignaling_attachPeerToRoom",
-      "target": "server_src_mediasoup_protooSignaling_broadcastEasymeet",
-      "relation": "calls",
-      "confidence": "INFERRED",
-      "confidenceScore": 0.85
-    },
-    {
-      "source": "server_src_mediasoup_protooSignaling_attachPeerToRoom",
       "target": "server_src_mediasoup_protooSignaling_buildMembersList",
       "relation": "calls",
       "confidence": "INFERRED",
@@ -13345,13 +12781,6 @@
     },
     {
       "source": "server_src_mediasoup_protooSignaling_handleProtooRequest",
-      "target": "server_src_mediasoup_protooSignaling_serializeProtoPeer",
-      "relation": "calls",
-      "confidence": "INFERRED",
-      "confidenceScore": 0.85
-    },
-    {
-      "source": "server_src_mediasoup_protooSignaling_handleProtooRequest",
       "target": "server_src_mediasoup_protooSignaling_getPollsSnapshot",
       "relation": "calls",
       "confidence": "INFERRED",
@@ -13367,13 +12796,6 @@
     {
       "source": "server_src_mediasoup_protooSignaling_handleProtooRequest",
       "target": "server_src_mediasoup_protooSignaling_buildMembersList",
-      "relation": "calls",
-      "confidence": "INFERRED",
-      "confidenceScore": 0.85
-    },
-    {
-      "source": "server_src_mediasoup_protooSignaling_handleProtooRequest",
-      "target": "server_src_mediasoup_protooSignaling_broadcastEasymeet",
       "relation": "calls",
       "confidence": "INFERRED",
       "confidenceScore": 0.85
@@ -13421,70 +12843,7 @@
     },
     {
       "source": "server_src_mediasoup_protooSignaling_handleProtooNotification",
-      "target": "server_src_mediasoup_protooSignaling_broadcastEasymeet",
-      "relation": "calls",
-      "confidence": "INFERRED",
-      "confidenceScore": 0.85
-    },
-    {
-      "source": "server_src_mediasoup_protooSignaling_handleProtooNotification",
-      "target": "server_src_mediasoup_protooSignaling_broadcastEasymeet",
-      "relation": "calls",
-      "confidence": "INFERRED",
-      "confidenceScore": 0.85
-    },
-    {
-      "source": "server_src_mediasoup_protooSignaling_handleProtooNotification",
-      "target": "server_src_mediasoup_protooSignaling_broadcastEasymeet",
-      "relation": "calls",
-      "confidence": "INFERRED",
-      "confidenceScore": 0.85
-    },
-    {
-      "source": "server_src_mediasoup_protooSignaling_handleProtooNotification",
       "target": "server_src_mediasoup_protooSignaling_buildMembersList",
-      "relation": "calls",
-      "confidence": "INFERRED",
-      "confidenceScore": 0.85
-    },
-    {
-      "source": "server_src_mediasoup_protooSignaling_handleProtooNotification",
-      "target": "server_src_mediasoup_protooSignaling_broadcastEasymeet",
-      "relation": "calls",
-      "confidence": "INFERRED",
-      "confidenceScore": 0.85
-    },
-    {
-      "source": "server_src_mediasoup_protooSignaling_handleProtooNotification",
-      "target": "server_src_mediasoup_protooSignaling_broadcastEasymeet",
-      "relation": "calls",
-      "confidence": "INFERRED",
-      "confidenceScore": 0.85
-    },
-    {
-      "source": "server_src_mediasoup_protooSignaling_handleProtooNotification",
-      "target": "server_src_mediasoup_protooSignaling_buildMembersList",
-      "relation": "calls",
-      "confidence": "INFERRED",
-      "confidenceScore": 0.85
-    },
-    {
-      "source": "server_src_mediasoup_protooSignaling_handleProtooNotification",
-      "target": "server_src_mediasoup_protooSignaling_broadcastEasymeet",
-      "relation": "calls",
-      "confidence": "INFERRED",
-      "confidenceScore": 0.85
-    },
-    {
-      "source": "server_src_mediasoup_protooSignaling_handleProtooNotification",
-      "target": "server_src_mediasoup_protooSignaling_broadcastEasymeet",
-      "relation": "calls",
-      "confidence": "INFERRED",
-      "confidenceScore": 0.85
-    },
-    {
-      "source": "server_src_mediasoup_protooSignaling_handleProtooNotification",
-      "target": "server_src_mediasoup_protooSignaling_broadcastEasymeet",
       "relation": "calls",
       "confidence": "INFERRED",
       "confidenceScore": 0.85
@@ -13498,28 +12857,7 @@
     },
     {
       "source": "server_src_mediasoup_protooSignaling_handleProtooNotification",
-      "target": "server_src_mediasoup_protooSignaling_broadcastEasymeet",
-      "relation": "calls",
-      "confidence": "INFERRED",
-      "confidenceScore": 0.85
-    },
-    {
-      "source": "server_src_mediasoup_protooSignaling_handleProtooNotification",
       "target": "server_src_mediasoup_protooSignaling_sanitizeFileEndNotification",
-      "relation": "calls",
-      "confidence": "INFERRED",
-      "confidenceScore": 0.85
-    },
-    {
-      "source": "server_src_mediasoup_protooSignaling_handleProtooNotification",
-      "target": "server_src_mediasoup_protooSignaling_broadcastEasymeet",
-      "relation": "calls",
-      "confidence": "INFERRED",
-      "confidenceScore": 0.85
-    },
-    {
-      "source": "server_src_mediasoup_protooSignaling_handleProtooNotification",
-      "target": "server_src_mediasoup_protooSignaling_bumpPeerSpamCounter",
       "relation": "calls",
       "confidence": "INFERRED",
       "confidenceScore": 0.85
@@ -13533,13 +12871,6 @@
     },
     {
       "source": "server_src_mediasoup_protooSignaling_handleProtooNotification",
-      "target": "server_src_mediasoup_protooSignaling_broadcastEasymeet",
-      "relation": "calls",
-      "confidence": "INFERRED",
-      "confidenceScore": 0.85
-    },
-    {
-      "source": "server_src_mediasoup_protooSignaling_handleProtooNotification",
       "target": "server_src_mediasoup_protooSignaling_sanitizeReactionEmoji",
       "relation": "calls",
       "confidence": "INFERRED",
@@ -13547,77 +12878,7 @@
     },
     {
       "source": "server_src_mediasoup_protooSignaling_handleProtooNotification",
-      "target": "server_src_mediasoup_protooSignaling_broadcastEasymeet",
-      "relation": "calls",
-      "confidence": "INFERRED",
-      "confidenceScore": 0.85
-    },
-    {
-      "source": "server_src_mediasoup_protooSignaling_handleProtooNotification",
       "target": "server_src_mediasoup_protooSignaling_sanitizeReactionEffect",
-      "relation": "calls",
-      "confidence": "INFERRED",
-      "confidenceScore": 0.85
-    },
-    {
-      "source": "server_src_mediasoup_protooSignaling_handleProtooNotification",
-      "target": "server_src_mediasoup_protooSignaling_broadcastEasymeet",
-      "relation": "calls",
-      "confidence": "INFERRED",
-      "confidenceScore": 0.85
-    },
-    {
-      "source": "server_src_mediasoup_protooSignaling_handleProtooNotification",
-      "target": "server_src_mediasoup_protooSignaling_broadcastEasymeet",
-      "relation": "calls",
-      "confidence": "INFERRED",
-      "confidenceScore": 0.85
-    },
-    {
-      "source": "server_src_mediasoup_protooSignaling_handleProtooNotification",
-      "target": "server_src_mediasoup_protooSignaling_broadcastEasymeet",
-      "relation": "calls",
-      "confidence": "INFERRED",
-      "confidenceScore": 0.85
-    },
-    {
-      "source": "server_src_mediasoup_protooSignaling_handleProtooNotification",
-      "target": "server_src_mediasoup_protooSignaling_buildMembersList",
-      "relation": "calls",
-      "confidence": "INFERRED",
-      "confidenceScore": 0.85
-    },
-    {
-      "source": "server_src_mediasoup_protooSignaling_handleProtooNotification",
-      "target": "server_src_mediasoup_protooSignaling_broadcastEasymeet",
-      "relation": "calls",
-      "confidence": "INFERRED",
-      "confidenceScore": 0.85
-    },
-    {
-      "source": "server_src_mediasoup_protooSignaling_handleProtooNotification",
-      "target": "server_src_mediasoup_protooSignaling_serializePollPublic",
-      "relation": "calls",
-      "confidence": "INFERRED",
-      "confidenceScore": 0.85
-    },
-    {
-      "source": "server_src_mediasoup_protooSignaling_handleProtooNotification",
-      "target": "server_src_mediasoup_protooSignaling_broadcastEasymeet",
-      "relation": "calls",
-      "confidence": "INFERRED",
-      "confidenceScore": 0.85
-    },
-    {
-      "source": "server_src_mediasoup_protooSignaling_handleProtooNotification",
-      "target": "server_src_mediasoup_protooSignaling_serializePollPublic",
-      "relation": "calls",
-      "confidence": "INFERRED",
-      "confidenceScore": 0.85
-    },
-    {
-      "source": "server_src_mediasoup_protooSignaling_handleProtooNotification",
-      "target": "server_src_mediasoup_protooSignaling_broadcastEasymeet",
       "relation": "calls",
       "confidence": "INFERRED",
       "confidenceScore": 0.85
@@ -13956,13 +13217,6 @@
       "confidenceScore": 0.85
     },
     {
-      "source": "server_src_roomStore_createRoomStore",
-      "target": "server_src_roomStore_generateRoomId",
-      "relation": "calls",
-      "confidence": "INFERRED",
-      "confidenceScore": 0.85
-    },
-    {
       "source": "server_src_routes_join_file",
       "target": "server_src_routes_join_createJoinRouter",
       "relation": "contains",
@@ -14175,6 +13429,26 @@
       "target": "server_src_wsJoinTokens_newAssignedPeerId",
       "relation": "contains",
       "confidence": "EXTRACTED"
+    },
+    {
+      "source": "client_src_app_bootstrap_roomJoinCreate_file",
+      "target": "client_src_app_bootstrap_roomJoinCreate_restorePersistedBackgroundEffect",
+      "relation": "contains",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "client_src_app_bootstrap_roomJoinCreate_doCreateRoomApiAndSetup",
+      "target": "client_src_app_bootstrap_roomJoinCreate_restorePersistedBackgroundEffect",
+      "relation": "calls",
+      "confidence": "INFERRED",
+      "confidenceScore": 0.85
+    },
+    {
+      "source": "client_src_app_bootstrap_roomJoinCreate_doJoinRoomApiAndSetup",
+      "target": "client_src_app_bootstrap_roomJoinCreate_restorePersistedBackgroundEffect",
+      "relation": "calls",
+      "confidence": "INFERRED",
+      "confidenceScore": 0.85
     }
   ]
 }
